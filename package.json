@@ -1,0 +1,21 @@
+{
+  "name": "meli-ai-assistant",
+  "version": "1.0.0",
+  "description": "Demo de auto-respuesta de preguntas pre-venta de Mercado Libre con LangChain.js, moderación determinística y aprobación humana.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@langchain/anthropic": "^0.3.11",
+    "@langchain/core": "^0.3.26",
+    "@langchain/groq": "^0.1.3",
+    "@langchain/openai": "^0.3.16",
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "zod": "^3.24.1"
+  }
+}

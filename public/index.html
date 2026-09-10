@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MELI AI Assistant • Live Auto-Responder & WhatsApp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="theme-dark">
+  <!-- ── Topbar Header ── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand">
+        <div class="brand-avatar">🤖</div>
+        <div class="brand-text">
+          <div class="brand-title-wrap">
+            <h1>Asistente Mercado Libre</h1>
+            <span class="badge-demo">Demo Live</span>
+          </div>
+          <span class="subtitle">Auto-Respuesta Inteligente con IA & Aprobador WhatsApp</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Center View Tabs ── -->
+    <div class="topbar-center">
+      <nav class="view-tabs" id="view-tabs">
+        <button class="tab-btn active" data-view="duo">
+          <span class="tab-icon">◫</span> Vista Dividida (Demo)
+        </button>
+        <button class="tab-btn" data-view="whatsapp">
+          <span class="tab-icon">📱</span> Chatbot WhatsApp
+        </button>
+        <button class="tab-btn" data-view="panel">
+          <span class="tab-icon">🗂️</span> Panel Mercado Libre
+        </button>
+      </nav>
+    </div>
+
+    <!-- ── Right Actions ── -->
+    <div class="topbar-right">
+      <label class="switch-wrap" id="auto-answer-switch" title="Activar/Desactivar auto-respuesta inmediata">
+        <span class="switch-label">Auto-Respuesta</span>
+        <span class="switch" id="switch-toggle">
+          <span class="switch-knob"></span>
+        </span>
+        <span class="switch-state" id="switch-state">ON</span>
+      </label>
+
+      <button class="btn-simulate" id="btn-open-simulator">
+        <span class="btn-icon">⚡</span> Simular Pregunta
+      </button>
+
+      <button class="btn-icon-refresh" id="btn-refresh" title="Recargar datos">
+        🔄
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Main Split View Container ── -->
+  <div class="split-container view-duo" id="main-container">
+    
+    <!-- ═════════════════════════════════════════════════════════════ -->
+    <!-- ── LEFT: Simulador WhatsApp ───────────────────────────────── -->
+    <!-- ═════════════════════════════════════════════════════════════ -->
+    <aside class="panel-whatsapp-side" id="side-whatsapp">
+      <div class="side-header">
+        <div class="side-title">
+          <span>📱 Simulador WhatsApp (Vendedor / Admin)</span>
+        </div>
+        <span class="badge-chip">Chatbot interactivo</span>
+      </div>
+
+      <div class="wp-device-card">
+        <!-- WhatsApp Header -->
+        <div class="wp-card-header">
+          <div class="wp-header-profile">
+            <div class="wp-avatar">🤖</div>
+            <div class="wp-header-info">
+              <span class="wp-bot-name">Chatbot — Asistente de MELI</span>
+              <span class="wp-bot-status">● en línea • Tienda Oficial</span>
+            </div>
+          </div>
+          <div class="wp-header-right">
+            <span class="wp-badge-official">Bot Oficial</span>
+            <button class="wp-btn-reset" id="btn-reset-chat" title="Limpiar conversación">
+              🔄 Reiniciar Chat
+            </button>
+          </div>
+        </div>
+
+        <!-- WhatsApp Context Bar -->
+        <div class="wp-context-bar">
+          <div class="wp-context-text">
+            <span>Vendedor:</span> <strong>Tienda Oficial (MLA)</strong>
+          </div>
+          <span class="wp-badge-sub">WhatsApp Simulator</span>
+        </div>
+
+        <!-- WhatsApp Chat Body -->
+        <div class="wp-chat-messages" id="wa-chat-body">
+          <div class="wp-date-divider">HOY</div>
+          
+          <div class="wp-msg wp-msg-in">
+            <div class="wp-bubble">
+              <p>👋 ¡Hola! Soy tu <strong>Asistente IA de Mercado Libre</strong>.</p>
+              <p>Cuando una pregunta pre-venta de tus publicaciones requiera tu decisión (descuentos, stock no listado o casos sensibles), te voy a avisar por acá con la respuesta sugerida.</p>
+              <p style="margin-top: 6px; font-size: 0.76rem; color: #8696a0;">
+                👉 Podés responder <strong>1</strong> para aprobar o escribir tu texto para publicar directamente en Mercado Libre.
+              </p>
+              <span class="wp-time" id="wa-welcome-time">10:00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Action Chips -->
+        <div class="wp-quick-chips" id="wa-quick-actions" hidden>
+          <button class="wp-chip wp-chip-approve" id="wa-btn-approve-1">
+            1️⃣ Aprobar sugerida
+          </button>
+          <button class="wp-chip wp-chip-edit" id="wa-btn-edit">
+            ✏️ Modificar
+          </button>
+        </div>
+
+        <!-- WhatsApp Input Bar -->
+        <form class="wp-input-container" id="wa-form">
+          <span class="wp-input-icon">😊</span>
+          <input type="text" class="wp-input-field" id="wa-input-text" placeholder="Escribí '1' o tu respuesta..." autocomplete="off" />
+          <button type="submit" class="wp-send-button" id="wa-send-btn" title="Enviar respuesta">
+            ➤
+          </button>
+        </form>
+      </div>
+    </aside>
+
+    <!-- ═════════════════════════════════════════════════════════════ -->
+    <!-- ── RIGHT: Panel de Gestión Mercado Libre ─────────────────── -->
+    <!-- ═════════════════════════════════════════════════════════════ -->
+    <main class="panel-management-side" id="side-management">
+      
+      <!-- Management Header -->
+      <div class="management-header">
+        <div class="management-title-wrap">
+          <div class="title-with-pill">
+            <h2>Preguntas Mercado Libre</h2>
+            <span class="pill-count" id="badge-total-questions">0 preguntas</span>
+          </div>
+          <p class="management-subtitle">
+            Preguntas pre-venta sincronizadas en tiempo real con Mercado Libre y aprobaciones por WhatsApp
+          </p>
+        </div>
+
+        <!-- Badges Info -->
+        <div class="header-badges-info">
+          <span class="info-badge" id="badge-provider">LLM: Groq (GPT OSS 120B)</span>
+          <span class="info-badge" id="badge-token">Token MELI: Activo</span>
+          <span class="info-badge" id="badge-sse">SSE: Conectado</span>
+        </div>
+      </div>
+
+      <!-- Filters & Search Bar -->
+      <div class="filters-bar">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search-input" placeholder="Buscar por pregunta, producto o comprador..." />
+        </div>
+
+        <div class="filters-group">
+          <select id="filter-status" class="select-filter">
+            <option value="all">Todos los estados</option>
+            <option value="pending_review">👤 Pendientes de revisión</option>
+            <option value="auto_answered">⚡ Respondidas automáticamente</option>
+            <option value="approved">✅ Aprobadas por WhatsApp / Panel</option>
+          </select>
+
+          <select id="filter-intent" class="select-filter">
+            <option value="all">Todas las intenciones</option>
+            <option value="stock">📦 Stock</option>
+            <option value="precio_negociacion">🏷️ Negociación de precio</option>
+            <option value="caracteristicas">🔧 Características</option>
+            <option value="contacto_externo">⛔ Contacto externo</option>
+            <option value="garantia">🛡️ Garantía</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Metrics Row Cards -->
+      <div class="stats-row" id="metrics-row">
+        <div class="stat-card">
+          <span class="stat-label">Tiempo Promedio Total</span>
+          <span class="stat-value" id="metric-total">—</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Horario Laboral</span>
+          <span class="stat-value" id="metric-labor">—</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Fuera de Horario</span>
+          <span class="stat-value" id="metric-offhours">—</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Fin de Semana</span>
+          <span class="stat-value" id="metric-weekend">—</span>
+        </div>
+      </div>
+
+      <!-- Questions Table / Cards List -->
+      <div class="table-container">
+        <table class="questions-table" id="questions-table">
+          <thead>
+            <tr>
+              <th style="width: 22%;">PREGUNTA / ORIGEN</th>
+              <th style="width: 26%;">ÍTEM & PUBLICACIÓN</th>
+              <th style="width: 20%;">ESTADO & INTENCIÓN</th>
+              <th style="width: 32%;">RESPUESTA & ACCIÓN</th>
+            </tr>
+          </thead>
+          <tbody id="questions-tbody">
+            <tr>
+              <td colspan="4" class="empty-table-msg">
+                Cargando preguntas de Mercado Libre...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Live Event Console Drawer (Collapsible) -->
+      <div class="console-drawer">
+        <div class="console-drawer-header">
+          <div class="console-title">
+            <span>📡 Consola de Eventos en Vivo (Live Stream)</span>
+            <span class="console-count" id="count-events">0 eventos</span>
+          </div>
+          <button class="btn-toggle-console" id="btn-toggle-console">
+            Ocultar / Mostrar
+          </button>
+        </div>
+        <div class="console-stream-body" id="event-console"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ── Modal Simulador de Preguntas ── -->
+  <div class="modal-backdrop" id="simulator-backdrop" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>⚡ Simulador de Preguntas de Comprador</h3>
+        <button class="modal-close" id="btn-close-simulator">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-hint">Elegí un escenario predefinido o escribí tu propia consulta para ver el flujo en tiempo real.</p>
+        
+        <div class="quick-buttons">
+          <button class="quick-btn" data-preset="stock">
+            📦 <strong>Stock simple</strong> (Auto-respuesta)
+          </button>
+          <button class="quick-btn" data-preset="descuento">
+            🏷️ <strong>Descuento / Rebaja</strong> (Deriva a WhatsApp)
+          </button>
+          <button class="quick-btn" data-preset="contacto">
+            ⛔ <strong>Contacto ilegal / WSP</strong> (Moderación)
+          </button>
+          <button class="quick-btn" data-preset="tecnica">
+            🔧 <strong>Pregunta técnica</strong> (Ficha técnica)
+          </button>
+        </div>
+
+        <textarea id="simulator-text" rows="3" placeholder="Escribí una pregunta de comprador..."></textarea>
+        
+        <button class="btn-send" id="btn-send-simulation">
+          🚀 Enviar Pregunta Simulada
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
