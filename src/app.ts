@@ -1,0 +1,222 @@
+import fastify, { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import cors from "@fastify/cors";
+import fastifyStatic from "@fastify/static";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { SqliteDatabase } from "./infrastructure/persistence/sqlite/SqliteDatabase.js";
+import { SqliteTenantRepository } from "./infrastructure/persistence/sqlite/SqliteTenantRepository.js";
+import { SqliteQuestionRepository } from "./infrastructure/persistence/sqlite/SqliteQuestionRepository.js";
+import { SqliteItemCacheRepository } from "./infrastructure/persistence/sqlite/SqliteItemCacheRepository.js";
+import { SqliteEventRepository } from "./infrastructure/persistence/sqlite/SqliteEventRepository.js";
+import { SqliteUserRepository } from "./infrastructure/persistence/sqlite/SqliteUserRepository.js";
+
+import { CryptoPasswordHasher } from "./infrastructure/security/CryptoPasswordHasher.js";
+import { JwtTokenService } from "./infrastructure/security/JwtTokenService.js";
+
+import { MeliApiClient } from "./infrastructure/meli/MeliApiClient.js";
+import { LangChainLLMService } from "./infrastructure/llm/LangChainLLMService.js";
+import { InMemoryQueueBroker } from "./infrastructure/queue/InMemoryQueueBroker.js";
+import { FastifySseNotifier } from "./infrastructure/realtime/FastifySseNotifier.js";
+
+import { IngestWebhookUseCase } from "./application/use-cases/IngestWebhookUseCase.js";
+import { ProcessQuestionUseCase } from "./application/use-cases/ProcessQuestionUseCase.js";
+import { ApproveAnswerUseCase } from "./application/use-cases/ApproveAnswerUseCase.js";
+import { RejectAnswerUseCase } from "./application/use-cases/RejectAnswerUseCase.js";
+import { SimulateQuestionUseCase } from "./application/use-cases/SimulateQuestionUseCase.js";
+
+import { RegisterUserUseCase } from "./application/use-cases/auth/RegisterUserUseCase.js";
+import { LoginUserUseCase } from "./application/use-cases/auth/LoginUserUseCase.js";
+import { GetCurrentUserUseCase } from "./application/use-cases/auth/GetCurrentUserUseCase.js";
+import { SeedSuperAdminUseCase } from "./application/use-cases/auth/SeedSuperAdminUseCase.js";
+
+import { GetGlobalMetricsUseCase } from "./application/use-cases/admin/GetGlobalMetricsUseCase.js";
+import { ListTenantsOverviewUseCase } from "./application/use-cases/admin/ListTenantsOverviewUseCase.js";
+import { GetTenantDetailUseCase } from "./application/use-cases/admin/GetTenantDetailUseCase.js";
+import { ToggleTenantAutoAnswerUseCase } from "./application/use-cases/admin/ToggleTenantAutoAnswerUseCase.js";
+import { ForceTokenRefreshUseCase } from "./application/use-cases/admin/ForceTokenRefreshUseCase.js";
+
+import { WebhookController } from "./presentation/controllers/WebhookController.js";
+import { QuestionsController } from "./presentation/controllers/QuestionsController.js";
+import { AuthController } from "./presentation/controllers/AuthController.js";
+import { SimulatorController } from "./presentation/controllers/SimulatorController.js";
+import { TenantController } from "./presentation/controllers/TenantController.js";
+import { AdminController } from "./presentation/controllers/AdminController.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export function buildApp(): FastifyInstance {
+  const app = fastify({ logger: true });
+
+  // 1. Plugins
+  app.register(cors, { origin: "*" });
+  app.register(fastifyStatic, {
+    root: path.join(__dirname, "../public"),
+    prefix: "/",
+  });
+
+  // 2. Persistencia y Seguridad
+  const db = SqliteDatabase.getInstance();
+  const tenantRepo = new SqliteTenantRepository(db);
+  const questionRepo = new SqliteQuestionRepository(db);
+  const itemCacheRepo = new SqliteItemCacheRepository(db);
+  const eventRepo = new SqliteEventRepository(db);
+  const userRepo = new SqliteUserRepository(db);
+
+  const passwordHasher = new CryptoPasswordHasher();
+  const tokenService = new JwtTokenService();
+
+  // 3. Adaptadores
+  const meliClient = new MeliApiClient(tenantRepo);
+  const llmService = new LangChainLLMService();
+  const queueBroker = new InMemoryQueueBroker(5);
+  const sseNotifier = new FastifySseNotifier();
+
+  // 4. Casos de Uso Auth
+  const registerUserUseCase = new RegisterUserUseCase(userRepo, passwordHasher, tokenService);
+  const loginUserUseCase = new LoginUserUseCase(userRepo, passwordHasher, tokenService);
+  const getCurrentUserUseCase = new GetCurrentUserUseCase(userRepo);
+  const seedSuperAdminUseCase = new SeedSuperAdminUseCase(userRepo, passwordHasher);
+
+  // Inicializar Super Admin si no existe
+  seedSuperAdminUseCase.execute().catch((err) => console.error("Error seeding super admin:", err));
+
+  // Casos de Uso Core
+  const ingestWebhookUseCase = new IngestWebhookUseCase(queueBroker, eventRepo);
+  const processQuestionUseCase = new ProcessQuestionUseCase(
+    questionRepo,
+    itemCacheRepo,
+    tenantRepo,
+    eventRepo,
+    meliClient,
+    llmService,
+    sseNotifier
+  );
+  const approveAnswerUseCase = new ApproveAnswerUseCase(
+    questionRepo,
+    meliClient,
+    eventRepo,
+    sseNotifier
+  );
+  const rejectAnswerUseCase = new RejectAnswerUseCase(
+    questionRepo,
+    eventRepo,
+    sseNotifier
+  );
+  const simulateQuestionUseCase = new SimulateQuestionUseCase(
+    questionRepo,
+    tenantRepo,
+    eventRepo,
+    llmService,
+    sseNotifier
+  );
+
+  // Casos de Uso Admin
+  const getGlobalMetricsUseCase = new GetGlobalMetricsUseCase(questionRepo, tenantRepo);
+  const listTenantsOverviewUseCase = new ListTenantsOverviewUseCase(tenantRepo, questionRepo);
+  const getTenantDetailUseCase = new GetTenantDetailUseCase(tenantRepo, questionRepo, eventRepo);
+  const toggleTenantAutoAnswerUseCase = new ToggleTenantAutoAnswerUseCase(tenantRepo, eventRepo);
+  const forceTokenRefreshUseCase = new ForceTokenRefreshUseCase(tenantRepo, meliClient, eventRepo);
+
+  // 5. Registro de Workers en la Cola
+  queueBroker.registerProcessor(async (job) => {
+    await processQuestionUseCase.execute(job);
+  });
+
+  // 6. Guards de Autenticación y Autorización
+  const authenticate = async (request: FastifyRequest, reply: FastifyReply) => {
+    const authHeader = request.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return reply.status(401).send({ error: "Token de autorización requerido." });
+    }
+    const token = authHeader.substring(7);
+    try {
+      const payload = tokenService.verifyToken(token);
+      (request as any).user = payload;
+    } catch (err: any) {
+      return reply.status(401).send({ error: `Token inválido: ${err.message}` });
+    }
+  };
+
+  const requireSuperAdmin = async (request: FastifyRequest, reply: FastifyReply) => {
+    await authenticate(request, reply);
+    if (reply.sent) return;
+
+    const user = (request as any).user;
+    if (!user || user.role !== "super_admin") {
+      return reply.status(403).send({ error: "Acceso denegado: se requieren permisos de Super Administrador." });
+    }
+  };
+
+  const optionalAuthenticate = async (request: FastifyRequest) => {
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      try {
+        const payload = tokenService.verifyToken(token);
+        (request as any).user = payload;
+      } catch (err) {
+        // Se ignora para permitir acceso de demo sin token
+      }
+    }
+  };
+
+  // 7. Controladores
+  const webhookCtrl = new WebhookController(ingestWebhookUseCase);
+  const questionsCtrl = new QuestionsController(questionRepo, approveAnswerUseCase, rejectAnswerUseCase);
+  const authCtrl = new AuthController(
+    meliClient,
+    tenantRepo,
+    userRepo,
+    registerUserUseCase,
+    loginUserUseCase,
+    getCurrentUserUseCase
+  );
+  const simulatorCtrl = new SimulatorController(simulateQuestionUseCase);
+  const tenantCtrl = new TenantController(tenantRepo, eventRepo, llmService);
+  const adminCtrl = new AdminController(
+    getGlobalMetricsUseCase,
+    listTenantsOverviewUseCase,
+    getTenantDetailUseCase,
+    toggleTenantAutoAnswerUseCase,
+    forceTokenRefreshUseCase
+  );
+
+  // 8. Rutas
+  // Auth API
+  app.post("/api/auth/register", authCtrl.register);
+  app.post("/api/auth/login", authCtrl.login);
+  app.get("/api/auth/me", { preHandler: authenticate }, authCtrl.getMe);
+
+  // Super Admin API
+  app.get("/api/admin/metrics", { preHandler: requireSuperAdmin }, adminCtrl.getMetrics);
+  app.get("/api/admin/tenants", { preHandler: requireSuperAdmin }, adminCtrl.getTenants);
+  app.get("/api/admin/tenants/:sellerId", { preHandler: requireSuperAdmin }, adminCtrl.getTenantDetail);
+  app.post("/api/admin/tenants/:sellerId/toggle", { preHandler: requireSuperAdmin }, adminCtrl.toggleAutoAnswer);
+  app.post("/api/admin/tenants/:sellerId/refresh-token", { preHandler: requireSuperAdmin }, adminCtrl.refreshToken);
+
+  // Webhooks & OAuth
+  app.post("/webhook/ml", webhookCtrl.handle);
+  app.get("/oauth/login", authCtrl.meliOAuthLogin);
+  app.get("/oauth/callback", authCtrl.meliOAuthCallback);
+
+  // SSE Stream
+  app.get("/api/events/stream", (request, reply) => {
+    const sellerId = (request.query as any)?.seller_id;
+    sseNotifier.registerClient(reply, sellerId);
+  });
+
+  // Questions & Actions (con autenticación opcional para compatibilidad con la demo)
+  app.get("/api/questions", { preHandler: optionalAuthenticate }, questionsCtrl.getQuestions);
+  app.post("/api/questions/:id/approve", { preHandler: optionalAuthenticate }, questionsCtrl.approve);
+  app.post("/api/questions/:id/reject", { preHandler: optionalAuthenticate }, questionsCtrl.reject);
+  app.post("/api/whatsapp/reply", questionsCtrl.replyViaWhatsapp);
+
+  // Simulator & Health
+  app.post("/api/simulate-question", simulatorCtrl.simulate);
+  app.get("/api/health", tenantCtrl.getHealth);
+  app.get("/api/events", { preHandler: optionalAuthenticate }, tenantCtrl.getEvents);
+  app.post("/api/config/auto-answer", { preHandler: optionalAuthenticate }, tenantCtrl.updateSettings);
+
+  return app;
+}
