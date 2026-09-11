@@ -185,58 +185,90 @@ body {
   gap: 12px;
 }
 
-.switch-wrap {
+.mode-control-wrap {
   display: flex;
   align-items: center;
   gap: 8px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-radius: var(--radius-full);
-  cursor: pointer;
-  user-select: none;
 }
 
-.switch-label {
+.mode-label {
   font-size: 0.74rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-muted);
 }
 
-.switch {
-  width: 34px;
-  height: 20px;
-  background: #334155;
-  border-radius: 999px;
-  position: relative;
-  transition: background 0.2s ease;
+.mode-select {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
 }
 
-.switch.on {
-  background: var(--emerald);
+.mode-select option {
+  background: var(--bg-card);
+  color: var(--text-main);
 }
 
-.switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: white;
-  transition: transform 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+.mode-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  white-space: nowrap;
 }
 
-.switch.on .switch-knob {
-  transform: translateX(14px);
-}
-
-.switch-state {
-  font-size: 0.72rem;
-  font-weight: 800;
+.mode-badge.badge-auto {
+  background: rgba(16, 185, 129, 0.15);
   color: #34d399;
-  width: 22px;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.mode-badge.badge-manual {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.mode-badge.badge-schedule-night {
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.mode-badge.badge-schedule-day {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.btn-schedule-config {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-schedule-config:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+  border-color: var(--border-light);
 }
 
 .btn-simulate {
@@ -1099,6 +1131,26 @@ body {
   cursor: pointer;
 }
 
+.btn-inline-chat {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.15s ease;
+}
+
+.btn-inline-chat:hover {
+  background: rgba(59, 130, 246, 0.28);
+  border-color: #60a5fa;
+}
+
 /* ── Live Event Console Drawer ─────────────────────────────────────── */
 
 .console-drawer {
@@ -1292,6 +1344,226 @@ body {
 
 .btn-send:hover {
   filter: brightness(1.1);
+}
+
+/* ── Modal Schedule Styles ── */
+.modal-schedule {
+  width: min(540px, 94vw);
+}
+
+.schedule-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schedule-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.days-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.day-chip {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.day-chip input {
+  accent-color: var(--emerald);
+  cursor: pointer;
+}
+
+.day-chip:has(input:checked) {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.time-range-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.time-input {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main);
+  outline: none;
+}
+
+.time-input:focus {
+  border-color: var(--emerald);
+}
+
+.schedule-preview-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-left: 3px solid #3b82f6;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--text-main);
+}
+
+.btn-save-schedule {
+  background: var(--emerald);
+  color: #0b141a;
+  border: none;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  font-weight: 800;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.btn-save-schedule:hover {
+  filter: brightness(1.15);
+}
+
+/* ── Modal Confirm Mode ────────────────────────────────────────────── */
+
+.modal-confirm-mode {
+  width: min(520px, 94vw);
+}
+
+.confirm-mode-header-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.confirm-mode-icon-circle {
+  font-size: 2rem;
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+}
+
+.confirm-mode-icon-circle.theme-manual {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+}
+
+.confirm-mode-icon-circle.theme-schedule {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+}
+
+.confirm-mode-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.confirm-mode-heading {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.confirm-mode-desc {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.confirm-mode-details-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.confirm-mode-detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-main);
+}
+
+.confirm-mode-detail-item .icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.confirm-mode-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-confirm-mode-action {
+  background: var(--emerald);
+  color: #0b141a;
+  border: none;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  font-weight: 800;
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-confirm-mode-action.theme-manual {
+  background: #f59e0b;
+  color: #0f172a;
+}
+
+.btn-confirm-mode-action.theme-schedule {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+.btn-confirm-mode-action:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────── */

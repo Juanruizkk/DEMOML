@@ -42,13 +42,18 @@
 
     <!-- ── Right Actions ── -->
     <div class="topbar-right">
-      <label class="switch-wrap" id="auto-answer-switch" title="Activar/Desactivar auto-respuesta inmediata">
-        <span class="switch-label">Auto-Respuesta</span>
-        <span class="switch" id="switch-toggle">
-          <span class="switch-knob"></span>
-        </span>
-        <span class="switch-state" id="switch-state">ON</span>
-      </label>
+      <div class="mode-control-wrap">
+        <label for="select-op-mode" class="mode-label">Modo:</label>
+        <select id="select-op-mode" class="mode-select">
+          <option value="schedule">⏰ Horario Inteligente</option>
+          <option value="auto">🤖 100% Automático</option>
+          <option value="manual">👤 100% Supervisado</option>
+        </select>
+        <span class="mode-badge" id="mode-status-badge">🌙 Auto 24/7</span>
+        <button class="btn-schedule-config" id="btn-open-schedule" title="Configurar días y horarios">
+          ⚙️ Horarios
+        </button>
+      </div>
 
       <button class="btn-simulate" id="btn-open-simulator">
         <span class="btn-icon">⚡</span> Simular Pregunta
@@ -276,6 +281,90 @@
         <button class="btn-send" id="btn-send-simulation">
           🚀 Enviar Pregunta Simulada
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal Configuración de Horarios & Supervisión ── -->
+  <div class="modal-backdrop" id="schedule-backdrop" hidden>
+    <div class="modal modal-schedule">
+      <div class="modal-header">
+        <h3>⚙️ Configuración de Horarios & Supervisión</h3>
+        <button class="modal-close" id="btn-close-schedule">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-hint">
+          Definí los días y horarios en los que un operador humano supervisa las preguntas. Fuera de este rango o fines de semana, la IA auto-responde en segundos para no perder ventas.
+        </p>
+
+        <div class="schedule-section">
+          <label class="schedule-label">📅 Días de supervisión humana (Modo Manual):</label>
+          <div class="days-checkbox-group" id="days-group">
+            <label class="day-chip"><input type="checkbox" name="sched-day" value="1" checked> <span>Lun</span></label>
+            <label class="day-chip"><input type="checkbox" name="sched-day" value="2" checked> <span>Mar</span></label>
+            <label class="day-chip"><input type="checkbox" name="sched-day" value="3" checked> <span>Mié</span></label>
+            <label class="day-chip"><input type="checkbox" name="sched-day" value="4" checked> <span>Jue</span></label>
+            <label class="day-chip"><input type="checkbox" name="sched-day" value="5" checked> <span>Vie</span></label>
+            <label class="day-chip"><input type="checkbox" name="sched-day" value="6"> <span>Sáb</span></label>
+            <label class="day-chip"><input type="checkbox" name="sched-day" value="0"> <span>Dom</span></label>
+          </div>
+        </div>
+
+        <div class="schedule-section time-range-section">
+          <div class="time-field">
+            <label class="schedule-label">⏰ Hora Inicio (Supervisado):</label>
+            <input type="time" id="schedule-start-time" value="09:00" class="time-input" />
+          </div>
+          <div class="time-field">
+            <label class="schedule-label">🌙 Hora Fin (Pasa a Auto 24/7):</label>
+            <input type="time" id="schedule-end-time" value="18:00" class="time-input" />
+          </div>
+        </div>
+
+        <div class="schedule-preview-box" id="schedule-preview-text">
+          🕒 <strong>Comportamiento:</strong><br>
+          • <strong>En horario laboral:</strong> Las preguntas van al panel y WhatsApp para aprobación humana con sugerencia IA.<br>
+          • <strong>Fuera de horario y fines de semana:</strong> La IA responde automáticamente para mantener el tiempo de respuesta ultra-bajo.
+        </div>
+
+        <div class="modal-actions" style="margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px;">
+          <button class="btn-cancel" id="btn-cancel-schedule" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--text-main); padding: 8px 14px; border-radius: 6px; cursor: pointer;">Cancelar</button>
+          <button class="btn-send" id="btn-save-schedule">
+            💾 Guardar Horarios
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal Confirmación de Cambio de Modo ── -->
+  <div class="modal-backdrop" id="confirm-mode-backdrop" hidden>
+    <div class="modal modal-confirm-mode">
+      <div class="modal-header">
+        <h3 id="confirm-mode-title">⚡ Confirmar cambio de modo</h3>
+        <button class="modal-close" id="btn-close-confirm-mode">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="confirm-mode-header-wrap">
+          <div class="confirm-mode-icon-circle" id="confirm-mode-icon">🤖</div>
+          <div class="confirm-mode-header-text">
+            <h4 class="confirm-mode-heading" id="confirm-mode-heading">¿Cambiar a Modo 100% Automático?</h4>
+            <p class="confirm-mode-desc" id="confirm-mode-desc">
+              Las preguntas entrantes se responderán y publicarán de forma instantánea y autónoma en Mercado Libre.
+            </p>
+          </div>
+        </div>
+
+        <div class="confirm-mode-details-card" id="confirm-mode-details">
+          <!-- Detalles dinámicos por JS -->
+        </div>
+
+        <div class="modal-actions confirm-mode-actions">
+          <button class="btn-cancel" id="btn-cancel-confirm-mode">Cancelar</button>
+          <button class="btn-send btn-confirm-mode-action" id="btn-confirm-mode-action">
+            Confirmar Cambio
+          </button>
+        </div>
       </div>
     </div>
   </div>

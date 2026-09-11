@@ -8,8 +8,8 @@ import { sseHandler, broadcast } from "./lib/sse.js";
 import { logEvent, getRecentEvents } from "./lib/events.js";
 import { exchangeCodeForTokens, getTokenStatus } from "./lib/meli-auth.js";
 import { getItemCached, postAnswer, getResponseTime, publishTestItem } from "./lib/meli-api.js";
-import { enqueueQuestion, setAutoAnswerEnabled, getAutoAnswerEnabled, startQuestionsPoller } from "./lib/worker.js";
-import { getActiveProviderLabel, classifyAndAnswer } from "./lib/llm-service.js";
+import { enqueueQuestion, setAutoAnswerEnabled, getAutoAnswerEnabled, getOperationConfig, setOperationConfig, startQuestionsPoller } from "./lib/worker.js";
+import { getActiveProviderLabel, classifyAndAnswer, refineAnswerWithFeedback } from "./lib/llm-service.js";
 import { moderate } from "./lib/moderation.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +18,15 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
+
+function parseSqliteUtc(dateStr) {
+  if (!dateStr) return Date.now();
+  const s = String(dateStr).trim();
+  if (s.endsWith("Z") || s.includes("+") || (s.length > 10 && s.indexOf("-", 10) !== -1)) {
+    return new Date(s).getTime();
+  }
+  return new Date(s.replace(" ", "T") + "Z").getTime();
+}
 
 // ── Webhook & OAuth ─────────────────────────────────────────────────────
 
@@ -103,7 +112,7 @@ app.post("/api/questions/:id/approve", async (req, res) => {
       await postAnswer(id, text);
     }
 
-    const latencyMs = Date.now() - new Date(row.received_at).getTime();
+    const latencyMs = Math.max(0, Date.now() - parseSqliteUtc(row.received_at));
     db.prepare(
       `UPDATE questions SET app_status = 'approved', final_answer = ?, answered_at = CURRENT_TIMESTAMP, latency_ms = ? WHERE question_id = ?`
     ).run(text, latencyMs, id);
@@ -149,18 +158,25 @@ app.get("/api/health", async (req, res) => {
     tokenStatus: getTokenStatus(),
     llmProvider: getActiveProviderLabel(),
     autoAnswerEnabled: getAutoAnswerEnabled(),
+    operatingMode: getOperationConfig(),
     authorizeUrl: `https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id=${process.env.ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.ML_REDIRECT_URI || "")}`,
   });
+});
+
+app.get("/api/config/operating-mode", (req, res) => {
+  res.json(getOperationConfig());
+});
+
+app.post("/api/config/operating-mode", (req, res) => {
+  const { mode, schedule } = req.body || {};
+  const updated = setOperationConfig({ mode, schedule });
+  res.json(updated);
 });
 
 app.post("/api/config/auto-answer", (req, res) => {
   const { enabled } = req.body;
   setAutoAnswerEnabled(Boolean(enabled));
-  logEvent({
-    type: "config_changed",
-    message: `⚙️ Respuesta automática ${enabled ? "ACTIVADA" : "DESACTIVADA"}`,
-  });
-  res.json({ enabled: Boolean(enabled) });
+  res.json({ enabled: Boolean(enabled), config: getOperationConfig() });
 });
 
 // ── Setup de test contra ML real ─────────────────────────────────────────
@@ -275,8 +291,11 @@ app.post("/api/simulate-question", async (req, res) => {
       db.prepare(`UPDATE questions SET requires_human = 1, reason = ? WHERE question_id = ?`).run(reason, questionId);
     }
 
-    const autoAnswerOn = getAutoAnswerEnabled();
-    if (!requiresHuman && classification.confidence >= 0.75 && autoAnswerOn) {
+    const opConfig = getOperationConfig();
+    const autoAnswerOn = opConfig.isAutoAnswer;
+    const shouldAutoPublish = autoAnswerOn && !moderationResult.blocked;
+
+    if (shouldAutoPublish) {
       const totalMs = Date.now() - startedAt;
       db.prepare(
         `UPDATE questions SET app_status = 'auto_answered', final_answer = ?, answered_at = CURRENT_TIMESTAMP, latency_ms = ? WHERE question_id = ?`
@@ -284,7 +303,7 @@ app.post("/api/simulate-question", async (req, res) => {
       logEvent({
         questionId,
         type: "answer_published",
-        message: `🚀 Publicado (simulado, no llega a MELI real)`,
+        message: `🚀 Publicado automáticamente [${opConfig.statusLabel}] (simulado)`,
       });
       logEvent({
         questionId,
@@ -296,22 +315,25 @@ app.post("/api/simulate-question", async (req, res) => {
       const motivo = moderationResult.blocked
         ? moderationResult.reason
         : !autoAnswerOn
-          ? "Respuesta automática desactivada"
+          ? `Modo supervisado (${opConfig.statusLabel})`
           : requiresHuman
             ? reason
-            : `Confianza insuficiente (${classification.confidence.toFixed(2)})`;
+            : `Revisión requerida`;
       logEvent({ questionId, type: "pending_review", message: `👤 Enviado a revisión humana: ${motivo}` });
 
-      broadcast("whatsapp_notification", {
-        question_id: questionId,
-        item_title: fakeItem.title,
-        item_price: fakeItem.price,
-        question_text: text,
-        reason: motivo,
-        suggested_answer: classification.answer,
-        intent: classification.intent,
-        timestamp: new Date().toISOString(),
-      });
+      // Enviar a WhatsApp SOLO si está en modo supervisado
+      if (!autoAnswerOn) {
+        broadcast("whatsapp_notification", {
+          question_id: questionId,
+          item_title: fakeItem.title,
+          item_price: fakeItem.price,
+          question_text: text,
+          reason: motivo,
+          suggested_answer: classification.answer,
+          intent: classification.intent,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
 
     const updated = db.prepare("SELECT * FROM questions WHERE question_id = ?").get(questionId);
@@ -325,24 +347,11 @@ app.post("/api/simulate-question", async (req, res) => {
 
 // ── WhatsApp Webhook & Reply Simulation ──────────────────────────────────
 
-app.post("/api/whatsapp/reply", async (req, res) => {
-  const { question_id, reply_text } = req.body || {};
-  if (!question_id || !reply_text) {
-    return res.status(400).json({ error: "Falta question_id o reply_text" });
-  }
+let activeOperatorQuestionId = null;
 
-  const row = db.prepare("SELECT * FROM questions WHERE question_id = ?").get(question_id);
+async function executePublish(questionId, textToPublish, res) {
+  const row = db.prepare("SELECT * FROM questions WHERE question_id = ?").get(questionId);
   if (!row) return res.status(404).json({ error: "Pregunta no encontrada" });
-
-  let textToPublish = row.suggested_answer;
-  const isOne =
-    reply_text.trim() === "1" ||
-    reply_text.trim().toLowerCase() === "si" ||
-    reply_text.trim().toLowerCase() === "aprobar";
-
-  if (!isOne) {
-    textToPublish = reply_text.trim();
-  }
 
   const moderationResult = moderate(textToPublish);
   if (moderationResult.blocked) {
@@ -351,36 +360,197 @@ app.post("/api/whatsapp/reply", async (req, res) => {
 
   try {
     const startedAt = Date.now();
-    const isSimulated = row.item_id === "SIMULATED" || row.buyer_id === "simulador" || Number(question_id) >= 900000000;
+    const isSimulated = row.item_id === "SIMULATED" || row.buyer_id === "simulador" || Number(questionId) >= 900000000;
 
     if (!isSimulated) {
-      await postAnswer(question_id, textToPublish);
+      await postAnswer(questionId, textToPublish);
     }
 
-    const latencyMs = Date.now() - new Date(row.received_at).getTime();
+    const latencyMs = Math.max(0, Date.now() - parseSqliteUtc(row.received_at));
     db.prepare(
       `UPDATE questions SET app_status = 'approved', final_answer = ?, answered_at = CURRENT_TIMESTAMP, latency_ms = ? WHERE question_id = ?`
-    ).run(textToPublish, latencyMs, question_id);
+    ).run(textToPublish, latencyMs, questionId);
 
     logEvent({
-      questionId: question_id,
+      questionId,
       type: "answer_published",
-      message: `📲 Aprobado vía WhatsApp (${isOne ? "opción 1 sugerida" : "texto personalizado"}) y publicado`,
+      message: `📲 Aprobado vía WhatsApp y publicado: "${textToPublish}"`,
       durationMs: Date.now() - startedAt,
     });
 
-    const updated = db.prepare("SELECT * FROM questions WHERE question_id = ?").get(question_id);
+    activeOperatorQuestionId = null;
+
+    const updated = db.prepare("SELECT * FROM questions WHERE question_id = ?").get(questionId);
     broadcast("question_updated", updated);
     broadcast("whatsapp_reply_confirmed", {
-      question_id,
+      question_id: questionId,
       final_answer: textToPublish,
       timestamp: new Date().toISOString(),
     });
 
-    res.json({ ok: true, question: updated });
+    return res.json({
+      ok: true,
+      action: "published",
+      question: updated,
+      message: `✅ ¡Listo! Respuesta publicada en Mercado Libre:\n"${textToPublish}"`,
+    });
   } catch (err) {
-    res.status(502).json({ error: err.message });
+    return res.status(502).json({ error: err.message });
   }
+}
+
+app.post("/api/whatsapp/reply", async (req, res) => {
+  let { question_id, reply_text } = req.body || {};
+  if (!reply_text || !reply_text.trim()) {
+    return res.status(400).json({ error: "Falta reply_text" });
+  }
+
+  const rawText = reply_text.trim();
+  const trimmed = rawText.toLowerCase();
+
+  const pendingRows = db
+    .prepare("SELECT * FROM questions WHERE app_status = 'pending_review' ORDER BY received_at DESC LIMIT 10")
+    .all();
+
+  // 1. Comando directo: "aprobar 1", "aprobar 2", "publicar 1", "ok 1"
+  const directApproveMatch = /^(?:aprobar|publicar|enviar|ok)\s+(\d+)$/i.exec(trimmed);
+  if (directApproveMatch) {
+    const idx = parseInt(directApproveMatch[1], 10) - 1;
+    if (idx >= 0 && idx < pendingRows.length) {
+      const targetQ = pendingRows[idx];
+      return executePublish(targetQ.question_id, targetQ.suggested_answer, res);
+    }
+  }
+
+  // 2. Selección numérica cuando no hay pregunta activa o se pide un número: ej "1", "2", "ver 1", "atender 2"
+  const selectMatch = /^(?:ver\s+|atender\s+|consulta\s+|#)?(\d+)$/i.exec(trimmed);
+  if (selectMatch && (!question_id || selectMatch[0].startsWith("ver") || selectMatch[0].startsWith("atender") || selectMatch[0].startsWith("#"))) {
+    const num = parseInt(selectMatch[1], 10);
+    if (num >= 1 && num <= pendingRows.length) {
+      const selectedQ = pendingRows[num - 1];
+      activeOperatorQuestionId = selectedQ.question_id;
+      return res.json({
+        ok: true,
+        action: "selected_question",
+        index: num,
+        question: selectedQ,
+        total_pending: pendingRows.length,
+        message: `📌 *Seleccionaste la consulta #${num}*\n📦 ${selectedQ.item_id === "SIMULATED" ? "Auriculares Bluetooth" : selectedQ.item_id}\n❓ "${selectedQ.text}"\n\n💡 *Sugerencia IA:*\n"${selectedQ.suggested_answer}"\n\n👉 Respondé *1* para aprobar o escribí tu corrección.`,
+      });
+    }
+  }
+
+  // 3. Consulta de lista de pendientes
+  const isAskingForPending =
+    trimmed.includes("pendiente") ||
+    trimmed.includes("que hay") ||
+    trimmed.includes("qué hay") ||
+    trimmed.includes("que preguntas") ||
+    trimmed.includes("qué preguntas") ||
+    trimmed.includes("hay preguntas") ||
+    trimmed.includes("listar") ||
+    trimmed.includes("resumen") ||
+    trimmed.includes("estado") ||
+    trimmed.includes("menu") ||
+    trimmed.includes("ayuda") ||
+    trimmed === "hola";
+
+  if (isAskingForPending || (!question_id && !activeOperatorQuestionId)) {
+    activeOperatorQuestionId = null;
+    if (pendingRows.length === 0) {
+      return res.json({
+        ok: true,
+        action: "list_empty",
+        message: "✨ ¡No tenés preguntas pendientes de revisión en este momento! Todo respondido y al día.",
+      });
+    }
+
+    let textList = `📋 *Tenés ${pendingRows.length} preguntas pendientes de revisión:*\n\n`;
+    pendingRows.forEach((q, idx) => {
+      textList += `${idx + 1}️⃣ "${q.text}"\n💡 _${q.suggested_answer || "—"}_\n\n`;
+    });
+    textList += `👉 *Escribí el número (ej: 1 o 2)* para atenderla, o *aprobar 1* para publicarla directo.`;
+
+    return res.json({
+      ok: true,
+      action: "list_pending",
+      count: pendingRows.length,
+      questions: pendingRows,
+      formatted_text: textList,
+    });
+  }
+
+  const targetId = question_id || activeOperatorQuestionId;
+  const row = db.prepare("SELECT * FROM questions WHERE question_id = ?").get(targetId);
+  if (!row || row.app_status !== "pending_review") {
+    activeOperatorQuestionId = null;
+    return res.json({
+      ok: true,
+      action: pendingRows.length > 0 ? "list_pending" : "list_empty",
+      count: pendingRows.length,
+      questions: pendingRows,
+      message: "Esa consulta ya fue respondida o no está pendiente.",
+    });
+  }
+
+  const isApproval = [
+    "1",
+    "si",
+    "sí",
+    "aprobar",
+    "aprobado",
+    "ok",
+    "dale",
+    "listo",
+    "enviar",
+    "publicar",
+    "mándalo",
+    "mandalo",
+    "manda",
+    "envialo",
+  ].includes(trimmed);
+
+  if (!isApproval) {
+    try {
+      const startedAt = Date.now();
+      const refinedText = await refineAnswerWithFeedback({
+        questionText: row.text,
+        itemTitle: row.item_id === "SIMULATED" ? "Ítem simulado" : "Auriculares Bluetooth",
+        previousSuggestion: row.suggested_answer,
+        feedback: rawText,
+      });
+
+      const mod = moderate(refinedText);
+      const safeAnswer = mod.blocked
+        ? "¡Hola! Por políticas de la plataforma todas las operaciones y consultas se gestionan exclusivamente por Mercado Libre. ¡Saludos!"
+        : refinedText;
+
+      db.prepare(`UPDATE questions SET suggested_answer = ? WHERE question_id = ?`).run(safeAnswer, targetId);
+
+      logEvent({
+        questionId: targetId,
+        type: "llm_classified",
+        message: `✍️ Sugerencia ajustada con feedback del operador: "${safeAnswer}"`,
+        durationMs: Date.now() - startedAt,
+      });
+
+      const updated = db.prepare("SELECT * FROM questions WHERE question_id = ?").get(targetId);
+      broadcast("question_updated", updated);
+
+      return res.json({
+        ok: true,
+        action: "refined",
+        new_suggestion: safeAnswer,
+        question: updated,
+        message: `🔄 *Nueva sugerencia ajustada:*\n"${safeAnswer}"\n\n👉 Respondé *1* para aprobar y publicar, o escribí otro cambio.`,
+      });
+    } catch (err) {
+      console.error("Error refinando respuesta:", err);
+      return res.status(500).json({ error: `Error refinando sugerencia: ${err.message}` });
+    }
+  }
+
+  return executePublish(targetId, row.suggested_answer, res);
 });
 
 app.listen(PORT, () => {

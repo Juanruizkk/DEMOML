@@ -3,6 +3,7 @@ const state = {
   filteredQuestions: [],
   lastEventId: 0,
   autoAnswerEnabled: true,
+  operatingMode: null,
   currentView: "duo",
   searchTerm: "",
   statusFilter: "all",
@@ -17,9 +18,30 @@ const el = {
   badgeToken: document.getElementById("badge-token"),
   badgeSse: document.getElementById("badge-sse"),
   badgeTotalQuestions: document.getElementById("badge-total-questions"),
-  switchToggle: document.getElementById("switch-toggle"),
-  switchState: document.getElementById("switch-state"),
-  switchWrap: document.getElementById("auto-answer-switch"),
+  
+  // Mode & Schedule Controls
+  selectOpMode: document.getElementById("select-op-mode"),
+  modeStatusBadge: document.getElementById("mode-status-badge"),
+  btnOpenSchedule: document.getElementById("btn-open-schedule"),
+  scheduleBackdrop: document.getElementById("schedule-backdrop"),
+  btnCloseSchedule: document.getElementById("btn-close-schedule"),
+  btnCancelSchedule: document.getElementById("btn-cancel-schedule"),
+  btnSaveSchedule: document.getElementById("btn-save-schedule"),
+  scheduleStartTime: document.getElementById("schedule-start-time"),
+  scheduleEndTime: document.getElementById("schedule-end-time"),
+  schedulePreviewText: document.getElementById("schedule-preview-text"),
+
+  // Confirm Mode Modal Elements
+  confirmModeBackdrop: document.getElementById("confirm-mode-backdrop"),
+  confirmModeTitle: document.getElementById("confirm-mode-title"),
+  confirmModeHeading: document.getElementById("confirm-mode-heading"),
+  confirmModeDesc: document.getElementById("confirm-mode-desc"),
+  confirmModeIcon: document.getElementById("confirm-mode-icon"),
+  confirmModeDetails: document.getElementById("confirm-mode-details"),
+  btnConfirmModeAction: document.getElementById("btn-confirm-mode-action"),
+  btnCancelConfirmMode: document.getElementById("btn-cancel-confirm-mode"),
+  btnCloseConfirmMode: document.getElementById("btn-close-confirm-mode"),
+
   btnRefresh: document.getElementById("btn-refresh"),
   btnOpenSimulator: document.getElementById("btn-open-simulator"),
   btnCloseSimulator: document.getElementById("btn-close-simulator"),
@@ -77,12 +99,47 @@ async function init() {
   });
 
   await loadHealth();
+  await loadOperationMode();
   await loadQuestions();
   await loadResponseTime();
   connectSSE();
 
-  // Switch Auto-Answer
-  el.switchWrap.addEventListener("click", toggleAutoAnswer);
+  // Mode Selector with Confirmation Modal
+  if (el.selectOpMode) {
+    el.selectOpMode.addEventListener("change", (e) => promptModeConfirmation(e.target.value));
+  }
+  if (el.btnConfirmModeAction) {
+    el.btnConfirmModeAction.addEventListener("click", confirmModeChange);
+  }
+  if (el.btnCancelConfirmMode) {
+    el.btnCancelConfirmMode.addEventListener("click", cancelModeConfirmation);
+  }
+  if (el.btnCloseConfirmMode) {
+    el.btnCloseConfirmMode.addEventListener("click", cancelModeConfirmation);
+  }
+  if (el.confirmModeBackdrop) {
+    el.confirmModeBackdrop.addEventListener("click", (e) => {
+      if (e.target === el.confirmModeBackdrop) cancelModeConfirmation();
+    });
+  }
+
+  if (el.btnOpenSchedule) {
+    el.btnOpenSchedule.addEventListener("click", openScheduleModal);
+  }
+  if (el.btnCloseSchedule) {
+    el.btnCloseSchedule.addEventListener("click", () => (el.scheduleBackdrop.hidden = true));
+  }
+  if (el.btnCancelSchedule) {
+    el.btnCancelSchedule.addEventListener("click", () => (el.scheduleBackdrop.hidden = true));
+  }
+  if (el.scheduleBackdrop) {
+    el.scheduleBackdrop.addEventListener("click", (e) => {
+      if (e.target === el.scheduleBackdrop) el.scheduleBackdrop.hidden = true;
+    });
+  }
+  if (el.btnSaveSchedule) {
+    el.btnSaveSchedule.addEventListener("click", saveScheduleConfig);
+  }
 
   // Simulator Modal
   el.btnOpenSimulator.addEventListener("click", () => (el.simulatorBackdrop.hidden = false));
@@ -91,8 +148,10 @@ async function init() {
     if (e.target === el.simulatorBackdrop) el.simulatorBackdrop.hidden = true;
   });
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !el.simulatorBackdrop.hidden) {
-      el.simulatorBackdrop.hidden = true;
+    if (e.key === "Escape") {
+      if (!el.simulatorBackdrop.hidden) el.simulatorBackdrop.hidden = true;
+      if (el.scheduleBackdrop && !el.scheduleBackdrop.hidden) el.scheduleBackdrop.hidden = true;
+      if (el.confirmModeBackdrop && !el.confirmModeBackdrop.hidden) cancelModeConfirmation();
     }
   });
   el.btnSendSimulation.addEventListener("click", sendSimulation);
@@ -190,29 +249,204 @@ async function loadHealth() {
       el.badgeToken.classList.remove("ok");
     }
 
-    setAutoAnswerUI(data.autoAnswerEnabled);
+    if (data.operatingMode) {
+      updateOperatingModeUI(data.operatingMode);
+    }
   } catch (err) {
     el.badgeProvider.textContent = "LLM: Error";
   }
 }
 
-function setAutoAnswerUI(enabled) {
-  state.autoAnswerEnabled = enabled;
-  el.switchToggle.classList.toggle("on", enabled);
-  el.switchState.textContent = enabled ? "ON" : "OFF";
+// ── Operating Mode & Schedule Config ───────────────────────────────────
+
+async function loadOperationMode() {
+  try {
+    const res = await fetch("/api/config/operating-mode");
+    const data = await res.json();
+    updateOperatingModeUI(data);
+  } catch (err) {
+    console.error("Error cargando modo de operación:", err);
+  }
 }
 
-async function toggleAutoAnswer() {
-  const next = !state.autoAnswerEnabled;
-  setAutoAnswerUI(next);
+function updateOperatingModeUI(data) {
+  if (!data) return;
+  state.operatingMode = data;
+  state.autoAnswerEnabled = data.isAutoAnswer;
+
+  if (el.selectOpMode) {
+    el.selectOpMode.value = data.mode;
+  }
+
+  if (el.modeStatusBadge) {
+    el.modeStatusBadge.textContent = data.statusLabel;
+    el.modeStatusBadge.className = "mode-badge";
+    if (data.mode === "auto") {
+      el.modeStatusBadge.classList.add("badge-auto");
+    } else if (data.mode === "manual") {
+      el.modeStatusBadge.classList.add("badge-manual");
+    } else {
+      el.modeStatusBadge.classList.add(data.isWithinBusinessHours ? "badge-schedule-day" : "badge-schedule-night");
+    }
+  }
+
+  // Sincronizar campos del modal si existen
+  if (data.schedule) {
+    if (el.scheduleStartTime) el.scheduleStartTime.value = data.schedule.start_time || "09:00";
+    if (el.scheduleEndTime) el.scheduleEndTime.value = data.schedule.end_time || "18:00";
+    const dayCheckboxes = document.querySelectorAll('input[name="sched-day"]');
+    dayCheckboxes.forEach((cb) => {
+      cb.checked = (data.schedule.days || []).includes(Number(cb.value));
+    });
+  }
+}
+
+let pendingModeChange = null;
+
+const MODE_DEFINITIONS = {
+  auto: {
+    title: "🤖 Activar Modo 100% Automático",
+    heading: "¿Cambiar a Modo 100% Automático?",
+    icon: "🤖",
+    theme: "theme-auto",
+    desc: "La Inteligencia Artificial responderá y publicará de forma inmediata y autónoma todas las consultas en Mercado Libre.",
+    details: [
+      { icon: "⚡", text: "<strong>Respuestas en segundos:</strong> Publicación directa 24/7 sin intervención humana." },
+      { icon: "🔇", text: "<strong>WhatsApp en silencio:</strong> No se envían tarjetas de aprobación a WhatsApp." },
+      { icon: "🛡️", text: "<strong>Moderación de seguridad:</strong> Cada respuesta pasa por filtros determinísticos antes de enviarse." },
+    ],
+    confirmBtnText: "Sí, activar 100% Automático",
+  },
+  manual: {
+    title: "👤 Activar Modo 100% Supervisado",
+    heading: "¿Cambiar a Modo 100% Supervisado?",
+    icon: "👤",
+    theme: "theme-manual",
+    desc: "Cada consulta entrante generará una sugerencia de IA y quedará pausada hasta que la apruebes o corrijas.",
+    details: [
+      { icon: "📲", text: "<strong>Notificación en WhatsApp & Panel:</strong> Recibís la consulta con la sugerencia lista para aprobar." },
+      { icon: "✍️", text: "<strong>Control y edición:</strong> Podés responder '1' para publicar o mandar tu propio texto/ajuste." },
+      { icon: "🔒", text: "<strong>Cero publicaciones no autorizadas:</strong> Nada se publica sin tu visto bueno." },
+    ],
+    confirmBtnText: "Sí, activar 100% Supervisado",
+  },
+  schedule: {
+    title: "⏰ Activar Modo Horario Inteligente",
+    heading: "¿Cambiar a Horario Inteligente?",
+    icon: "⏰",
+    theme: "theme-schedule",
+    desc: "El sistema alternará de forma autónoma según tus horarios de atención laboral y descanso.",
+    details: [
+      { icon: "💼", text: "<strong>Horario laboral:</strong> Modo Supervisado (aprobaciones por WhatsApp / Panel)." },
+      { icon: "🌙", text: "<strong>Noches y fines de semana:</strong> Modo 100% Automático para mantener tus ventas activas." },
+      { icon: "⚙️", text: "<strong>Personalizable:</strong> Podés ajustar los días y franjas horarias con el botón '⚙️ Horarios'." },
+    ],
+    confirmBtnText: "Sí, activar Horario Inteligente",
+  },
+};
+
+function promptModeConfirmation(targetMode) {
+  const currentMode = state.operatingMode?.mode || "schedule";
+  if (targetMode === currentMode) return;
+
+  const info = MODE_DEFINITIONS[targetMode];
+  if (!info) {
+    changeOperationMode(targetMode);
+    return;
+  }
+
+  pendingModeChange = targetMode;
+
+  // Revert select visual to current mode while confirmation modal is open
+  if (el.selectOpMode) {
+    el.selectOpMode.value = currentMode;
+  }
+
+  // Populate modal
+  if (el.confirmModeTitle) el.confirmModeTitle.textContent = info.title;
+  if (el.confirmModeHeading) el.confirmModeHeading.textContent = info.heading;
+  if (el.confirmModeDesc) el.confirmModeDesc.textContent = info.desc;
+  if (el.confirmModeIcon) {
+    el.confirmModeIcon.textContent = info.icon;
+    el.confirmModeIcon.className = `confirm-mode-icon-circle ${info.theme}`;
+  }
+  if (el.btnConfirmModeAction) {
+    el.btnConfirmModeAction.textContent = info.confirmBtnText;
+    el.btnConfirmModeAction.className = `btn-send btn-confirm-mode-action ${info.theme}`;
+  }
+
+  if (el.confirmModeDetails) {
+    el.confirmModeDetails.innerHTML = info.details
+      .map((d) => `<div class="confirm-mode-detail-item"><span class="icon">${d.icon}</span><span>${d.text}</span></div>`)
+      .join("");
+  }
+
+  if (el.confirmModeBackdrop) {
+    el.confirmModeBackdrop.hidden = false;
+  }
+}
+
+function cancelModeConfirmation() {
+  pendingModeChange = null;
+  if (el.confirmModeBackdrop) el.confirmModeBackdrop.hidden = true;
+  if (el.selectOpMode && state.operatingMode?.mode) {
+    el.selectOpMode.value = state.operatingMode.mode;
+  }
+}
+
+async function confirmModeChange() {
+  const modeToApply = pendingModeChange;
+  cancelModeConfirmation();
+  if (modeToApply) {
+    await changeOperationMode(modeToApply);
+  }
+}
+
+async function changeOperationMode(newMode) {
   try {
-    await fetch("/api/config/auto-answer", {
+    const res = await fetch("/api/config/operating-mode", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: next }),
+      body: JSON.stringify({ mode: newMode }),
     });
+    const data = await res.json();
+    updateOperatingModeUI(data);
   } catch (err) {
-    setAutoAnswerUI(!next);
+    console.error("Error cambiando modo:", err);
+  }
+}
+
+function openScheduleModal() {
+  if (el.scheduleBackdrop) el.scheduleBackdrop.hidden = false;
+  if (state.operatingMode) {
+    updateOperatingModeUI(state.operatingMode);
+  }
+}
+
+async function saveScheduleConfig() {
+  const dayCheckboxes = document.querySelectorAll('input[name="sched-day"]:checked');
+  const selectedDays = Array.from(dayCheckboxes).map((cb) => Number(cb.value));
+  const startTime = el.scheduleStartTime?.value || "09:00";
+  const endTime = el.scheduleEndTime?.value || "18:00";
+
+  const schedule = {
+    days: selectedDays,
+    start_time: startTime,
+    end_time: endTime,
+    timezone: "America/Argentina/Buenos_Aires",
+  };
+
+  try {
+    const res = await fetch("/api/config/operating-mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: el.selectOpMode?.value || "schedule", schedule }),
+    });
+    const data = await res.json();
+    updateOperatingModeUI(data);
+    if (el.scheduleBackdrop) el.scheduleBackdrop.hidden = true;
+  } catch (err) {
+    alert("Error al guardar la configuración de horarios");
   }
 }
 
@@ -225,7 +459,7 @@ async function loadQuestions() {
     const all = [...(data.pending_review || []), ...(data.auto_answered || []), ...(data.other || [])];
     
     // Sort by received_at desc
-    all.sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
+    all.sort((a, b) => parseSqliteDate(b.received_at).getTime() - parseSqliteDate(a.received_at).getTime());
     state.rawQuestions = all;
     el.badgeTotalQuestions.textContent = `${all.length} preguntas`;
     applyFilters();
@@ -281,7 +515,7 @@ function renderQuestionsTable() {
         ? `<span class="q-badge-origin simulated">Simulador</span>`
         : `<span class="q-badge-origin real">MELI Real</span>`;
 
-      const dt = new Date(q.received_at || Date.now());
+      const dt = parseSqliteDate(q.received_at);
       const dateStr = dt.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }) + " " + dt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 
       const statusLabels = {
@@ -295,7 +529,9 @@ function renderQuestionsTable() {
       const statusBadge = statusLabels[q.app_status] || `<span class="status-badge">${escapeHtml(q.app_status)}</span>`;
       const intentBadge = q.intent ? `<span class="intent-badge">${escapeHtml(q.intent)}</span>` : "";
 
-      const latencyDisplay = q.latency_ms ? `<span class="q-latency-tag">⚡ ${(q.latency_ms / 1000).toFixed(1)}s</span>` : "";
+      const latencyDisplay = (q.latency_ms && q.latency_ms > 0)
+        ? `<span class="q-latency-tag">⚡ ${(q.latency_ms / 1000).toFixed(1)}s</span>`
+        : "";
 
       let answerHtml = "";
       if (q.app_status === "pending_review") {
@@ -306,8 +542,9 @@ function renderQuestionsTable() {
               "${escapeHtml(q.suggested_answer || "Generando respuesta...")}"
             </div>
             <div class="q-actions-inline">
-              <button class="btn-inline-approve" onclick="approveFromTable('${q.question_id}')">✓ Aprobar</button>
-              <button class="btn-inline-reject" onclick="rejectFromTable('${q.question_id}')">✗ Descartar</button>
+              <button class="btn-inline-approve" onclick="approveFromTable('${q.question_id}')" title="Aprobar y publicar en Mercado Libre">✓ Aprobar</button>
+              <button class="btn-inline-chat" onclick="openInWhatsApp('${q.question_id}')" title="Cargar y chatear en WhatsApp">💬 Chatear</button>
+              <button class="btn-inline-reject" onclick="rejectFromTable('${q.question_id}')" title="Descartar respuesta">✗ Descartar</button>
             </div>
           </div>
         `;
@@ -378,6 +615,20 @@ window.rejectFromTable = async function (id) {
   }
 };
 
+window.openInWhatsApp = function (id) {
+  const q = state.rawQuestions.find((item) => String(item.question_id) === String(id));
+  if (!q) return;
+
+  const isSimulated = q.item_id === "SIMULATED" || q.buyer_id === "simulador" || Number(q.question_id) >= 900000000;
+  receiveWhatsAppNotification({
+    question_id: q.question_id,
+    item_title: isSimulated ? "Auriculares Bluetooth Inalámbricos XZ Pro" : q.item_id,
+    question_text: q.text,
+    suggested_answer: q.suggested_answer || "¡Hola! ¿En qué te podemos ayudar?",
+    reason: q.reason || "Revisión manual seleccionada",
+  });
+};
+
 // ── Metrics ────────────────────────────────────────────────────────────
 
 async function loadResponseTime() {
@@ -431,6 +682,13 @@ function connectSSE() {
 
   source.addEventListener("whatsapp_reply_confirmed", () => {
     loadQuestions();
+  });
+
+  source.addEventListener("config_updated", (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      updateOperatingModeUI(data);
+    } catch (err) {}
   });
 
   source.onerror = () => {
@@ -523,9 +781,9 @@ function receiveWhatsAppNotification(data) {
 }
 
 async function sendWhatsAppReply(text) {
-  if (!currentWaQuestion || !text.trim()) return;
+  if (!text.trim()) return;
 
-  const questionId = currentWaQuestion.question_id;
+  const questionId = currentWaQuestion ? currentWaQuestion.question_id : null;
   const replyText = text.trim();
   const timeStr = new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 
@@ -533,7 +791,7 @@ async function sendWhatsAppReply(text) {
   outDiv.className = "wp-msg wp-msg-out";
   outDiv.innerHTML = `
     <div class="wp-bubble">
-      <p>${escapeHtml(replyText === "1" ? "1 (Aprobar sugerida)" : replyText)}</p>
+      <p>${escapeHtml(replyText === "1" && currentWaQuestion ? "1 (Aprobar sugerida)" : replyText)}</p>
       <span class="wp-time">${timeStr} <span class="wp-ticks">✓✓</span></span>
     </div>
   `;
@@ -557,11 +815,87 @@ async function sendWhatsAppReply(text) {
       errDiv.className = "wp-msg wp-msg-in";
       errDiv.innerHTML = `
         <div class="wp-bubble" style="background: #fee2e2; color: #b91c1c;">
-          <p>❌ Error: ${escapeHtml(result.error || "No se pudo publicar")}</p>
+          <p>❌ Error: ${escapeHtml(result.error || "No se pudo procesar")}</p>
           <span class="wp-time">${timeStr}</span>
         </div>
       `;
       if (el.waChatBody) el.waChatBody.appendChild(errDiv);
+    } else if (result.action === "list_empty") {
+      const listDiv = document.createElement("div");
+      listDiv.className = "wp-msg wp-msg-in";
+      listDiv.innerHTML = `
+        <div class="wp-bubble">
+          <p>${escapeHtml(result.message || "✨ No hay preguntas pendientes.")}</p>
+          <span class="wp-time">${timeStr}</span>
+        </div>
+      `;
+      if (el.waChatBody) el.waChatBody.appendChild(listDiv);
+    } else if (result.action === "list_pending") {
+      const listDiv = document.createElement("div");
+      listDiv.className = "wp-msg wp-msg-in";
+
+      let itemsHtml = "";
+      result.questions.forEach((q, idx) => {
+        const num = idx + 1;
+        itemsHtml += `
+          <div style="margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.04); border-radius: 6px; border-left: 3px solid #3b82f6;">
+            <div style="font-weight: 700; font-size: 0.78rem; color: #1e293b;">#${num} - "${escapeHtml(q.text)}"</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">💡 Sugerencia: "${escapeHtml(q.suggested_answer || "—")}"</div>
+            <button class="btn-inline-chat" style="margin-top: 6px; font-size: 0.7rem; padding: 3px 8px;" onclick="openInWhatsApp('${q.question_id}')">
+              👉 Atender #${num} en WhatsApp
+            </button>
+          </div>
+        `;
+      });
+
+      listDiv.innerHTML = `
+        <div class="wp-bubble">
+          <p>📋 <strong>Tenés ${result.count} preguntas pendientes de revisión:</strong></p>
+          ${itemsHtml}
+          <p style="margin-top: 6px; font-size: 0.74rem; color: #64748b;">Hacé clic en <strong>Atender</strong> en la que quieras revisar o responder.</p>
+          <span class="wp-time">${timeStr}</span>
+        </div>
+      `;
+      if (el.waChatBody) el.waChatBody.appendChild(listDiv);
+    } else if (result.action === "selected_question") {
+      currentWaQuestion = result.question;
+      const selectDiv = document.createElement("div");
+      selectDiv.className = "wp-msg wp-msg-in";
+      selectDiv.innerHTML = `
+        <div class="wp-bubble">
+          <p>📌 <strong>Seleccionaste la consulta #${result.index}:</strong></p>
+          <div class="wp-card-notification" style="margin-top: 6px;">
+            <div class="wp-card-item">📦 ${escapeHtml(result.question.item_id === "SIMULATED" ? "Auriculares Bluetooth" : result.question.item_id)}</div>
+            <div class="wp-card-q">"${escapeHtml(result.question.text)}"</div>
+            <div class="wp-card-ans">
+              <div class="wp-card-ans-title">💡 Sugerencia IA:</div>
+              <div>${escapeHtml(result.question.suggested_answer)}</div>
+            </div>
+          </div>
+          <p style="margin-top: 4px; font-size: 0.76rem;">👉 Respondé <strong>1</strong> para aprobar o escribí tu corrección.</p>
+          <span class="wp-time">${timeStr}</span>
+        </div>
+      `;
+      if (el.waChatBody) el.waChatBody.appendChild(selectDiv);
+      if (el.waQuickActions) el.waQuickActions.hidden = false;
+    } else if (result.action === "refined") {
+      const refineDiv = document.createElement("div");
+      refineDiv.className = "wp-msg wp-msg-in";
+      refineDiv.innerHTML = `
+        <div class="wp-bubble">
+          <p>🔄 <strong>Nueva sugerencia ajustada:</strong></p>
+          <div style="font-size: 0.82rem; background: rgba(0,0,0,0.06); padding: 8px; border-radius: 6px; margin: 6px 0; border-left: 3px solid #3b82f6;">
+            "${escapeHtml(result.new_suggestion)}"
+          </div>
+          <p style="margin-top: 4px; font-size: 0.76rem;">👉 Respondé <strong>1</strong> para aprobar y publicar, o escribí otro cambio.</p>
+          <span class="wp-time">${timeStr}</span>
+        </div>
+      `;
+      if (el.waChatBody) el.waChatBody.appendChild(refineDiv);
+      if (el.waQuickActions) el.waQuickActions.hidden = false;
+      if (currentWaQuestion) {
+        currentWaQuestion.suggested_answer = result.new_suggestion;
+      }
     } else {
       const confirmDiv = document.createElement("div");
       confirmDiv.className = "wp-msg wp-msg-in";
@@ -569,7 +903,7 @@ async function sendWhatsAppReply(text) {
         <div class="wp-bubble">
           <p>✅ <strong>¡Listo!</strong> Respuesta publicada en Mercado Libre con éxito.</p>
           <div style="font-size: 0.74rem; color: #047857; margin-top: 4px; border-left: 2px solid #10b981; padding-left: 6px;">
-            "${escapeHtml(result.question.final_answer)}"
+            "${escapeHtml(result.question?.final_answer || "")}"
           </div>
           <span class="wp-time">${timeStr}</span>
         </div>
@@ -640,4 +974,13 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function parseSqliteDate(str) {
+  if (!str) return new Date();
+  const s = String(str).trim();
+  if (s.endsWith("Z") || s.includes("+") || (s.length > 10 && s.indexOf("-", 10) !== -1)) {
+    return new Date(s);
+  }
+  return new Date(s.replace(" ", "T") + "Z");
 }
