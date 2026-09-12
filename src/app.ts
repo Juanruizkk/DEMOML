@@ -224,11 +224,13 @@ export function buildApp(): FastifyInstance {
   app.post("/api/questions/:id/reject", { preHandler: optionalAuthenticate }, questionsCtrl.reject);
   app.post("/api/whatsapp/reply", questionsCtrl.replyViaWhatsapp);
 
-  // Simulator & Health
+  // Simulator & Health & Tenant
   app.post("/api/simulate-question", simulatorCtrl.simulate);
   app.get("/api/health", tenantCtrl.getHealth);
   app.get("/api/events", { preHandler: optionalAuthenticate }, tenantCtrl.getEvents);
   app.post("/api/config/auto-answer", { preHandler: optionalAuthenticate }, tenantCtrl.updateSettings);
+  app.get("/api/tenant/settings", { preHandler: optionalAuthenticate }, tenantCtrl.getSettings);
+  app.put("/api/tenant/settings", { preHandler: optionalAuthenticate }, tenantCtrl.updateSettings);
 
   return app;
 }

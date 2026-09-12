@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal del Vendedor • MELI AI Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="tenant.css" />
+</head>
+<body class="theme-dark">
+
+  <!-- ═════════════════════════════════════════════════════════════ -->
+  <!-- ── 1. LOGIN SCREEN (Si no hay sesión iniciada) ────────────── -->
+  <!-- ═════════════════════════════════════════════════════════════ -->
+  <div class="auth-overlay" id="auth-overlay">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="brand-avatar">🏪</div>
+        <h2>Portal del Vendedor</h2>
+        <p>Iniciá sesión para gestionar las preguntas y la IA de tu tienda.</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab-btn active" id="tab-btn-login" onclick="switchLoginMode('login')">Ingresar</button>
+        <button type="button" class="auth-tab-btn" id="tab-btn-register" onclick="switchLoginMode('register')">Registrar Tienda</button>
+      </div>
+
+      <div class="alert-error" id="auth-error-msg" style="display: none;"></div>
+
+      <form id="tenant-auth-form" onsubmit="handleTenantAuth(event)">
+        <div class="form-group" id="group-register-name" style="display: none;">
+          <label for="tenant-name">Nombre de la Tienda / Vendedor</label>
+          <input type="text" id="tenant-name" class="form-input" placeholder="Ej. Electro Store Oficial" />
+        </div>
+
+        <div class="form-group">
+          <label for="tenant-email">Email Registrado</label>
+          <input type="email" id="tenant-email" class="form-input" placeholder="tu@tienda.com" required />
+        </div>
+
+        <div class="form-group">
+          <label for="tenant-password">Contraseña</label>
+          <input type="password" id="tenant-password" class="form-input" placeholder="••••••••" required />
+        </div>
+
+        <button type="submit" class="btn-primary-block" id="btn-auth-submit">
+          <span>Ingresar al Panel</span> ➔
+        </button>
+      </form>
+
+      <div class="auth-footer">
+        <span>¿Querés probar la demo interactiva?</span>
+        <a href="/">Ir a Vista Demo Live</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════════════════════════════════════════════════════════ -->
+  <!-- ── 2. PORTAL PRINCIPAL DEL TENANT ────────────────────────── -->
+  <!-- ═════════════════════════════════════════════════════════════ -->
+  <div class="app-layout" id="app-layout" style="display: none;">
+    
+    <!-- Topbar Header -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="brand">
+          <div class="brand-avatar">🏪</div>
+          <div class="brand-info">
+            <div class="brand-title-wrap">
+              <h1 id="header-store-name">Cargando Tienda...</h1>
+              <span class="badge-role">Portal Vendedor</span>
+            </div>
+            <div class="brand-sub">
+              <span class="seller-id-chip" id="header-seller-id">Seller ID: -</span>
+              <span class="token-health-badge" id="header-token-badge">🟢 Token Saludable</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Tabs -->
+      <div class="topbar-center">
+        <nav class="nav-tabs">
+          <button class="nav-tab active" data-tab="questions" onclick="switchTab('questions')">
+            <span class="tab-icon">📨</span> Mis Preguntas
+            <span class="badge-count" id="badge-pending-count">0</span>
+          </button>
+          <button class="nav-tab" data-tab="ai-settings" onclick="switchTab('ai-settings')">
+            <span class="tab-icon">🤖</span> Configuración de IA
+          </button>
+          <button class="nav-tab" data-tab="whatsapp" onclick="switchTab('whatsapp')">
+            <span class="tab-icon">📱</span> WhatsApp & Alertas
+          </button>
+          <button class="nav-tab" data-tab="connection" onclick="switchTab('connection')">
+            <span class="tab-icon">🔌</span> Conexión MELI
+          </button>
+        </nav>
+      </div>
+
+      <!-- Right Actions -->
+      <div class="topbar-right">
+        <a href="/" class="btn-topbar-link" title="Ir a la consola de demostración">
+          ◫ Demo Live
+        </a>
+        <a href="/admin.html" class="btn-topbar-link" title="Panel de Super Administrador">
+          👑 Admin
+        </a>
+        <button type="button" class="btn-logout" onclick="logoutTenant()" title="Cerrar sesión">
+          🚪 Salir
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-content">
+      
+      <!-- ───────────────────────────────────────────────────────── -->
+      <!-- ── TAB 1: MIS PREGUNTAS ───────────────────────────────── -->
+      <!-- ───────────────────────────────────────────────────────── -->
+      <section class="tab-panel active" id="panel-questions">
+        <div class="panel-header">
+          <div>
+            <h2>Preguntas Pre-Venta</h2>
+            <p>Gestioná y aprobá las consultas de compradores en tus publicaciones.</p>
+          </div>
+          <div class="panel-actions">
+            <div class="filter-pill-group">
+              <button class="filter-pill active" data-filter="pending" onclick="filterQuestions('pending')">
+                Pendientes <span id="count-filter-pending">(0)</span>
+              </button>
+              <button class="filter-pill" data-filter="auto" onclick="filterQuestions('auto')">
+                Auto-Respondidas <span id="count-filter-auto">(0)</span>
+              </button>
+              <button class="filter-pill" data-filter="all" onclick="filterQuestions('all')">
+                Todas <span id="count-filter-all">(0)</span>
+              </button>
+            </div>
+            <button class="btn-refresh-icon" onclick="loadTenantQuestions()" title="Recargar preguntas">
+              🔄
+            </button>
+          </div>
+        </div>
+
+        <div class="questions-container" id="questions-list">
+          <div class="loading-spinner">Cargando preguntas de la tienda...</div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────────────────────────────────── -->
+      <!-- ── TAB 2: CONFIGURACIÓN DE IA & PROMPT ────────────────── -->
+      <!-- ───────────────────────────────────────────────────────── -->
+      <section class="tab-panel" id="panel-ai-settings">
+        <div class="panel-header">
+          <div>
+            <h2>Personalización de la Inteligencia Artificial</h2>
+            <p>Ajustá el tono de respuesta, el umbral de confianza y las políticas de tu negocio.</p>
+          </div>
+          <button class="btn-save-primary" onclick="saveAISettings()">
+            💾 Guardar Configuración
+          </button>
+        </div>
+
+        <div class="settings-grid">
+          
+          <!-- Card: Switch Auto-Respuesta -->
+          <div class="settings-card">
+            <div class="card-header-flex">
+              <div>
+                <h3>Modo de Respuesta Automática</h3>
+                <p>Publicar automáticamente cuando la confianza de la IA supera el umbral.</p>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" id="setting-auto-answer" checked />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Card: Selector de Tono -->
+          <div class="settings-card">
+            <h3>Tono de Comunicación</h3>
+            <p>Seleccioná el estilo con el que el bot responderá a tus compradores.</p>
+            <div class="tone-options">
+              <label class="tone-card">
+                <input type="radio" name="setting-tone" value="casual_rioplatense" checked />
+                <div class="tone-box">
+                  <span class="tone-icon">🇦🇷</span>
+                  <strong>Rioplatense Cercano</strong>
+                  <small>"¡Hola! Sí, tenemos stock para despachar hoy mismo. Saludos."</small>
+                </div>
+              </label>
+              <label class="tone-card">
+                <input type="radio" name="setting-tone" value="formal" />
+                <div class="tone-box">
+                  <span class="tone-icon">👔</span>
+                  <strong>Formal & Profesional</strong>
+                  <small>"Buenas tardes. Le confirmamos que disponemos de stock. Quedamos a su disposición."</small>
+                </div>
+              </label>
+              <label class="tone-card">
+                <input type="radio" name="setting-tone" value="concise" />
+                <div class="tone-box">
+                  <span class="tone-icon">⚡</span>
+                  <strong>Conciso & Directo</strong>
+                  <small>"Hola, sí tenemos stock disponible. ¡Esperamos tu compra!"</small>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Card: Umbral de Confianza -->
+          <div class="settings-card">
+            <div class="card-header-flex">
+              <div>
+                <h3>Umbral Mínimo de Confianza</h3>
+                <p>Si la certeza de la IA es inferior a este valor, pasará a revisión humana.</p>
+              </div>
+              <span class="threshold-badge" id="label-threshold-val">75%</span>
+            </div>
+            <div class="slider-wrap">
+              <input type="range" id="setting-threshold" min="0.60" max="0.95" step="0.05" value="0.75" oninput="updateThresholdLabel(this.value)" />
+              <div class="slider-labels">
+                <span>60% (Más automático)</span>
+                <span>80% (Recomendado)</span>
+                <span>95% (Máxima supervisión)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card: Instrucciones Personalizadas (Prompt) -->
+          <div class="settings-card">
+            <h3>Instrucciones del Negocio & FAQ (Prompt Personalizado)</h3>
+            <p>Agregá datos específicos de tu tienda: horarios de retiro en local, políticas de garantía, marcas oficiales o respuestas tipo.</p>
+            <textarea id="setting-instructions" class="form-textarea" rows="6" placeholder="Ejemplo:
+- Hacemos factura A y B de forma automática.
+- Los retiros por nuestro local en Palermo son de Lun a Vie de 9 a 18hs.
+- Todos nuestros productos cuentan con 12 meses de garantía oficial."></textarea>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ───────────────────────────────────────────────────────── -->
+      <!-- ── TAB 3: WHATSAPP & ALERTAS ──────────────────────────── -->
+      <!-- ───────────────────────────────────────────────────────── -->
+      <section class="tab-panel" id="panel-whatsapp">
+        <div class="panel-header">
+          <div>
+            <h2>Notificaciones y Alertas por WhatsApp</h2>
+            <p>Recibí alertas instantáneas en tu celular para preguntas dudosas y reclamos urgentes.</p>
+          </div>
+          <button class="btn-save-primary" onclick="saveWhatsAppSettings()">
+            💾 Guardar Número
+          </button>
+        </div>
+
+        <div class="settings-grid">
+          <div class="settings-card">
+            <div class="card-header-flex">
+              <div>
+                <h3>📱 Teléfono de Alertas WhatsApp (Meta Cloud API)</h3>
+                <p>Ingresá tu número con código de país (ej. +5491112345678 para Argentina).</p>
+              </div>
+              <span class="status-chip-active">✓ Integración Oficial</span>
+            </div>
+            <div class="form-group" style="margin-top: 16px;">
+              <input type="tel" id="setting-whatsapp-phone" class="form-input" placeholder="+5491112345678" style="font-size: 1.1rem; letter-spacing: 0.5px; max-width: 420px;" />
+            </div>
+            <div class="info-callout">
+              <span class="callout-icon">💡</span>
+              <p>El bot oficial de la plataforma te enviará un WhatsApp con botones interactivos cuando una pregunta requiera aprobación humana o cuando se abra un reclamo post-venta con fecha límite.</p>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h3>Disparadores de Notificación</h3>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="check-alert-questions" checked />
+                <span>Preguntas con intención de negociación o dudas técnicas fuera de catálogo.</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="check-alert-claims" checked />
+                <span>Reclamos post-venta urgentes (PNR / PDD) con cuenta regresiva de SLA.</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────────────────────────────────── -->
+      <!-- ── TAB 4: CONEXIÓN MERCADO LIBRE ──────────────────────── -->
+      <!-- ───────────────────────────────────────────────────────── -->
+      <section class="tab-panel" id="panel-connection">
+        <div class="panel-header">
+          <div>
+            <h2>Estado de Conexión con Mercado Libre</h2>
+            <p>Diagnóstico de credenciales OAuth 2.0 y vinculación de tienda.</p>
+          </div>
+          <a href="/oauth/login" id="btn-reconnect-meli" class="btn-meli-oauth">
+            <span>🟡 Reconectar / Renovar Token</span>
+          </a>
+        </div>
+
+        <div class="settings-grid">
+          <div class="settings-card">
+            <div class="conn-status-box">
+              <div class="conn-icon" id="conn-icon">🟢</div>
+              <div class="conn-details">
+                <h3 id="conn-title">Conexión Activa</h3>
+                <p id="conn-desc">Tu tienda está recibiendo preguntas y enviando respuestas automáticas.</p>
+                <div class="conn-meta-row">
+                  <div><strong>Apodo en MELI:</strong> <span id="conn-nickname">-</span></div>
+                  <div><strong>Seller ID:</strong> <span id="conn-seller-id" style="font-family: 'JetBrains Mono', monospace;">-</span></div>
+                  <div><strong>Tiempo restante del Token:</strong> <span id="conn-expires">-</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Toast Notification -->
+    <div class="toast-notification" id="toast-notif"></div>
+
+  </div>
+
+  <script src="tenant.js"></script>
+</body>
+</html>

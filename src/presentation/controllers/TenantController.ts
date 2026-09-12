@@ -28,15 +28,52 @@ export class TenantController {
     });
   };
 
-  public updateSettings = async (request: FastifyRequest, reply: FastifyReply) => {
-    const sellerId = (request.query as any)?.seller_id || (request as any).user?.sellerId || process.env.ML_SELLER_ID || "";
-    const tenant = await this.tenantRepo.findBySellerId(sellerId);
+  public getSettings = async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = (request as any).user;
+    const sellerId = user?.sellerId || (request.query as any)?.seller_id || process.env.ML_SELLER_ID || "";
 
+    if (!sellerId) {
+      return reply.status(400).send({ error: "No hay una tienda vinculada a este usuario." });
+    }
+
+    const tenant = await this.tenantRepo.findBySellerId(sellerId);
     if (!tenant) {
       return reply.status(404).send({ error: `Vendedor ${sellerId} no encontrado.` });
     }
 
-    tenant.updateSettings(request.body as any);
+    let tokenHealth: "healthy" | "expiring_soon" | "expired" = "healthy";
+    const remainingMs = tenant.expiresAt - Date.now();
+    if (remainingMs <= 0) {
+      tokenHealth = "expired";
+    } else if (remainingMs < 15 * 60 * 1000) {
+      tokenHealth = "expiring_soon";
+    }
+
+    return reply.send({
+      sellerId: tenant.sellerId,
+      nickname: tenant.nickname,
+      email: tenant.email,
+      tokenHealth,
+      expiresInMinutes: Math.max(0, Math.round(remainingMs / (60 * 1000))),
+      settings: tenant.settings,
+    });
+  };
+
+  public updateSettings = async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = (request as any).user;
+    const sellerId = user?.sellerId || (request.query as any)?.seller_id || process.env.ML_SELLER_ID || "";
+
+    if (!sellerId) {
+      return reply.status(400).send({ error: "No hay una tienda vinculada a este usuario." });
+    }
+
+    const tenant = await this.tenantRepo.findBySellerId(sellerId);
+    if (!tenant) {
+      return reply.status(404).send({ error: `Vendedor ${sellerId} no encontrado.` });
+    }
+
+    const body = (request.body as any) || {};
+    tenant.updateSettings(body);
     await this.tenantRepo.save(tenant);
 
     return reply.send({ ok: true, settings: tenant.settings });
