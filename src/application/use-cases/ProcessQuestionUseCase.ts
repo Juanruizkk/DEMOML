@@ -5,6 +5,7 @@ import { IEventRepository } from "../interfaces/IEventRepository.js";
 import { IMeliClient } from "../interfaces/IMeliClient.js";
 import { ILLMService } from "../interfaces/ILLMService.js";
 import { IRealtimeNotifier } from "../interfaces/IRealtimeNotifier.js";
+import { IWhatsAppClient } from "../interfaces/IWhatsAppClient.js";
 import { ModerationService } from "../../domain/services/ModerationService.js";
 import { Question } from "../../domain/entities/Question.js";
 import { EventLog } from "../../domain/entities/EventLog.js";
@@ -17,7 +18,8 @@ export class ProcessQuestionUseCase {
     private readonly eventRepo: IEventRepository,
     private readonly meliClient: IMeliClient,
     private readonly llmService: ILLMService,
-    private readonly realtimeNotifier: IRealtimeNotifier
+    private readonly realtimeNotifier: IRealtimeNotifier,
+    private readonly whatsAppClient: IWhatsAppClient    // NEW
   ) {}
 
   public async execute(params: { questionId: string; sellerId: string }): Promise<Question | null> {
@@ -218,6 +220,24 @@ export class ProcessQuestionUseCase {
           intent: classification.intent,
           timestamp: new Date().toISOString(),
         });
+
+        // Send real WhatsApp notification if tenant has a phone configured
+        const waPhone = tenant?.settings?.whatsappAlertPhone;
+        if (waPhone) {
+          await this.whatsAppClient.sendInteractiveButtons({
+            to: waPhone,
+            bodyText:
+              `🤔 *Pregunta requiere revisión*\n\n` +
+              `📦 Ítem: ${item.title}\n` +
+              `💬 "${question.text}"\n\n` +
+              `💡 Sugerencia: "${(classification.answer || "").slice(0, 100)}${(classification.answer || "").length > 100 ? "…" : ""}"\n\n` +
+              `Motivo: ${reviewReason}`,
+            buttons: [
+              { id: `approve_${questionId}`, title: "✅ Aprobar" },
+              { id: `reject_${questionId}`, title: "❌ Rechazar" },
+            ],
+          }).catch((err) => console.error("[ProcessQuestionUseCase] Error WA:", err));
+        }
       }
 
       this.realtimeNotifier.broadcastToSeller(sellerId, "question_updated", question);
