@@ -479,12 +479,28 @@ async function loadQuestions() {
     const res = await fetch("/api/questions");
     const data = await res.json();
     const all = [...(data.pending_review || []), ...(data.auto_answered || []), ...(data.other || [])];
-    
+
     // Sort by received_at desc
     all.sort((a, b) => parseSqliteDate(b.received_at).getTime() - parseSqliteDate(a.received_at).getTime());
     state.rawQuestions = all;
     el.badgeTotalQuestions.textContent = `${all.length} preguntas`;
     applyFilters();
+
+    // Auto-populate WA chat if there's a pending_review question and the chat is idle
+    const pending = (data.pending_review || []).sort(
+      (a, b) => parseSqliteDate(b.received_at).getTime() - parseSqliteDate(a.received_at).getTime()
+    );
+    if (!currentWaQuestion && pending.length > 0) {
+      const q = pending[0];
+      receiveWhatsAppNotification({
+        question_id: q.question_id,
+        question_text: q.text,
+        suggested_answer: q.suggested_answer,
+        reason: q.reason,
+        item_title: q.item_id,
+        intent: q.intent,
+      });
+    }
   } catch (err) {
     console.error("Error cargando preguntas:", err);
   }
@@ -822,8 +838,26 @@ async function sendWhatsAppReply(text) {
     el.waChatBody.scrollTop = el.waChatBody.scrollHeight;
   }
 
-  if (el.waQuickActions) el.waQuickActions.hidden = true;
   if (el.waInputText) el.waInputText.value = "";
+
+  // No active question — show helpful message instead of hitting the API
+  if (!questionId) {
+    const noQDiv = document.createElement("div");
+    noQDiv.className = "wp-msg wp-msg-in";
+    noQDiv.innerHTML = `
+      <div class="wp-bubble">
+        <p>No hay preguntas pendientes de revisión en este momento. Cuando llegue una nueva pregunta que requiera tu aprobación, te aviso por acá 👆</p>
+        <span class="wp-time">${timeStr}</span>
+      </div>
+    `;
+    if (el.waChatBody) {
+      el.waChatBody.appendChild(noQDiv);
+      el.waChatBody.scrollTop = el.waChatBody.scrollHeight;
+    }
+    return;
+  }
+
+  if (el.waQuickActions) el.waQuickActions.hidden = true;
 
   try {
     const res = await fetch("/api/whatsapp/reply", {
