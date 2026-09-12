@@ -116,12 +116,13 @@ export class ProcessClaimUseCase {
       });
 
       return claim;
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       await this.eventRepo.log(
         new EventLog({
           sellerId,
           type: "error",
-          message: `❌ Error procesando reclamo ${claimId}: ${err.message}`,
+          message: `❌ Error procesando reclamo ${claimId}: ${message}`,
         })
       );
       return null;

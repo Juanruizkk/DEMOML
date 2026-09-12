@@ -10,6 +10,7 @@ export interface WebhookPayload {
   attempts?: number;
   sent?: string;
   received?: string;
+  actions?: string[];
 }
 
 export class IngestWebhookUseCase {

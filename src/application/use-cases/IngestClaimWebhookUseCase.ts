@@ -10,7 +10,7 @@ export class IngestClaimWebhookUseCase {
   ) {}
 
   public async execute(payload: WebhookPayload): Promise<{ queued: boolean; claimId?: string }> {
-    const { topic, resource, user_id, actions } = payload as any;
+    const { topic, resource, user_id, actions } = payload;
 
     const isClaim =
       (topic === "post_purchase" && Array.isArray(actions) && actions.includes("claims")) ||
