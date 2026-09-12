@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super Admin — MeliBot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+
+  <!-- ── Login Screen ── -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="login-avatar">🤖</div>
+        <div>
+          <h1 class="login-title">MeliBot</h1>
+          <span class="login-subtitle">Panel de Administración</span>
+        </div>
+      </div>
+      <p class="login-hint">Acceso exclusivo para Super Administradores</p>
+      <form id="login-form" class="login-form" autocomplete="off">
+        <div class="form-field">
+          <label class="form-label" for="login-email">Email</label>
+          <input type="email" id="login-email" class="form-input"
+            placeholder="admin@melibot.com" autocomplete="username" required />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="login-password">Contraseña</label>
+          <input type="password" id="login-password" class="form-input"
+            placeholder="••••••••••••" autocomplete="current-password" required />
+        </div>
+        <div id="login-error" class="login-error" hidden></div>
+        <button type="submit" id="login-btn" class="btn-login">
+          <span id="login-btn-text">Ingresar al Panel</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Dashboard ── -->
+  <div id="dashboard" class="dashboard" hidden>
+
+    <!-- Header -->
+    <header class="admin-header">
+      <div class="header-brand">
+        <div class="header-avatar">🤖</div>
+        <div>
+          <div class="header-title-row">
+            <span class="header-title">MeliBot Admin</span>
+            <span class="badge-superadmin">Super Admin</span>
+          </div>
+          <span class="header-subtitle">Panel de Control Global</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="refresh-status">
+          <span class="refresh-dot" id="refresh-dot"></span>
+          <span class="refresh-text" id="refresh-text">Actualiza en 30s</span>
+        </div>
+        <button class="btn-icon-action" id="btn-refresh" title="Actualizar ahora">
+          <span id="refresh-icon">🔄</span>
+        </button>
+        <div class="header-user">
+          <span class="user-email" id="user-email-display"></span>
+          <button class="btn-logout" id="btn-logout">↩ Salir</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+
+      <!-- ── KPI Section ── -->
+      <section class="kpi-section">
+        <div class="section-header">
+          <h2 class="section-title">📊 Métricas Globales</h2>
+          <span class="section-hint" id="metrics-updated-at"></span>
+        </div>
+        <div class="kpi-cards" id="kpi-cards">
+          <!-- Renderizado por JS -->
+        </div>
+        <div class="intent-card" id="intent-card">
+          <div class="intent-header">
+            <span class="intent-title">🎯 Distribución de Intenciones</span>
+            <span class="intent-total" id="intent-total"></span>
+          </div>
+          <div class="intent-bars" id="intent-bars">
+            <!-- Renderizado por JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Tenants Section ── -->
+      <section class="tenants-section">
+        <div class="section-header">
+          <h2 class="section-title">🏪 Clientes / Tenants</h2>
+          <div class="tenants-header-right">
+            <span class="poll-indicator">
+              <span class="pulse-dot"></span> Auto-refresh 30s
+            </span>
+            <button class="btn-refresh-table" id="btn-refresh-table">🔄 Actualizar tabla</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="tenants-table">
+            <thead>
+              <tr>
+                <th>TIENDA</th>
+                <th>TOKEN</th>
+                <th>PREGUNTAS</th>
+                <th>AUTO-RESP.</th>
+                <th>HABILITADO</th>
+                <th>ACCIONES</th>
+              </tr>
+            </thead>
+            <tbody id="tenants-tbody">
+              <tr><td colspan="6" class="table-loading">Cargando tenants...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ── Tenant Detail Drawer (siempre en DOM, off-screen) ── -->
+  <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+  <aside class="detail-drawer" id="detail-drawer" aria-label="Detalle del tenant">
+    <div class="drawer-header">
+      <div class="drawer-title-row">
+        <h3 class="drawer-title" id="drawer-tenant-name">—</h3>
+        <span class="badge-seller-id" id="drawer-seller-id"></span>
+      </div>
+      <button class="drawer-close" id="btn-close-drawer" title="Cerrar">✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+      <div class="drawer-loading">Cargando detalle...</div>
+    </div>
+  </aside>
+
+  <script src="admin.js"></script>
+</body>
+</html>
