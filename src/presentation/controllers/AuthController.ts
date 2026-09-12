@@ -1,20 +1,19 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { IMeliClient } from "../../application/interfaces/IMeliClient.js";
-import { ITenantRepository } from "../../application/interfaces/ITenantRepository.js";
-import { IUserRepository } from "../../application/interfaces/IUserRepository.js";
 import { RegisterUserUseCase, RegisterUserDTO } from "../../application/use-cases/auth/RegisterUserUseCase.js";
 import { LoginUserUseCase, LoginUserDTO } from "../../application/use-cases/auth/LoginUserUseCase.js";
 import { GetCurrentUserUseCase } from "../../application/use-cases/auth/GetCurrentUserUseCase.js";
-import { Tenant } from "../../domain/entities/Tenant.js";
+import { ConnectMeliAccountUseCase } from "../../application/use-cases/auth/ConnectMeliAccountUseCase.js";
+import { GetOnboardingStatusUseCase } from "../../application/use-cases/auth/GetOnboardingStatusUseCase.js";
+import { ITokenService } from "../../application/interfaces/ITokenService.js";
 
 export class AuthController {
   constructor(
-    private readonly meliClient: IMeliClient,
-    private readonly tenantRepo: ITenantRepository,
-    private readonly userRepo: IUserRepository,
     private readonly registerUseCase: RegisterUserUseCase,
     private readonly loginUseCase: LoginUserUseCase,
-    private readonly getCurrentUserUseCase: GetCurrentUserUseCase
+    private readonly getCurrentUserUseCase: GetCurrentUserUseCase,
+    private readonly connectMeliUseCase: ConnectMeliAccountUseCase,
+    private readonly getOnboardingStatusUseCase: GetOnboardingStatusUseCase,
+    private readonly tokenService: ITokenService
   ) {}
 
   public register = async (
@@ -55,53 +54,70 @@ export class AuthController {
     }
   };
 
-  public meliOAuthLogin = async (request: FastifyRequest, reply: FastifyReply) => {
+  public getOnboardingStatus = async (request: FastifyRequest, reply: FastifyReply) => {
     const user = (request as any).user;
-    const stateParam = user?.userId ? `&state=${encodeURIComponent(user.userId)}` : "";
-    const url = `https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id=${process.env.ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.ML_REDIRECT_URI || "")}${stateParam}`;
+    if (!user || !user.userId) {
+      return reply.status(401).send({ error: "No autenticado." });
+    }
+
+    try {
+      const status = await this.getOnboardingStatusUseCase.execute(user.userId);
+      return reply.send(status);
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  };
+
+  public getMeliAuthUrl = async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = (request as any).user;
+    const userId = user?.userId;
+    const stateParam = userId ? `&state=${encodeURIComponent(userId)}` : "";
+    const url = `https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id=${process.env.ML_CLIENT_ID || ""}&redirect_uri=${encodeURIComponent(process.env.ML_REDIRECT_URI || "")}${stateParam}`;
+
+    return reply.send({ url });
+  };
+
+  public meliOAuthLogin = async (request: FastifyRequest, reply: FastifyReply) => {
+    const query = (request.query as { token?: string; userId?: string }) || {};
+    let userId = (request as any).user?.userId || query.userId;
+
+    // Si viene un token JWT en la query string, verificarlo
+    if (!userId && query.token) {
+      try {
+        const payload = this.tokenService.verifyToken(query.token);
+        userId = payload.userId;
+      } catch (e) {
+        // Ignorar token inválido
+      }
+    }
+
+    const stateParam = userId ? `&state=${encodeURIComponent(userId)}` : "";
+    const url = `https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id=${process.env.ML_CLIENT_ID || ""}&redirect_uri=${encodeURIComponent(process.env.ML_REDIRECT_URI || "")}${stateParam}`;
     return reply.redirect(url);
   };
 
-  public meliOAuthCallback = async (
-    request: FastifyRequest<{ Querystring: { code?: string; state?: string } }>,
-    reply: FastifyReply
-  ) => {
-    const { code, state } = request.query;
+  public meliOAuthCallback = async (request: FastifyRequest, reply: FastifyReply) => {
+    const query = (request.query as { code?: string; state?: string }) || {};
+    const { code, state } = query;
     if (!code) {
       return reply.status(400).send("Falta el parámetro code.");
     }
 
     try {
-      const tokens = await this.meliClient.exchangeCodeForTokens(code);
-      const sellerId = String(tokens.user_id);
+      const result = await this.connectMeliUseCase.execute({
+        code,
+        userId: state,
+      });
 
-      let tenant = await this.tenantRepo.findBySellerId(sellerId);
-      if (!tenant) {
-        tenant = Tenant.createDefault({
-          id: sellerId,
-          sellerId,
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
-          expiresInSec: tokens.expires_in,
-        });
-      } else {
-        tenant.updateTokens(tokens.access_token, tokens.refresh_token, tokens.expires_in);
-      }
+      // Redirigir al onboarding con los datos del seller conectado y el nuevo token
+      const tokenParam = result.token ? `&token=${encodeURIComponent(result.token)}` : "";
+      const nicknameParam = `&nickname=${encodeURIComponent(result.nickname)}`;
+      const sellerIdParam = `&sellerId=${encodeURIComponent(result.sellerId)}`;
 
-      await this.tenantRepo.save(tenant);
-
-      // Si se pasó el userId en el state, vinculamos el sellerId al usuario
-      if (state) {
-        const user = await this.userRepo.findById(state);
-        if (user) {
-          user.linkSeller(sellerId);
-          await this.userRepo.save(user);
-        }
-      }
-
-      return reply.redirect("/?connected=1");
+      return reply.redirect(`/onboarding.html?status=connected${sellerIdParam}${nicknameParam}${tokenParam}`);
     } catch (err: any) {
-      return reply.status(500).send(`Error en el callback OAuth: ${err.message}`);
+      return reply.redirect(`/onboarding.html?status=error&error=${encodeURIComponent(err.message)}`);
     }
   };
 }
+

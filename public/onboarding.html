@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Onboarding Vendedor • MELI AI Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .onboarding-wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.15) 0%, rgba(8, 12, 20, 0.95) 70%);
+    }
+
+    .onboarding-card {
+      width: 100%;
+      max-width: 580px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .stepper {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      position: relative;
+    }
+
+    .stepper::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 10%;
+      right: 10%;
+      height: 2px;
+      background: var(--border);
+      z-index: 1;
+    }
+
+    .step-item {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .step-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--bg-surface);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      transition: all 0.3s ease;
+    }
+
+    .step-item.active .step-circle {
+      background: var(--indigo);
+      border-color: var(--indigo-text);
+      color: #fff;
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.5);
+    }
+
+    .step-item.completed .step-circle {
+      background: var(--emerald);
+      border-color: var(--emerald-text);
+      color: #fff;
+    }
+
+    .step-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .step-item.active .step-label {
+      color: var(--indigo-text);
+    }
+
+    .step-item.completed .step-label {
+      color: var(--emerald-text);
+    }
+
+    .step-content {
+      display: none;
+    }
+
+    .step-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .auth-toggle {
+      display: flex;
+      background: rgba(30, 41, 59, 0.7);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      margin-bottom: 24px;
+    }
+
+    .auth-toggle button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .auth-toggle button.active {
+      background: var(--indigo);
+      color: #fff;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--indigo);
+    }
+
+    .btn-action-primary {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-action-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-meli-connect {
+      width: 100%;
+      padding: 16px;
+      background: #ffe600;
+      color: #2d3277;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-meli-connect:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 230, 0, 0.35);
+    }
+
+    .success-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--emerald-bg);
+      border: 1px solid var(--emerald-border);
+      color: var(--emerald-text);
+      padding: 8px 16px;
+      border-radius: var(--radius-full);
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+
+    .store-summary-box {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .store-summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 0.9rem;
+    }
+
+    .store-summary-row:last-child {
+      border-bottom: none;
+    }
+
+    .alert-box {
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      margin-bottom: 18px;
+      display: none;
+    }
+
+    .alert-error {
+      background: var(--rose-bg);
+      border: 1px solid var(--rose-border);
+      color: var(--rose-text);
+    }
+  </style>
+</head>
+<body>
+  <div class="onboarding-wrapper">
+    <div class="onboarding-card">
+      
+      <!-- Stepper Header -->
+      <div class="stepper">
+        <div class="step-item active" id="step-node-1">
+          <div class="step-circle">1</div>
+          <span class="step-label">Cuenta</span>
+        </div>
+        <div class="step-item" id="step-node-2">
+          <div class="step-circle">2</div>
+          <span class="step-label">Mercado Libre</span>
+        </div>
+        <div class="step-item" id="step-node-3">
+          <div class="step-circle">3</div>
+          <span class="step-label">Completado</span>
+        </div>
+      </div>
+
+      <!-- Alert box for errors -->
+      <div class="alert-box alert-error" id="error-alert"></div>
+
+      <!-- ═════════════════════════════════════════════════════════════ -->
+      <!-- ── STEP 1: REGISTRO / LOGIN ───────────────────────────────── -->
+      <!-- ═════════════════════════════════════════════════════════════ -->
+      <div class="step-content active" id="step-1">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2 style="font-size: 1.5rem; margin-bottom: 8px;">Bienvenido a MELI AI Assistant</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            Creá tu cuenta de vendedor o iniciá sesión para automatizar tus respuestas con IA.
+          </p>
+        </div>
+
+        <div class="auth-toggle">
+          <button type="button" class="active" id="tab-register" onclick="switchAuthMode('register')">Registrarse</button>
+          <button type="button" id="tab-login" onclick="switchAuthMode('login')">Iniciar Sesión</button>
+        </div>
+
+        <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+          <div class="form-group" id="group-name">
+            <label for="input-name">Nombre o Empresa</label>
+            <input type="text" id="input-name" class="form-input" placeholder="Ej. Tienda Electrónica SRL" />
+          </div>
+
+          <div class="form-group">
+            <label for="input-email">Correo Electrónico</label>
+            <input type="email" id="input-email" class="form-input" placeholder="tu@email.com" required />
+          </div>
+
+          <div class="form-group">
+            <label for="input-password">Contraseña</label>
+            <input type="password" id="input-password" class="form-input" placeholder="••••••••" required />
+          </div>
+
+          <button type="submit" class="btn-action-primary" id="btn-auth-submit">
+            <span>Continuar al Paso 2</span> ➔
+          </button>
+        </form>
+      </div>
+
+      <!-- ═════════════════════════════════════════════════════════════ -->
+      <!-- ── STEP 2: CONECTAR MERCADO LIBRE ────────────────────────── -->
+      <!-- ═════════════════════════════════════════════════════════════ -->
+      <div class="step-content" id="step-2">
+        <div style="text-align: center; margin-bottom: 28px;">
+          <div style="font-size: 2.5rem; margin-bottom: 12px;">🤝</div>
+          <h2 style="font-size: 1.4rem; margin-bottom: 8px;">Conectá tu Tienda de Mercado Libre</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
+            Autorizá la aplicación de Mercado Libre para recibir preguntas pre-venta en tiempo real y enviar respuestas automáticas.
+          </p>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+          <a href="#" id="link-meli-oauth" class="btn-meli-connect">
+            <span>🟡 Conectar con Mercado Libre</span>
+          </a>
+        </div>
+
+        <div style="text-align: center;">
+          <button type="button" class="btn-secondary" style="background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer;" onclick="checkStatusManual()">
+            🔄 Ya autoricé la cuenta / Verificar
+          </button>
+        </div>
+      </div>
+
+      <!-- ═════════════════════════════════════════════════════════════ -->
+      <!-- ── STEP 3: CONFIRMACIÓN Y ÉXITO ───────────────────────────── -->
+      <!-- ═════════════════════════════════════════════════════════════ -->
+      <div class="step-content" id="step-3">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div class="success-badge">
+            <span>✓</span> Cuenta de Mercado Libre Vinculada
+          </div>
+          <h2 style="font-size: 1.4rem; margin-bottom: 6px;">¡Todo listo para empezar!</h2>
+          <p style="color: var(--text-muted); font-size: 0.88rem;">
+            Tu tienda está sincronizada con el auto-responder de inteligencia artificial.
+          </p>
+        </div>
+
+        <div class="store-summary-box">
+          <div class="store-summary-row">
+            <span style="color: var(--text-muted);">Tienda:</span>
+            <strong id="summary-nickname" style="color: var(--text-main);">-</strong>
+          </div>
+          <div class="store-summary-row">
+            <span style="color: var(--text-muted);">Seller ID:</span>
+            <strong id="summary-seller-id" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">-</strong>
+          </div>
+          <div class="store-summary-row">
+            <span style="color: var(--text-muted);">Estado del Token:</span>
+            <span style="color: var(--emerald-text); font-weight: 600;">🟢 Conectado y Activo</span>
+          </div>
+          <div class="store-summary-row">
+            <span style="color: var(--text-muted);">Auto-Respuesta:</span>
+            <span style="color: var(--indigo-text); font-weight: 600;">🤖 Activada (Modo Inteligente)</span>
+          </div>
+        </div>
+
+        <button type="button" class="btn-action-primary" onclick="goToDashboard()">
+          <span>Ingresar al Asistente de Ventas</span> 🚀
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentAuthMode = "register";
+    let token = localStorage.getItem("meli_jwt") || "";
+
+    function showError(msg) {
+      const el = document.getElementById("error-alert");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    function hideError() {
+      document.getElementById("error-alert").style.display = "none";
+    }
+
+    function switchAuthMode(mode) {
+      currentAuthMode = mode;
+      hideError();
+      document.getElementById("tab-register").classList.toggle("active", mode === "register");
+      document.getElementById("tab-login").classList.toggle("active", mode === "login");
+      document.getElementById("group-name").style.display = mode === "register" ? "block" : "none";
+      document.getElementById("btn-auth-submit").querySelector("span").textContent = 
+        mode === "register" ? "Registrarse y Continuar" : "Iniciar Sesión y Continuar";
+    }
+
+    function setStep(stepNum) {
+      document.querySelectorAll(".step-item").forEach((el, idx) => {
+        el.classList.remove("active", "completed");
+        if (idx + 1 < stepNum) el.classList.add("completed");
+        if (idx + 1 === stepNum) el.classList.add("active");
+      });
+
+      document.querySelectorAll(".step-content").forEach((el, idx) => {
+        el.classList.toggle("active", idx + 1 === stepNum);
+      });
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      hideError();
+
+      const email = document.getElementById("input-email").value.trim();
+      const password = document.getElementById("input-password").value;
+      const name = document.getElementById("input-name").value.trim();
+
+      const endpoint = currentAuthMode === "register" ? "/api/auth/register" : "/api/auth/login";
+      const body = currentAuthMode === "register" 
+        ? { email, password, name, role: "tenant" } 
+        : { email, password };
+
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al autenticar.");
+
+        token = data.token;
+        localStorage.setItem("meli_jwt", token);
+
+        if (data.user?.sellerId) {
+          // Ya tiene tienda conectada
+          checkOnboardingStatus();
+        } else {
+          setupMeliLink();
+          setStep(2);
+        }
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    function setupMeliLink() {
+      const link = document.getElementById("link-meli-oauth");
+      link.href = `/oauth/login?token=${encodeURIComponent(token)}`;
+    }
+
+    async function checkOnboardingStatus() {
+      if (!token) return;
+      try {
+        const res = await fetch("/api/auth/onboarding-status", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (data.isMeliConnected && data.tenant) {
+          document.getElementById("summary-nickname").textContent = data.tenant.nickname || "Tienda Mercado Libre";
+          document.getElementById("summary-seller-id").textContent = data.tenant.sellerId;
+          setStep(3);
+        } else {
+          setupMeliLink();
+          setStep(2);
+        }
+      } catch (e) {
+        console.error("Error verificando estado:", e);
+      }
+    }
+
+    function checkStatusManual() {
+      checkOnboardingStatus();
+    }
+
+    function goToDashboard() {
+      window.location.href = "/";
+    }
+
+    // Al cargar la página, revisar si viene de callback con query params
+    window.addEventListener("DOMContentLoaded", () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const status = urlParams.get("status");
+      const newToken = urlParams.get("token");
+      const nickname = urlParams.get("nickname");
+      const sellerId = urlParams.get("sellerId");
+      const error = urlParams.get("error");
+
+      if (newToken) {
+        token = newToken;
+        localStorage.setItem("meli_jwt", token);
+      }
+
+      if (error) {
+        showError(decodeURIComponent(error));
+        setStep(2);
+        return;
+      }
+
+      if (status === "connected" && sellerId) {
+        document.getElementById("summary-nickname").textContent = nickname ? decodeURIComponent(nickname) : "Tienda Conectada";
+        document.getElementById("summary-seller-id").textContent = sellerId;
+        setStep(3);
+        return;
+      }
+
+      if (token) {
+        checkOnboardingStatus();
+      }
+    });
+  </script>
+</body>
+</html>

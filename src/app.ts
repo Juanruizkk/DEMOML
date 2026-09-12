@@ -29,6 +29,8 @@ import { RegisterUserUseCase } from "./application/use-cases/auth/RegisterUserUs
 import { LoginUserUseCase } from "./application/use-cases/auth/LoginUserUseCase.js";
 import { GetCurrentUserUseCase } from "./application/use-cases/auth/GetCurrentUserUseCase.js";
 import { SeedSuperAdminUseCase } from "./application/use-cases/auth/SeedSuperAdminUseCase.js";
+import { ConnectMeliAccountUseCase } from "./application/use-cases/auth/ConnectMeliAccountUseCase.js";
+import { GetOnboardingStatusUseCase } from "./application/use-cases/auth/GetOnboardingStatusUseCase.js";
 
 import { GetGlobalMetricsUseCase } from "./application/use-cases/admin/GetGlobalMetricsUseCase.js";
 import { ListTenantsOverviewUseCase } from "./application/use-cases/admin/ListTenantsOverviewUseCase.js";
@@ -77,6 +79,14 @@ export function buildApp(): FastifyInstance {
   const loginUserUseCase = new LoginUserUseCase(userRepo, passwordHasher, tokenService);
   const getCurrentUserUseCase = new GetCurrentUserUseCase(userRepo);
   const seedSuperAdminUseCase = new SeedSuperAdminUseCase(userRepo, passwordHasher);
+  const connectMeliAccountUseCase = new ConnectMeliAccountUseCase(
+    meliClient,
+    tenantRepo,
+    userRepo,
+    eventRepo,
+    tokenService
+  );
+  const getOnboardingStatusUseCase = new GetOnboardingStatusUseCase(userRepo, tenantRepo);
 
   // Inicializar Super Admin si no existe
   seedSuperAdminUseCase.execute().catch((err) => console.error("Error seeding super admin:", err));
@@ -165,12 +175,12 @@ export function buildApp(): FastifyInstance {
   const webhookCtrl = new WebhookController(ingestWebhookUseCase);
   const questionsCtrl = new QuestionsController(questionRepo, approveAnswerUseCase, rejectAnswerUseCase);
   const authCtrl = new AuthController(
-    meliClient,
-    tenantRepo,
-    userRepo,
     registerUserUseCase,
     loginUserUseCase,
-    getCurrentUserUseCase
+    getCurrentUserUseCase,
+    connectMeliAccountUseCase,
+    getOnboardingStatusUseCase,
+    tokenService
   );
   const simulatorCtrl = new SimulatorController(simulateQuestionUseCase);
   const tenantCtrl = new TenantController(tenantRepo, eventRepo, llmService);
@@ -187,6 +197,8 @@ export function buildApp(): FastifyInstance {
   app.post("/api/auth/register", authCtrl.register);
   app.post("/api/auth/login", authCtrl.login);
   app.get("/api/auth/me", { preHandler: authenticate }, authCtrl.getMe);
+  app.get("/api/auth/onboarding-status", { preHandler: authenticate }, authCtrl.getOnboardingStatus);
+  app.get("/api/auth/meli-auth-url", { preHandler: optionalAuthenticate }, authCtrl.getMeliAuthUrl);
 
   // Super Admin API
   app.get("/api/admin/metrics", { preHandler: requireSuperAdmin }, adminCtrl.getMetrics);
@@ -197,7 +209,7 @@ export function buildApp(): FastifyInstance {
 
   // Webhooks & OAuth
   app.post("/webhook/ml", webhookCtrl.handle);
-  app.get("/oauth/login", authCtrl.meliOAuthLogin);
+  app.get("/oauth/login", { preHandler: optionalAuthenticate }, authCtrl.meliOAuthLogin);
   app.get("/oauth/callback", authCtrl.meliOAuthCallback);
 
   // SSE Stream

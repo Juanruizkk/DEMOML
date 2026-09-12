@@ -99,6 +99,32 @@ export class MeliApiClient implements IMeliClient {
     return data.questions || [];
   }
 
+  public async getSellerProfile(
+    sellerId: string,
+    accessToken?: string
+  ): Promise<{ id: number; nickname: string; email?: string; permalink?: string }> {
+    const token = accessToken || (await this.getValidToken(sellerId));
+    const res = await fetch(`${API_BASE}/users/${sellerId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      // Si falla, retornar nickname por defecto sin romper el flujo
+      return { id: Number(sellerId), nickname: `Vendedor_${sellerId}` };
+    }
+
+    const data = await res.json();
+    return {
+      id: data.id,
+      nickname: data.nickname || `Vendedor_${sellerId}`,
+      email: data.email,
+      permalink: data.permalink,
+    };
+  }
+
   public async exchangeCodeForTokens(code: string): Promise<{
     access_token: string;
     refresh_token: string;

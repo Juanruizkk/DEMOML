@@ -1,3 +1,4 @@
+// MELI AI Assistant Server
 import "dotenv/config";
 import express from "express";
 import path from "node:path";
@@ -360,7 +361,7 @@ async function executePublish(questionId, textToPublish, res) {
 
   try {
     const startedAt = Date.now();
-    const isSimulated = row.item_id === "SIMULATED" || row.buyer_id === "simulador" || Number(questionId) >= 900000000;
+    const isSimulated = row.item_id === "SIMULATED" || row.buyer_id === "simulador";
 
     if (!isSimulated) {
       await postAnswer(questionId, textToPublish);

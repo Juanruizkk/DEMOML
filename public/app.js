@@ -242,11 +242,33 @@ async function loadHealth() {
     if (data.tokenStatus?.connected) {
       const hours = Math.max(0, Math.floor(data.tokenStatus.expiresInMs / 3600000));
       const mins = Math.max(0, Math.floor((data.tokenStatus.expiresInMs % 3600000) / 60000));
-      el.badgeToken.textContent = `Token MELI: Activo (${hours}h ${mins}m)`;
-      el.badgeToken.classList.add("ok");
+      if (data.tokenStatus.isSeller === false) {
+        el.badgeToken.textContent = `⚠️ Token: ${data.tokenStatus.nickname || data.tokenStatus.userId} (No es Vendedor)`;
+        el.badgeToken.style.background = "rgba(245, 158, 11, 0.15)";
+        el.badgeToken.style.color = "#fbbf24";
+        el.badgeToken.style.borderColor = "rgba(245, 158, 11, 0.4)";
+        el.badgeToken.style.cursor = "pointer";
+        el.badgeToken.title = `El token conectado (${data.tokenStatus.userId}) no coincide con el Vendedor (${data.tokenStatus.expectedSellerId}). Hacé clic acá para conectar con el vendedor de test.`;
+        el.badgeToken.onclick = () => window.open("/oauth/login", "_blank");
+      } else {
+        el.badgeToken.textContent = `Token MELI: Vendedor (${hours}h ${mins}m)`;
+        el.badgeToken.classList.add("ok");
+        el.badgeToken.style.background = "";
+        el.badgeToken.style.color = "";
+        el.badgeToken.style.borderColor = "";
+        el.badgeToken.style.cursor = "default";
+        el.badgeToken.title = `Conectado como vendedor oficial: ${data.tokenStatus.nickname || data.tokenStatus.userId}`;
+        el.badgeToken.onclick = null;
+      }
     } else {
       el.badgeToken.textContent = `Token MELI: Desconectado`;
       el.badgeToken.classList.remove("ok");
+      el.badgeToken.style.background = "rgba(244, 63, 94, 0.15)";
+      el.badgeToken.style.color = "#fb7185";
+      el.badgeToken.style.borderColor = "rgba(244, 63, 94, 0.4)";
+      el.badgeToken.style.cursor = "pointer";
+      el.badgeToken.title = "Hacé clic para conectar con Mercado Libre";
+      el.badgeToken.onclick = () => window.open("/oauth/login", "_blank");
     }
 
     if (data.operatingMode) {
@@ -510,7 +532,7 @@ function renderQuestionsTable() {
 
   el.questionsTbody.innerHTML = state.filteredQuestions
     .map((q) => {
-      const isSimulated = q.item_id === "SIMULATED" || q.buyer_id === "simulador" || Number(q.question_id) >= 900000000;
+      const isSimulated = q.item_id === "SIMULATED" || q.buyer_id === "simulador";
       const originBadge = isSimulated
         ? `<span class="q-badge-origin simulated">Simulador</span>`
         : `<span class="q-badge-origin real">MELI Real</span>`;
@@ -619,7 +641,7 @@ window.openInWhatsApp = function (id) {
   const q = state.rawQuestions.find((item) => String(item.question_id) === String(id));
   if (!q) return;
 
-  const isSimulated = q.item_id === "SIMULATED" || q.buyer_id === "simulador" || Number(q.question_id) >= 900000000;
+  const isSimulated = q.item_id === "SIMULATED" || q.buyer_id === "simulador";
   receiveWhatsAppNotification({
     question_id: q.question_id,
     item_title: isSimulated ? "Auriculares Bluetooth Inalámbricos XZ Pro" : q.item_id,

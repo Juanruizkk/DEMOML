@@ -15,6 +15,12 @@ export interface IMeliClient {
   getItem(sellerId: string, itemId: string): Promise<Item>;
   postAnswer(sellerId: string, questionId: string, text: string): Promise<void>;
   getReceivedQuestions(sellerId: string): Promise<MeliQuestionDTO[]>;
+  getSellerProfile(sellerId: string, accessToken?: string): Promise<{
+    id: number;
+    nickname: string;
+    email?: string;
+    permalink?: string;
+  }>;
   exchangeCodeForTokens(code: string): Promise<{
     access_token: string;
     refresh_token: string;
