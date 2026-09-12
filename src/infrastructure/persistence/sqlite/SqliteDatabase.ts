@@ -24,6 +24,17 @@ export class SqliteDatabase {
   }
 
   private static initSchema(db: DatabaseType): void {
+    const addColumnIfNotExists = (table: string, column: string, type: string) => {
+      try {
+        const info = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+        if (info.length > 0 && !info.some((col) => col.name === column)) {
+          db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+        }
+      } catch (e) {
+        // Ignorar si la tabla todavía no existe
+      }
+    };
+
     db.exec(`
       CREATE TABLE IF NOT EXISTS tenants (
         id TEXT PRIMARY KEY,
@@ -40,7 +51,7 @@ export class SqliteDatabase {
 
       CREATE TABLE IF NOT EXISTS questions (
         question_id TEXT PRIMARY KEY,
-        seller_id TEXT NOT NULL,
+        seller_id TEXT NOT NULL DEFAULT 'default',
         item_id TEXT NOT NULL,
         buyer_id TEXT,
         text TEXT NOT NULL,
@@ -57,9 +68,6 @@ export class SqliteDatabase {
         latency_ms INTEGER,
         ml_error TEXT
       );
-
-      CREATE INDEX IF NOT EXISTS idx_questions_seller ON questions(seller_id);
-      CREATE INDEX IF NOT EXISTS idx_questions_status ON questions(app_status);
 
       CREATE TABLE IF NOT EXISTS items_cache (
         item_id TEXT PRIMARY KEY,
@@ -78,8 +86,6 @@ export class SqliteDatabase {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
-      CREATE INDEX IF NOT EXISTS idx_events_seller ON events(seller_id);
-
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
@@ -91,13 +97,28 @@ export class SqliteDatabase {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
-      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-      CREATE INDEX IF NOT EXISTS idx_users_seller ON users(seller_id);
-
       CREATE TABLE IF NOT EXISTS app_config (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+    `);
+
+    // Migraciones automáticas seguras si las tablas existían de versiones anteriores
+    addColumnIfNotExists("questions", "seller_id", "TEXT NOT NULL DEFAULT 'default'");
+    addColumnIfNotExists("questions", "latency_ms", "INTEGER");
+    addColumnIfNotExists("questions", "ml_error", "TEXT");
+    addColumnIfNotExists("items_cache", "seller_id", "TEXT");
+    addColumnIfNotExists("events", "seller_id", "TEXT");
+    addColumnIfNotExists("events", "question_id", "TEXT");
+    addColumnIfNotExists("events", "duration_ms", "INTEGER");
+    addColumnIfNotExists("users", "seller_id", "TEXT");
+
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_questions_seller ON questions(seller_id);
+      CREATE INDEX IF NOT EXISTS idx_questions_status ON questions(app_status);
+      CREATE INDEX IF NOT EXISTS idx_events_seller ON events(seller_id);
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+      CREATE INDEX IF NOT EXISTS idx_users_seller ON users(seller_id);
     `);
   }
 }
