@@ -101,6 +101,25 @@ export class SqliteDatabase {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS claims (
+        id TEXT PRIMARY KEY,
+        seller_id TEXT NOT NULL,
+        order_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        stage TEXT NOT NULL,
+        status TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        buyer_id TEXT,
+        actions_json TEXT NOT NULL DEFAULT '[]',
+        due_date DATETIME NOT NULL,
+        notified_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_claims_seller ON claims(seller_id);
+      CREATE INDEX IF NOT EXISTS idx_claims_due_date ON claims(due_date);
     `);
 
     // Migraciones automáticas seguras si las tablas existían de versiones anteriores
