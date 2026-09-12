@@ -1,4 +1,4 @@
-import { IMeliClient, MeliQuestionDTO } from "../../application/interfaces/IMeliClient.js";
+import { IMeliClient, MeliQuestionDTO, MeliClaimDTO } from "../../application/interfaces/IMeliClient.js";
 import { ITenantRepository } from "../../application/interfaces/ITenantRepository.js";
 import { Item } from "../../domain/entities/Item.js";
 
@@ -151,6 +151,10 @@ export class MeliApiClient implements IMeliClient {
     }
 
     return res.json();
+  }
+
+  public async getClaim(sellerId: string, claimId: string): Promise<MeliClaimDTO> {
+    return this.meliFetch<MeliClaimDTO>(sellerId, `/post-purchase/v1/claims/${claimId}`);
   }
 
   public async refreshTokens(refreshToken: string): Promise<{
