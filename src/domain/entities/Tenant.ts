@@ -1,19 +1,33 @@
+export type WhatsAppMode = "platform_shared" | "custom_byo";
+
 export interface TenantSettings {
   autoAnswerEnabled: boolean;
-  confidenceThreshold: number; // e.g. 0.75
+  confidenceThreshold: number;
   tone: "casual_rioplatense" | "formal" | "concise";
-  customInstructions?: string; // Custom FAQ/business rules
-  whatsappAlertPhone?: string; // WhatsApp number for human review alerts
+  customInstructions?: string;
+  whatsappAlertPhone?: string;
+
+  // Hybrid WhatsApp config
+  whatsappMode: WhatsAppMode;
+  customPhoneNumberId?: string;
+  customAccessToken?: string;
+  customWabaId?: string;
+
+  // Quota and billing
+  planId: "starter" | "pro" | "enterprise";
+  monthlyAlertsLimit: number;
+  alertsSentThisMonth: number;
+  cycleResetDate: string;
 }
 
 export interface TenantProps {
-  id: string; // Internal UUID or seller ID
-  sellerId: string; // Mercado Libre User ID
+  id: string;
+  sellerId: string;
   nickname?: string;
   email?: string;
   accessToken: string;
   refreshToken: string;
-  expiresAt: number; // Timestamp ms
+  expiresAt: number;
   settings: TenantSettings;
   createdAt: Date;
   updatedAt: Date;
@@ -72,6 +86,29 @@ export class Tenant {
     this.updatedAt = new Date();
   }
 
+  public canSendWhatsAppAlert(): boolean {
+    if (this.settings.whatsappMode === "custom_byo") return true;
+    return this.settings.alertsSentThisMonth < this.settings.monthlyAlertsLimit;
+  }
+
+  public incrementAlertsSent(): void {
+    this.settings = {
+      ...this.settings,
+      alertsSentThisMonth: this.settings.alertsSentThisMonth + 1,
+    };
+    this.updatedAt = new Date();
+  }
+
+  public getWhatsAppCredentials(): { phoneNumberId?: string; accessToken?: string } | null {
+    if (this.settings.whatsappMode === "custom_byo") {
+      return {
+        phoneNumberId: this.settings.customPhoneNumberId,
+        accessToken: this.settings.customAccessToken,
+      };
+    }
+    return null;
+  }
+
   public static createDefault(props: {
     id: string;
     sellerId: string;
@@ -82,6 +119,9 @@ export class Tenant {
     email?: string;
   }): Tenant {
     const now = new Date();
+    const nextMonth = new Date(now);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+
     return new Tenant({
       id: props.id,
       sellerId: props.sellerId,
@@ -95,6 +135,11 @@ export class Tenant {
         confidenceThreshold: 0.75,
         tone: "casual_rioplatense",
         customInstructions: "",
+        whatsappMode: "platform_shared",
+        planId: "starter",
+        monthlyAlertsLimit: 150,
+        alertsSentThisMonth: 0,
+        cycleResetDate: nextMonth.toISOString(),
       },
       createdAt: now,
       updatedAt: now,
