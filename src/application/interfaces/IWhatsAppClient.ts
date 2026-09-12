@@ -1,12 +1,19 @@
+export interface WhatsAppCredentialsOverride {
+  phoneNumberId?: string;
+  accessToken?: string;
+}
+
 export interface SendWhatsAppTextDTO {
-  to: string; // E.164, e.g. "+5491112345678"
+  to: string;
   text: string;
+  credentials?: WhatsAppCredentialsOverride;
 }
 
 export interface SendWhatsAppButtonsDTO {
   to: string;
   bodyText: string;
-  buttons: Array<{ id: string; title: string }>; // title max 20 chars
+  buttons: Array<{ id: string; title: string }>;
+  credentials?: WhatsAppCredentialsOverride;
 }
 
 export interface SendWhatsAppTemplateDTO {
@@ -14,6 +21,7 @@ export interface SendWhatsAppTemplateDTO {
   templateName: string;
   languageCode: string;
   parameters: string[];
+  credentials?: WhatsAppCredentialsOverride;
 }
 
 export interface IWhatsAppClient {
