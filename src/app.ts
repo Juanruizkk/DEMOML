@@ -10,6 +10,7 @@ import { SqliteQuestionRepository } from "./infrastructure/persistence/sqlite/Sq
 import { SqliteItemCacheRepository } from "./infrastructure/persistence/sqlite/SqliteItemCacheRepository.js";
 import { SqliteEventRepository } from "./infrastructure/persistence/sqlite/SqliteEventRepository.js";
 import { SqliteUserRepository } from "./infrastructure/persistence/sqlite/SqliteUserRepository.js";
+import { SqliteClaimRepository } from "./infrastructure/persistence/sqlite/SqliteClaimRepository.js";
 
 import { CryptoPasswordHasher } from "./infrastructure/security/CryptoPasswordHasher.js";
 import { JwtTokenService } from "./infrastructure/security/JwtTokenService.js";
@@ -18,12 +19,16 @@ import { MeliApiClient } from "./infrastructure/meli/MeliApiClient.js";
 import { LangChainLLMService } from "./infrastructure/llm/LangChainLLMService.js";
 import { InMemoryQueueBroker } from "./infrastructure/queue/InMemoryQueueBroker.js";
 import { FastifySseNotifier } from "./infrastructure/realtime/FastifySseNotifier.js";
+import { MetaWhatsAppClient } from "./infrastructure/whatsapp/MetaWhatsAppClient.js";
 
 import { IngestWebhookUseCase } from "./application/use-cases/IngestWebhookUseCase.js";
+import { IngestClaimWebhookUseCase } from "./application/use-cases/IngestClaimWebhookUseCase.js";
 import { ProcessQuestionUseCase } from "./application/use-cases/ProcessQuestionUseCase.js";
+import { ProcessClaimUseCase } from "./application/use-cases/ProcessClaimUseCase.js";
 import { ApproveAnswerUseCase } from "./application/use-cases/ApproveAnswerUseCase.js";
 import { RejectAnswerUseCase } from "./application/use-cases/RejectAnswerUseCase.js";
 import { SimulateQuestionUseCase } from "./application/use-cases/SimulateQuestionUseCase.js";
+import { HandleWhatsAppReplyUseCase } from "./application/use-cases/HandleWhatsAppReplyUseCase.js";
 
 import { RegisterUserUseCase } from "./application/use-cases/auth/RegisterUserUseCase.js";
 import { LoginUserUseCase } from "./application/use-cases/auth/LoginUserUseCase.js";
@@ -44,6 +49,7 @@ import { AuthController } from "./presentation/controllers/AuthController.js";
 import { SimulatorController } from "./presentation/controllers/SimulatorController.js";
 import { TenantController } from "./presentation/controllers/TenantController.js";
 import { AdminController } from "./presentation/controllers/AdminController.js";
+import { WhatsAppWebhookController } from "./presentation/controllers/WhatsAppWebhookController.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -64,6 +70,7 @@ export function buildApp(): FastifyInstance {
   const itemCacheRepo = new SqliteItemCacheRepository(db);
   const eventRepo = new SqliteEventRepository(db);
   const userRepo = new SqliteUserRepository(db);
+  const claimRepo = new SqliteClaimRepository(db);
 
   const passwordHasher = new CryptoPasswordHasher();
   const tokenService = new JwtTokenService();
@@ -73,6 +80,7 @@ export function buildApp(): FastifyInstance {
   const llmService = new LangChainLLMService();
   const queueBroker = new InMemoryQueueBroker(5);
   const sseNotifier = new FastifySseNotifier();
+  const whatsAppClient = new MetaWhatsAppClient();
 
   // 4. Casos de Uso Auth
   const registerUserUseCase = new RegisterUserUseCase(userRepo, passwordHasher, tokenService);
@@ -80,60 +88,48 @@ export function buildApp(): FastifyInstance {
   const getCurrentUserUseCase = new GetCurrentUserUseCase(userRepo);
   const seedSuperAdminUseCase = new SeedSuperAdminUseCase(userRepo, passwordHasher);
   const connectMeliAccountUseCase = new ConnectMeliAccountUseCase(
-    meliClient,
-    tenantRepo,
-    userRepo,
-    eventRepo,
-    tokenService
+    meliClient, tenantRepo, userRepo, eventRepo, tokenService
   );
   const getOnboardingStatusUseCase = new GetOnboardingStatusUseCase(userRepo, tenantRepo);
 
-  // Inicializar Super Admin si no existe
   seedSuperAdminUseCase.execute().catch((err) => console.error("Error seeding super admin:", err));
 
-  // Casos de Uso Core
+  // 5. Casos de Uso Core
+  const approveAnswerUseCase = new ApproveAnswerUseCase(questionRepo, meliClient, eventRepo, sseNotifier);
+  const rejectAnswerUseCase = new RejectAnswerUseCase(questionRepo, eventRepo, sseNotifier);
+
   const ingestWebhookUseCase = new IngestWebhookUseCase(queueBroker, eventRepo);
+
+  const processClaimUseCase = new ProcessClaimUseCase(
+    claimRepo, tenantRepo, eventRepo, meliClient, whatsAppClient, sseNotifier
+  );
+  const ingestClaimUseCase = new IngestClaimWebhookUseCase(processClaimUseCase, eventRepo);
+
   const processQuestionUseCase = new ProcessQuestionUseCase(
-    questionRepo,
-    itemCacheRepo,
-    tenantRepo,
-    eventRepo,
-    meliClient,
-    llmService,
-    sseNotifier
-  );
-  const approveAnswerUseCase = new ApproveAnswerUseCase(
-    questionRepo,
-    meliClient,
-    eventRepo,
-    sseNotifier
-  );
-  const rejectAnswerUseCase = new RejectAnswerUseCase(
-    questionRepo,
-    eventRepo,
-    sseNotifier
-  );
-  const simulateQuestionUseCase = new SimulateQuestionUseCase(
-    questionRepo,
-    tenantRepo,
-    eventRepo,
-    llmService,
-    sseNotifier
+    questionRepo, itemCacheRepo, tenantRepo, eventRepo, meliClient, llmService, sseNotifier, whatsAppClient
   );
 
-  // Casos de Uso Admin
+  const simulateQuestionUseCase = new SimulateQuestionUseCase(
+    questionRepo, tenantRepo, eventRepo, llmService, sseNotifier
+  );
+
+  const handleWhatsAppReplyUseCase = new HandleWhatsAppReplyUseCase(
+    approveAnswerUseCase, rejectAnswerUseCase, eventRepo, whatsAppClient
+  );
+
+  // 6. Casos de Uso Admin
   const getGlobalMetricsUseCase = new GetGlobalMetricsUseCase(questionRepo, tenantRepo);
   const listTenantsOverviewUseCase = new ListTenantsOverviewUseCase(tenantRepo, questionRepo);
   const getTenantDetailUseCase = new GetTenantDetailUseCase(tenantRepo, questionRepo, eventRepo);
   const toggleTenantAutoAnswerUseCase = new ToggleTenantAutoAnswerUseCase(tenantRepo, eventRepo);
   const forceTokenRefreshUseCase = new ForceTokenRefreshUseCase(tenantRepo, meliClient, eventRepo);
 
-  // 5. Registro de Workers en la Cola
+  // 7. Workers de Cola
   queueBroker.registerProcessor(async (job) => {
     await processQuestionUseCase.execute(job);
   });
 
-  // 6. Guards de Autenticación y Autorización
+  // 8. Guards de Auth
   const authenticate = async (request: FastifyRequest, reply: FastifyReply) => {
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -143,15 +139,15 @@ export function buildApp(): FastifyInstance {
     try {
       const payload = tokenService.verifyToken(token);
       (request as any).user = payload;
-    } catch (err: any) {
-      return reply.status(401).send({ error: `Token inválido: ${err.message}` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return reply.status(401).send({ error: `Token inválido: ${message}` });
     }
   };
 
   const requireSuperAdmin = async (request: FastifyRequest, reply: FastifyReply) => {
     await authenticate(request, reply);
     if (reply.sent) return;
-
     const user = (request as any).user;
     if (!user || user.role !== "super_admin") {
       return reply.status(403).send({ error: "Acceso denegado: se requieren permisos de Super Administrador." });
@@ -166,65 +162,60 @@ export function buildApp(): FastifyInstance {
         const payload = tokenService.verifyToken(token);
         (request as any).user = payload;
       } catch (err) {
-        // Se ignora para permitir acceso de demo sin token
+        // ignored
       }
     }
   };
 
-  // 7. Controladores
-  const webhookCtrl = new WebhookController(ingestWebhookUseCase);
+  // 9. Controladores
+  const webhookCtrl = new WebhookController(ingestWebhookUseCase, ingestClaimUseCase);
   const questionsCtrl = new QuestionsController(questionRepo, approveAnswerUseCase, rejectAnswerUseCase);
   const authCtrl = new AuthController(
-    registerUserUseCase,
-    loginUserUseCase,
-    getCurrentUserUseCase,
-    connectMeliAccountUseCase,
-    getOnboardingStatusUseCase,
-    tokenService
+    registerUserUseCase, loginUserUseCase, getCurrentUserUseCase,
+    connectMeliAccountUseCase, getOnboardingStatusUseCase, tokenService
   );
   const simulatorCtrl = new SimulatorController(simulateQuestionUseCase);
   const tenantCtrl = new TenantController(tenantRepo, eventRepo, llmService);
   const adminCtrl = new AdminController(
-    getGlobalMetricsUseCase,
-    listTenantsOverviewUseCase,
-    getTenantDetailUseCase,
-    toggleTenantAutoAnswerUseCase,
-    forceTokenRefreshUseCase
+    getGlobalMetricsUseCase, listTenantsOverviewUseCase, getTenantDetailUseCase,
+    toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase
   );
+  const waWebhookCtrl = new WhatsAppWebhookController(handleWhatsAppReplyUseCase);
 
-  // 8. Rutas
-  // Auth API
+  // 10. Rutas — Auth
   app.post("/api/auth/register", authCtrl.register);
   app.post("/api/auth/login", authCtrl.login);
   app.get("/api/auth/me", { preHandler: authenticate }, authCtrl.getMe);
   app.get("/api/auth/onboarding-status", { preHandler: authenticate }, authCtrl.getOnboardingStatus);
   app.get("/api/auth/meli-auth-url", { preHandler: optionalAuthenticate }, authCtrl.getMeliAuthUrl);
 
-  // Super Admin API
+  // Rutas — Super Admin
   app.get("/api/admin/metrics", { preHandler: requireSuperAdmin }, adminCtrl.getMetrics);
   app.get("/api/admin/tenants", { preHandler: requireSuperAdmin }, adminCtrl.getTenants);
   app.get("/api/admin/tenants/:sellerId", { preHandler: requireSuperAdmin }, adminCtrl.getTenantDetail);
   app.post("/api/admin/tenants/:sellerId/toggle", { preHandler: requireSuperAdmin }, adminCtrl.toggleAutoAnswer);
   app.post("/api/admin/tenants/:sellerId/refresh-token", { preHandler: requireSuperAdmin }, adminCtrl.refreshToken);
 
-  // Webhooks & OAuth
+  // Rutas — Webhooks & OAuth
   app.post("/webhook/ml", webhookCtrl.handle);
+  app.get("/webhook/whatsapp", waWebhookCtrl.verify);
+  app.post("/webhook/whatsapp", waWebhookCtrl.receive);
   app.get("/oauth/login", { preHandler: optionalAuthenticate }, authCtrl.meliOAuthLogin);
   app.get("/oauth/callback", authCtrl.meliOAuthCallback);
 
-  // SSE Stream
+  // Rutas — SSE
   app.get("/api/events/stream", (request, reply) => {
     const sellerId = (request.query as any)?.seller_id;
     sseNotifier.registerClient(reply, sellerId);
   });
 
-  // Questions & Actions (con autenticación opcional para compatibilidad con la demo)
+  // Rutas — Questions & Actions
   app.get("/api/questions", { preHandler: optionalAuthenticate }, questionsCtrl.getQuestions);
   app.post("/api/questions/:id/approve", { preHandler: optionalAuthenticate }, questionsCtrl.approve);
   app.post("/api/questions/:id/reject", { preHandler: optionalAuthenticate }, questionsCtrl.reject);
   app.post("/api/whatsapp/reply", questionsCtrl.replyViaWhatsapp);
 
-  // Simulator & Health & Tenant
+  // Rutas — Simulator, Health, Tenant
   app.post("/api/simulate-question", simulatorCtrl.simulate);
   app.get("/api/health", tenantCtrl.getHealth);
   app.get("/api/events", { preHandler: optionalAuthenticate }, tenantCtrl.getEvents);
