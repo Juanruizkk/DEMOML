@@ -76,34 +76,51 @@ export class ProcessClaimUseCase {
       const tenant = await this.tenantRepo.findBySellerId(sellerId);
       const phone = tenant?.settings?.whatsappAlertPhone;
 
-      if (phone) {
-        const urgencyEmoji = claim.getUrgency() === "critical" ? "🔴" : claim.getUrgency() === "high" ? "🟠" : "🟡";
-        const typeLabel = type === "med_pnr" ? "Paquete no recibido (PNR)" : type === "med_pdd" ? "Producto defectuoso (PDD)" : "Reclamo";
+      if (phone && tenant) {
+        if (tenant.canSendWhatsAppAlert()) {
+          const creds = tenant.getWhatsAppCredentials();
+          const urgencyEmoji = claim.getUrgency() === "critical" ? "🔴" : claim.getUrgency() === "high" ? "🟠" : "🟡";
+          const typeLabel = type === "med_pnr" ? "Paquete no recibido (PNR)" : type === "med_pdd" ? "Producto defectuoso (PDD)" : "Reclamo";
 
-        const bodyText =
-          `${urgencyEmoji} *NUEVO RECLAMO en Mercado Libre*\n\n` +
-          `📦 Orden: #${claim.orderId}\n` +
-          `🔖 Tipo: ${typeLabel}\n` +
-          `⏳ Tiempo restante: ${claim.getRemainingHours()} horas\n` +
-          `🆔 Reclamo: ${claimId}\n\n` +
-          `Respondé a tiempo para evitar penalización automática.`;
+          const bodyText =
+            `${urgencyEmoji} *NUEVO RECLAMO en Mercado Libre*\n\n` +
+            `📦 Orden: #${claim.orderId}\n` +
+            `🔖 Tipo: ${typeLabel}\n` +
+            `⏳ Tiempo restante: ${claim.getRemainingHours()} horas\n` +
+            `🆔 Reclamo: ${claimId}\n\n` +
+            `Respondé a tiempo para evitar penalización automática.`;
 
-        await this.whatsAppClient.sendInteractiveButtons({
-          to: phone,
-          bodyText,
-          buttons: [{ id: `claim_ack_${claimId}`, title: "✅ Enterado" }],
-        });
+          await this.whatsAppClient.sendInteractiveButtons({
+            to: phone,
+            bodyText,
+            buttons: [{ id: `claim_ack_${claimId}`, title: "✅ Enterado" }],
+            credentials: creds ?? undefined,
+          });
 
-        claim.markNotified();
-        await this.claimRepo.save(claim);
+          if (tenant.settings.whatsappMode === "platform_shared") {
+            tenant.incrementAlertsSent();
+            await this.tenantRepo.save(tenant);
+          }
 
-        await this.eventRepo.log(
-          new EventLog({
-            sellerId,
-            type: "claim_notified",
-            message: `📲 Alerta WhatsApp enviada para reclamo ${claimId}`,
-          })
-        );
+          claim.markNotified();
+          await this.claimRepo.save(claim);
+
+          await this.eventRepo.log(
+            new EventLog({
+              sellerId,
+              type: "claim_notified",
+              message: `📲 Alerta WhatsApp enviada para reclamo ${claimId}`,
+            })
+          );
+        } else {
+          await this.eventRepo.log(
+            new EventLog({
+              sellerId,
+              type: "WHATSAPP_QUOTA_EXCEEDED",
+              message: `Límite mensual de alertas alcanzado (${tenant.settings.alertsSentThisMonth}/${tenant.settings.monthlyAlertsLimit}). Alerta omitida.`,
+            })
+          );
+        }
       }
 
       // 5. SSE broadcast

@@ -222,21 +222,39 @@ export class ProcessQuestionUseCase {
         });
 
         // Send real WhatsApp notification if tenant has a phone configured
-        const waPhone = tenant?.settings?.whatsappAlertPhone;
-        if (waPhone) {
-          await this.whatsAppClient.sendInteractiveButtons({
-            to: waPhone,
-            bodyText:
-              `🤔 *Pregunta requiere revisión*\n\n` +
-              `📦 Ítem: ${item.title}\n` +
-              `💬 "${question.text}"\n\n` +
-              `💡 Sugerencia: "${(classification.answer || "").slice(0, 100)}${(classification.answer || "").length > 100 ? "…" : ""}"\n\n` +
-              `Motivo: ${reviewReason}`,
-            buttons: [
-              { id: `approve_${questionId}`, title: "✅ Aprobar" },
-              { id: `reject_${questionId}`, title: "❌ Rechazar" },
-            ],
-          }).catch((err) => console.error("[ProcessQuestionUseCase] Error WA:", err));
+        const tenantForWa = await this.tenantRepo.findBySellerId(sellerId);
+        const waPhone = tenantForWa?.settings?.whatsappAlertPhone;
+        if (waPhone && tenantForWa) {
+          if (tenantForWa.canSendWhatsAppAlert()) {
+            const creds = tenantForWa.getWhatsAppCredentials();
+            await this.whatsAppClient.sendInteractiveButtons({
+              to: waPhone,
+              bodyText:
+                `🤔 *Pregunta requiere revisión*\n\n` +
+                `📦 Ítem: ${item.title}\n` +
+                `💬 "${question.text}"\n\n` +
+                `💡 Sugerencia: "${(classification.answer || "").slice(0, 100)}${(classification.answer || "").length > 100 ? "…" : ""}"\n\n` +
+                `Motivo: ${reviewReason}`,
+              buttons: [
+                { id: `approve_${questionId}`, title: "✅ Aprobar" },
+                { id: `reject_${questionId}`, title: "❌ Rechazar" },
+              ],
+              credentials: creds ?? undefined,
+            }).catch((err) => console.error("[ProcessQuestionUseCase] Error WA:", err));
+
+            if (tenantForWa.settings.whatsappMode === "platform_shared") {
+              tenantForWa.incrementAlertsSent();
+              await this.tenantRepo.save(tenantForWa);
+            }
+          } else {
+            await this.eventRepo.log(
+              new EventLog({
+                sellerId,
+                type: "WHATSAPP_QUOTA_EXCEEDED",
+                message: `Límite mensual de alertas alcanzado (${tenantForWa.settings.alertsSentThisMonth}/${tenantForWa.settings.monthlyAlertsLimit}). Alerta omitida.`,
+              })
+            );
+          }
         }
       }
 
