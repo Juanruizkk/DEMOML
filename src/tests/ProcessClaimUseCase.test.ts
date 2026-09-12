@@ -119,10 +119,18 @@ describe("ProcessClaimUseCase", () => {
     expect(whatsAppClient.sendInteractiveButtons).not.toHaveBeenCalled();
   });
 
-  it("sends WhatsApp when tenant has whatsappAlertPhone", async () => {
+  it("sends WhatsApp when tenant has whatsappAlertPhone and quota available", async () => {
     const { useCase, tenantRepo, whatsAppClient } = makeUseCase();
     const mockTenant = {
-      settings: { whatsappAlertPhone: "+5491112345678", autoAnswerEnabled: true, confidenceThreshold: 0.75, tone: "casual_rioplatense" },
+      settings: {
+        whatsappAlertPhone: "+5491112345678",
+        whatsappMode: "platform_shared",
+        alertsSentThisMonth: 10,
+        monthlyAlertsLimit: 150,
+      },
+      canSendWhatsAppAlert: vi.fn().mockReturnValue(true),
+      getWhatsAppCredentials: vi.fn().mockReturnValue(null),
+      incrementAlertsSent: vi.fn(),
     } as unknown as Tenant;
     vi.mocked(tenantRepo.findBySellerId).mockResolvedValue(mockTenant);
 
@@ -132,6 +140,56 @@ describe("ProcessClaimUseCase", () => {
     const callArg = vi.mocked(whatsAppClient.sendInteractiveButtons).mock.calls[0][0];
     expect(callArg.to).toBe("+5491112345678");
     expect(callArg.buttons[0].id).toBe("claim_ack_5000000001");
+    expect(mockTenant.incrementAlertsSent).toHaveBeenCalled();
+    expect(tenantRepo.save).toHaveBeenCalled();
+  });
+
+  it("does NOT send WhatsApp and logs WHATSAPP_QUOTA_EXCEEDED when quota exhausted", async () => {
+    const { useCase, tenantRepo, whatsAppClient, eventRepo } = makeUseCase();
+    const mockTenant = {
+      settings: {
+        whatsappAlertPhone: "+5491112345678",
+        whatsappMode: "platform_shared",
+        alertsSentThisMonth: 150,
+        monthlyAlertsLimit: 150,
+      },
+      canSendWhatsAppAlert: vi.fn().mockReturnValue(false),
+      getWhatsAppCredentials: vi.fn().mockReturnValue(null),
+      incrementAlertsSent: vi.fn(),
+    } as unknown as Tenant;
+    vi.mocked(tenantRepo.findBySellerId).mockResolvedValue(mockTenant);
+
+    await useCase.execute({ claimId: "5000000001", sellerId: "1111" });
+
+    expect(whatsAppClient.sendInteractiveButtons).not.toHaveBeenCalled();
+    expect(eventRepo.log).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "WHATSAPP_QUOTA_EXCEEDED" })
+    );
+  });
+
+  it("sends WhatsApp with BYO credentials and does NOT increment counter", async () => {
+    const { useCase, tenantRepo, whatsAppClient } = makeUseCase();
+    const byoCreds = { phoneNumberId: "111222333", accessToken: "EAAG_byo_token" };
+    const mockTenant = {
+      settings: {
+        whatsappAlertPhone: "+5491112345678",
+        whatsappMode: "custom_byo",
+        alertsSentThisMonth: 0,
+        monthlyAlertsLimit: 150,
+      },
+      canSendWhatsAppAlert: vi.fn().mockReturnValue(true),
+      getWhatsAppCredentials: vi.fn().mockReturnValue(byoCreds),
+      incrementAlertsSent: vi.fn(),
+    } as unknown as Tenant;
+    vi.mocked(tenantRepo.findBySellerId).mockResolvedValue(mockTenant);
+
+    await useCase.execute({ claimId: "5000000001", sellerId: "1111" });
+
+    expect(whatsAppClient.sendInteractiveButtons).toHaveBeenCalledOnce();
+    const callArg = vi.mocked(whatsAppClient.sendInteractiveButtons).mock.calls[0][0];
+    expect(callArg.credentials).toEqual(byoCreds);
+    expect(mockTenant.incrementAlertsSent).not.toHaveBeenCalled();
+    expect(tenantRepo.save).not.toHaveBeenCalled();
   });
 
   it("broadcasts SSE event", async () => {
