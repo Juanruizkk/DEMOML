@@ -312,7 +312,36 @@ function renderSettingsForm() {
   document.getElementById("setting-threshold").value = s.confidenceThreshold ?? 0.75;
   document.getElementById("label-threshold-val").textContent = `${Math.round((s.confidenceThreshold ?? 0.75) * 100)}%`;
   document.getElementById("setting-instructions").value = s.customInstructions || "";
+  // WhatsApp settings
+  const mode = s.whatsappMode || "platform_shared";
   document.getElementById("setting-whatsapp-phone").value = s.whatsappAlertPhone || "";
+  document.getElementById("setting-whatsapp-phone-byo").value = s.whatsappAlertPhone || "";
+  document.getElementById("setting-custom-phone-id").value = s.customPhoneNumberId || "";
+  document.getElementById("setting-custom-token").value = s.customAccessToken || "";
+  document.getElementById("setting-custom-waba-id").value = s.customWabaId || "";
+
+  // Set radio
+  const radioShared = document.getElementById("radio-platform-shared");
+  const radioByo = document.getElementById("radio-custom-byo");
+  if (mode === "custom_byo") {
+    radioByo.checked = true;
+  } else {
+    radioShared.checked = true;
+  }
+  onWaModeChange();
+
+  // Quota bar
+  const used = s.alertsSentThisMonth || 0;
+  const limit = s.monthlyAlertsLimit || 150;
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  document.getElementById("quota-bar-fill").style.width = pct + "%";
+  document.getElementById("quota-used-label").textContent = `${used} alerta${used !== 1 ? "s" : ""} usada${used !== 1 ? "s" : ""}`;
+  document.getElementById("quota-limit-label").textContent = `de ${limit} este mes`;
+  document.getElementById("quota-warning").style.display = pct >= 80 ? "block" : "none";
+  const planNames = { starter: "Plan Starter", pro: "Plan Pro", enterprise: "Plan Enterprise" };
+  document.getElementById("quota-plan-badge").textContent = planNames[s.planId] || "Plan Starter";
+  const resetDate = s.cycleResetDate ? new Date(s.cycleResetDate).toLocaleDateString("es-AR") : "—";
+  document.getElementById("quota-reset-date").textContent = resetDate;
 
   const tone = s.tone || "casual_rioplatense";
   const radio = document.querySelector(`input[name="setting-tone"][value="${tone}"]`);
@@ -355,8 +384,27 @@ async function saveAISettings() {
   }
 }
 
+function onWaModeChange() {
+  const mode = document.querySelector('input[name="wa-mode"]:checked')?.value || "platform_shared";
+  document.getElementById("panel-mode-shared").style.display = mode === "platform_shared" ? "block" : "none";
+  document.getElementById("panel-mode-byo").style.display = mode === "custom_byo" ? "block" : "none";
+}
+
 async function saveWhatsAppSettings() {
-  const whatsappAlertPhone = document.getElementById("setting-whatsapp-phone").value.trim();
+  const mode = document.querySelector('input[name="wa-mode"]:checked')?.value || "platform_shared";
+
+  const payload = {
+    whatsappMode: mode,
+  };
+
+  if (mode === "platform_shared") {
+    payload.whatsappAlertPhone = document.getElementById("setting-whatsapp-phone").value.trim();
+  } else {
+    payload.whatsappAlertPhone = document.getElementById("setting-whatsapp-phone-byo").value.trim();
+    payload.customPhoneNumberId = document.getElementById("setting-custom-phone-id").value.trim();
+    payload.customAccessToken = document.getElementById("setting-custom-token").value.trim();
+    payload.customWabaId = document.getElementById("setting-custom-waba-id").value.trim();
+  }
 
   try {
     const res = await fetch("/api/tenant/settings", {
@@ -365,14 +413,14 @@ async function saveWhatsAppSettings() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${state.token}`,
       },
-      body: JSON.stringify({ whatsappAlertPhone }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Error guardando WhatsApp.");
+    if (!res.ok) throw new Error(data.error || "Error guardando configuración.");
 
     state.tenant.settings = data.settings;
-    showToast("📱 Teléfono de alertas de WhatsApp guardado");
+    showToast("📱 Configuración de WhatsApp guardada");
   } catch (err) {
     showToast(`❌ Error: ${err.message}`);
   }

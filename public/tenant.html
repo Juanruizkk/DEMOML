@@ -252,28 +252,96 @@
             <p>Recibí alertas instantáneas en tu celular para preguntas dudosas y reclamos urgentes.</p>
           </div>
           <button class="btn-save-primary" onclick="saveWhatsAppSettings()">
-            💾 Guardar Número
+            💾 Guardar Configuración
           </button>
         </div>
 
         <div class="settings-grid">
+
+          <!-- A. Mode selector card -->
           <div class="settings-card">
-            <div class="card-header-flex">
-              <div>
-                <h3>📱 Teléfono de Alertas WhatsApp (Meta Cloud API)</h3>
-                <p>Ingresá tu número con código de país (ej. +5491112345678 para Argentina).</p>
-              </div>
-              <span class="status-chip-active">✓ Integración Oficial</span>
-            </div>
-            <div class="form-group" style="margin-top: 16px;">
-              <input type="tel" id="setting-whatsapp-phone" class="form-input" placeholder="+5491112345678" style="font-size: 1.1rem; letter-spacing: 0.5px; max-width: 420px;" />
-            </div>
-            <div class="info-callout">
-              <span class="callout-icon">💡</span>
-              <p>El bot oficial de la plataforma te enviará un WhatsApp con botones interactivos cuando una pregunta requiera aprobación humana o cuando se abra un reclamo post-venta con fecha límite.</p>
+            <h3>🔌 Modo de Integración WhatsApp</h3>
+            <div class="wa-mode-selector">
+              <label class="wa-mode-option" id="mode-opt-shared">
+                <input type="radio" name="wa-mode" value="platform_shared" id="radio-platform-shared" onchange="onWaModeChange()" />
+                <div class="wa-mode-content">
+                  <span class="wa-mode-title">🤖 Bot Oficial MeliBot</span>
+                  <span class="wa-mode-desc">Incluido en tu plan. Recomendado para la mayoría de los vendedores.</span>
+                </div>
+              </label>
+              <label class="wa-mode-option" id="mode-opt-byo">
+                <input type="radio" name="wa-mode" value="custom_byo" id="radio-custom-byo" onchange="onWaModeChange()" />
+                <div class="wa-mode-content">
+                  <span class="wa-mode-title">🏢 Conectar mi propia cuenta de Meta</span>
+                  <span class="wa-mode-desc">Para cuentas Enterprise con WABA propia. Sin límite de cuota.</span>
+                </div>
+              </label>
             </div>
           </div>
 
+          <!-- B. Platform Shared panel -->
+          <div id="panel-mode-shared">
+            <!-- Phone input -->
+            <div class="settings-card">
+              <h3>📱 Teléfono de Alertas</h3>
+              <p>Ingresá tu número con código de país (ej. +5491112345678 para Argentina).</p>
+              <div class="form-group" style="margin-top:12px;">
+                <input type="tel" id="setting-whatsapp-phone" class="form-input" placeholder="+5491112345678" style="max-width:420px;" />
+              </div>
+            </div>
+            <!-- Quota bar card -->
+            <div class="settings-card" style="margin-top:20px;">
+              <div class="card-header-flex">
+                <div>
+                  <h3>📊 Consumo del Mes</h3>
+                  <p>Alertas WhatsApp enviadas en el ciclo actual.</p>
+                </div>
+                <span class="plan-badge" id="quota-plan-badge">Plan Starter</span>
+              </div>
+              <div class="quota-bar-wrap" style="margin-top:16px;">
+                <div class="quota-bar-track">
+                  <div class="quota-bar-fill" id="quota-bar-fill" style="width:0%"></div>
+                </div>
+                <div class="quota-bar-labels">
+                  <span id="quota-used-label">0 alertas usadas</span>
+                  <span id="quota-limit-label">de 150 este mes</span>
+                </div>
+              </div>
+              <div class="alert-warning" id="quota-warning" style="display:none; margin-top:12px;">
+                ⚠️ Superaste el 80% de tu cuota mensual. Considerá actualizar tu plan.
+              </div>
+              <div class="info-callout" style="margin-top:12px;">
+                <span class="callout-icon">💡</span>
+                <p>El ciclo se resetea el <strong id="quota-reset-date">—</strong>. Para aumentar el límite contactá soporte.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- C. BYO panel -->
+          <div id="panel-mode-byo" style="display:none;">
+            <div class="settings-card">
+              <h3>🏢 Credenciales de tu cuenta Meta Business</h3>
+              <p>Ingresá los datos de tu WhatsApp Business Account para enviar desde tu propio número.</p>
+              <div class="form-group" style="margin-top:16px;">
+                <label>Teléfono de destino para alertas</label>
+                <input type="tel" id="setting-whatsapp-phone-byo" class="form-input" placeholder="+5491112345678" style="max-width:420px;" />
+              </div>
+              <div class="form-group">
+                <label>Phone Number ID <span class="field-hint">(de Meta Business Manager)</span></label>
+                <input type="text" id="setting-custom-phone-id" class="form-input" placeholder="109283746501928" />
+              </div>
+              <div class="form-group">
+                <label>Access Token Permanente</label>
+                <input type="password" id="setting-custom-token" class="form-input" placeholder="EAAG..." />
+              </div>
+              <div class="form-group">
+                <label>WABA ID <span class="field-hint">(WhatsApp Business Account ID)</span></label>
+                <input type="text" id="setting-custom-waba-id" class="form-input" placeholder="987654321098765" />
+              </div>
+            </div>
+          </div>
+
+          <!-- D. Notification triggers card -->
           <div class="settings-card">
             <h3>Disparadores de Notificación</h3>
             <div class="checkbox-group">
@@ -287,6 +355,7 @@
               </label>
             </div>
           </div>
+
         </div>
       </section>
 
