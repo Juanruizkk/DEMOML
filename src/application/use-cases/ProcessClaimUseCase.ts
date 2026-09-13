@@ -3,6 +3,7 @@ import { ITenantRepository } from "../interfaces/ITenantRepository.js";
 import { IEventRepository } from "../interfaces/IEventRepository.js";
 import { IMeliClient } from "../interfaces/IMeliClient.js";
 import { IWhatsAppClient } from "../interfaces/IWhatsAppClient.js";
+import { ITelegramClient } from "../interfaces/ITelegramClient.js";
 import { IRealtimeNotifier } from "../interfaces/IRealtimeNotifier.js";
 import { Claim, ClaimAction, ClaimType } from "../../domain/entities/Claim.js";
 import { EventLog } from "../../domain/entities/EventLog.js";
@@ -14,7 +15,8 @@ export class ProcessClaimUseCase {
     private readonly eventRepo: IEventRepository,
     private readonly meliClient: IMeliClient,
     private readonly whatsAppClient: IWhatsAppClient,
-    private readonly sseNotifier: IRealtimeNotifier
+    private readonly sseNotifier: IRealtimeNotifier,
+    private readonly telegramClient?: ITelegramClient
   ) {}
 
   public async execute(params: { claimId: string; sellerId: string }): Promise<Claim | null> {
@@ -46,6 +48,10 @@ export class ProcessClaimUseCase {
       const type = this.mapClaimType(raw.reason_id);
       const now = new Date();
 
+      // Check if claim already exists
+      const existing = await this.claimRepo.findById(claimId);
+      const isAlreadyNotified = Boolean(existing?.notifiedAt);
+
       const claim = new Claim({
         id: String(raw.id),
         sellerId,
@@ -59,10 +65,16 @@ export class ProcessClaimUseCase {
         dueDate,
         createdAt: new Date(raw.date_created),
         updatedAt: now,
+        notifiedAt: existing?.notifiedAt ?? undefined,
       });
 
       // 3. Persist
       await this.claimRepo.save(claim);
+
+      // If already notified, do not resend alerts on sync/refresh
+      if (isAlreadyNotified) {
+        return claim;
+      }
 
       await this.eventRepo.log(
         new EventLog({
@@ -72,15 +84,16 @@ export class ProcessClaimUseCase {
         })
       );
 
-      // 4. Send WhatsApp alert
+      // 4. Send Alerts (WhatsApp & Telegram)
       const tenant = await this.tenantRepo.findBySellerId(sellerId);
       const phone = tenant?.settings?.whatsappAlertPhone;
+      const channelPref = tenant?.settings?.preferredAlertChannel || "whatsapp";
+      const urgencyEmoji = claim.getUrgency() === "critical" ? "🔴" : claim.getUrgency() === "high" ? "🟠" : "🟡";
+      const typeLabel = type === "med_pnr" ? "Paquete no recibido (PNR)" : type === "med_pdd" ? "Producto defectuoso (PDD)" : "Reclamo";
 
-      if (phone && tenant) {
+      if (phone && tenant && (channelPref === "whatsapp" || channelPref === "both")) {
         if (tenant.canSendWhatsAppAlert()) {
           const creds = tenant.getWhatsAppCredentials();
-          const urgencyEmoji = claim.getUrgency() === "critical" ? "🔴" : claim.getUrgency() === "high" ? "🟠" : "🟡";
-          const typeLabel = type === "med_pnr" ? "Paquete no recibido (PNR)" : type === "med_pdd" ? "Producto defectuoso (PDD)" : "Reclamo";
 
           const bodyText =
             `${urgencyEmoji} *NUEVO RECLAMO en Mercado Libre*\n\n` +
@@ -118,6 +131,40 @@ export class ProcessClaimUseCase {
               sellerId,
               type: "WHATSAPP_QUOTA_EXCEEDED",
               message: `Límite mensual de alertas alcanzado (${tenant.settings.alertsSentThisMonth}/${tenant.settings.monthlyAlertsLimit}). Alerta omitida.`,
+            })
+          );
+        }
+      }
+
+      // Send Telegram alert
+      if (this.telegramClient && tenant?.canSendTelegramAlert() && (channelPref === "telegram" || channelPref === "both")) {
+        const creds = tenant.getTelegramCredentials();
+        if (creds?.chatId) {
+          await this.telegramClient.sendMessage({
+            chatId: creds.chatId,
+            text:
+              `${urgencyEmoji} *NUEVO RECLAMO en Mercado Libre*\n\n` +
+              `📦 *Orden:* #${claim.orderId}\n` +
+              `🔖 *Tipo:* ${typeLabel}\n` +
+              `⏳ *Tiempo restante:* ${claim.getRemainingHours()} horas\n` +
+              `🆔 *Reclamo:* #${claimId}\n\n` +
+              `⚠️ Respondé dentro del plazo para evitar penalizaciones automáticas en tu reputación.`,
+            buttons: [
+              [
+                { text: "✅ Enterado", callbackData: `claim_ack_${claimId}` },
+              ],
+            ],
+            botToken: creds.botToken,
+          }).catch((err) => console.error("[ProcessClaimUseCase] Error Telegram:", err));
+
+          claim.markNotified();
+          await this.claimRepo.save(claim);
+
+          await this.eventRepo.log(
+            new EventLog({
+              sellerId,
+              type: "claim_notified",
+              message: `✈️ Alerta Telegram enviada para reclamo ${claimId} (Chat ID: ${creds.chatId})`,
             })
           );
         }
