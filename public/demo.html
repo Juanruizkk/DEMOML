@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MELI AI Assistant — Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="demo.css" />
+</head>
+<body class="theme-dark">
+
+  <!-- ── Login Gate ── -->
+  <div id="demo-login-screen">
+    <div class="demo-login-card">
+      <h1>MELI AI Assistant <span class="demo-badge">DEMO</span></h1>
+      <p>Acceso exclusivo para presentaciones</p>
+      <form id="demo-login-form">
+        <input id="demo-email" type="email" placeholder="Email" value="demo@melibot.com" autocomplete="username" required />
+        <input id="demo-password" type="password" placeholder="Contraseña" autocomplete="current-password" required />
+        <button type="submit">Ingresar al Demo</button>
+        <div id="demo-login-error" class="demo-login-error"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Demo Dashboard (hidden until login) ── -->
+  <div id="demo-dashboard" style="display:none">
+
+    <!-- ── Topbar Header ── -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="brand">
+          <div class="brand-avatar">🤖</div>
+          <div class="brand-text">
+            <div class="brand-title-wrap">
+              <h1>MELI AI Assistant</h1>
+              <span class="demo-badge">DEMO</span>
+            </div>
+            <span class="subtitle">Auto-Respuesta Inteligente con IA & Aprobador WhatsApp</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Center View Tabs ── -->
+      <div class="topbar-center">
+        <nav class="view-tabs" id="view-tabs">
+          <button class="tab-btn active" data-view="duo">
+            <span class="tab-icon">◫</span> Vista Dividida
+          </button>
+          <button class="tab-btn" data-view="panel">
+            <span class="tab-icon">🗂️</span> Panel ML
+          </button>
+          <button class="tab-btn" data-view="whatsapp">
+            <span class="tab-icon">📱</span> WhatsApp
+          </button>
+        </nav>
+      </div>
+
+      <!-- ── Right Actions ── -->
+      <div class="topbar-right">
+        <button class="btn-seed-demo" id="demo-seed-btn">
+          Preparar Demo
+        </button>
+
+        <button class="btn-simulate" id="btn-open-simulator">
+          <span class="btn-icon">⚡</span> Simular Pregunta
+        </button>
+
+        <button class="btn-simulate btn-simulate-claim" id="btn-open-claim-simulator" style="background: linear-gradient(135deg, #ea580c, #c2410c); border-color: #f97316;">
+          <span class="btn-icon">⚖️</span> Simular Reclamo
+        </button>
+
+        <span class="info-badge" id="demo-seller-id-display" title="Seller ID demo"></span>
+
+        <button class="btn-schedule-config" id="demo-logout-btn" style="border-color: rgba(244,63,94,0.4); color: var(--rose-text);">
+          🚪 Salir
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Main Content (Task 6 will paste index.html <main> content here) ── -->
+    <main id="demo-main-content">
+    </main>
+
+  </div><!-- /#demo-dashboard -->
+
+  <script src="app.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>
