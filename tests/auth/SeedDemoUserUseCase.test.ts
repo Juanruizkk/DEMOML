@@ -50,4 +50,19 @@ describe("SeedDemoUserUseCase", () => {
 
     expect(mockUserRepo.save).not.toHaveBeenCalled();
   });
+
+  it("crea usuario y tenant demo cuando ambos no existen y hay token", async () => {
+    mockUserRepo.findByEmail.mockResolvedValue(null);
+    mockTenantRepo.findBySellerId.mockResolvedValue(null);
+    process.env.DEMO_EMAIL = "demo@melibot.com";
+    process.env.DEMO_PASSWORD = "Demo123456!";
+    process.env.DEMO_SELLER_ID = "3680586616";
+    process.env.DEMO_ACCESS_TOKEN = "test_token_123";
+
+    const useCase = new SeedDemoUserUseCase(mockUserRepo as any, mockTenantRepo as any, mockHasher as any);
+    await useCase.execute();
+
+    expect(mockUserRepo.save).toHaveBeenCalledOnce();
+    expect(mockTenantRepo.save).toHaveBeenCalledOnce();
+  });
 });
