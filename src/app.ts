@@ -55,6 +55,7 @@ import { AdminController } from "./presentation/controllers/AdminController.js";
 import { WhatsAppWebhookController } from "./presentation/controllers/WhatsAppWebhookController.js";
 import { TelegramWebhookController } from "./presentation/controllers/TelegramWebhookController.js";
 import { ClaimsController } from "./presentation/controllers/ClaimsController.js";
+import { DemoController } from "./presentation/controllers/DemoController.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -169,6 +170,18 @@ export function buildApp(): FastifyInstance {
     }
   };
 
+  const requireDemo = async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await authenticate(request, reply);
+    } catch {
+      return;
+    }
+    const user = (request as any).user;
+    if (!user || (user.role !== "demo" && user.role !== "super_admin")) {
+      return reply.status(403).send({ error: "Acceso denegado. Se requiere cuenta demo." });
+    }
+  };
+
   const optionalAuthenticate = async (request: FastifyRequest) => {
     const authHeader = request.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -200,6 +213,13 @@ export function buildApp(): FastifyInstance {
   const claimsCtrl = new ClaimsController(
     claimRepo, tenantRepo, eventRepo, sseNotifier, whatsAppClient, meliClient, processClaimUseCase, telegramClient
   );
+  const demoCtrl = new DemoController({
+    simulateQuestionUseCase,
+    claimRepo,
+    eventRepo,
+    sseNotifier,
+    sellerId: process.env.DEMO_SELLER_ID ?? "3680586616",
+  });
 
   // 10. Rutas — Auth
   app.post("/api/auth/register", authCtrl.register);
@@ -243,6 +263,9 @@ export function buildApp(): FastifyInstance {
   app.get("/api/claims", { preHandler: optionalAuthenticate }, claimsCtrl.getClaims);
   app.post("/api/claims/simulate", claimsCtrl.simulate);
   app.post("/api/claims/:id/ack", { preHandler: optionalAuthenticate }, claimsCtrl.acknowledge);
+
+  // Rutas — Demo
+  app.post("/api/demo/seed", { preHandler: requireDemo }, demoCtrl.seed);
 
   // Rutas — Simulator, Health, Tenant
   app.post("/api/simulate-question", simulatorCtrl.simulate);
