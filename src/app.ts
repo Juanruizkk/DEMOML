@@ -20,6 +20,7 @@ import { LangChainLLMService } from "./infrastructure/llm/LangChainLLMService.js
 import { InMemoryQueueBroker } from "./infrastructure/queue/InMemoryQueueBroker.js";
 import { FastifySseNotifier } from "./infrastructure/realtime/FastifySseNotifier.js";
 import { MetaWhatsAppClient } from "./infrastructure/whatsapp/MetaWhatsAppClient.js";
+import { TelegramBotClient } from "./infrastructure/telegram/TelegramBotClient.js";
 
 import { IngestWebhookUseCase } from "./application/use-cases/IngestWebhookUseCase.js";
 import { IngestClaimWebhookUseCase } from "./application/use-cases/IngestClaimWebhookUseCase.js";
@@ -29,11 +30,13 @@ import { ApproveAnswerUseCase } from "./application/use-cases/ApproveAnswerUseCa
 import { RejectAnswerUseCase } from "./application/use-cases/RejectAnswerUseCase.js";
 import { SimulateQuestionUseCase } from "./application/use-cases/SimulateQuestionUseCase.js";
 import { HandleWhatsAppReplyUseCase } from "./application/use-cases/HandleWhatsAppReplyUseCase.js";
+import { HandleTelegramWebhookUseCase } from "./application/use-cases/HandleTelegramWebhookUseCase.js";
 
 import { RegisterUserUseCase } from "./application/use-cases/auth/RegisterUserUseCase.js";
 import { LoginUserUseCase } from "./application/use-cases/auth/LoginUserUseCase.js";
 import { GetCurrentUserUseCase } from "./application/use-cases/auth/GetCurrentUserUseCase.js";
 import { SeedSuperAdminUseCase } from "./application/use-cases/auth/SeedSuperAdminUseCase.js";
+import { SeedDemoUserUseCase } from "./application/use-cases/auth/SeedDemoUserUseCase.js";
 import { ConnectMeliAccountUseCase } from "./application/use-cases/auth/ConnectMeliAccountUseCase.js";
 import { GetOnboardingStatusUseCase } from "./application/use-cases/auth/GetOnboardingStatusUseCase.js";
 
@@ -50,6 +53,8 @@ import { SimulatorController } from "./presentation/controllers/SimulatorControl
 import { TenantController } from "./presentation/controllers/TenantController.js";
 import { AdminController } from "./presentation/controllers/AdminController.js";
 import { WhatsAppWebhookController } from "./presentation/controllers/WhatsAppWebhookController.js";
+import { TelegramWebhookController } from "./presentation/controllers/TelegramWebhookController.js";
+import { ClaimsController } from "./presentation/controllers/ClaimsController.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -81,6 +86,7 @@ export function buildApp(): FastifyInstance {
   const queueBroker = new InMemoryQueueBroker(5);
   const sseNotifier = new FastifySseNotifier();
   const whatsAppClient = new MetaWhatsAppClient();
+  const telegramClient = new TelegramBotClient();
 
   // 4. Casos de Uso Auth
   const registerUserUseCase = new RegisterUserUseCase(userRepo, passwordHasher, tokenService);
@@ -94,6 +100,11 @@ export function buildApp(): FastifyInstance {
 
   seedSuperAdminUseCase.execute().catch((err) => console.error("Error seeding super admin:", err));
 
+  const seedDemoUserUseCase = new SeedDemoUserUseCase(userRepo, tenantRepo, passwordHasher);
+  seedDemoUserUseCase.execute().catch((err) =>
+    console.error("Error seeding demo user:", err)
+  );
+
   // 5. Casos de Uso Core
   const approveAnswerUseCase = new ApproveAnswerUseCase(questionRepo, meliClient, eventRepo, sseNotifier);
   const rejectAnswerUseCase = new RejectAnswerUseCase(questionRepo, eventRepo, sseNotifier);
@@ -101,12 +112,12 @@ export function buildApp(): FastifyInstance {
   const ingestWebhookUseCase = new IngestWebhookUseCase(queueBroker, eventRepo);
 
   const processClaimUseCase = new ProcessClaimUseCase(
-    claimRepo, tenantRepo, eventRepo, meliClient, whatsAppClient, sseNotifier
+    claimRepo, tenantRepo, eventRepo, meliClient, whatsAppClient, sseNotifier, telegramClient
   );
   const ingestClaimUseCase = new IngestClaimWebhookUseCase(processClaimUseCase, eventRepo);
 
   const processQuestionUseCase = new ProcessQuestionUseCase(
-    questionRepo, itemCacheRepo, tenantRepo, eventRepo, meliClient, llmService, sseNotifier, whatsAppClient
+    questionRepo, itemCacheRepo, tenantRepo, eventRepo, meliClient, llmService, sseNotifier, whatsAppClient, telegramClient
   );
 
   const simulateQuestionUseCase = new SimulateQuestionUseCase(
@@ -115,6 +126,10 @@ export function buildApp(): FastifyInstance {
 
   const handleWhatsAppReplyUseCase = new HandleWhatsAppReplyUseCase(
     approveAnswerUseCase, rejectAnswerUseCase, eventRepo, whatsAppClient
+  );
+
+  const handleTelegramWebhookUseCase = new HandleTelegramWebhookUseCase(
+    telegramClient, tenantRepo, eventRepo, approveAnswerUseCase, rejectAnswerUseCase
   );
 
   // 6. Casos de Uso Admin
@@ -181,6 +196,10 @@ export function buildApp(): FastifyInstance {
     toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase
   );
   const waWebhookCtrl = new WhatsAppWebhookController(handleWhatsAppReplyUseCase);
+  const telegramCtrl = new TelegramWebhookController(handleTelegramWebhookUseCase, telegramClient, tenantRepo);
+  const claimsCtrl = new ClaimsController(
+    claimRepo, tenantRepo, eventRepo, sseNotifier, whatsAppClient, meliClient, processClaimUseCase, telegramClient
+  );
 
   // 10. Rutas — Auth
   app.post("/api/auth/register", authCtrl.register);
@@ -200,8 +219,13 @@ export function buildApp(): FastifyInstance {
   app.post("/webhook/ml", webhookCtrl.handle);
   app.get("/webhook/whatsapp", waWebhookCtrl.verify);
   app.post("/webhook/whatsapp", waWebhookCtrl.receive);
+  app.post("/webhook/telegram", telegramCtrl.receive);
   app.get("/oauth/login", { preHandler: optionalAuthenticate }, authCtrl.meliOAuthLogin);
   app.get("/oauth/callback", authCtrl.meliOAuthCallback);
+
+  // Rutas — Telegram Tenant Integration
+  app.get("/api/tenant/telegram/info", { preHandler: optionalAuthenticate }, telegramCtrl.getInfo);
+  app.post("/api/tenant/telegram/test", { preHandler: optionalAuthenticate }, telegramCtrl.sendTest);
 
   // Rutas — SSE
   app.get("/api/events/stream", (request, reply) => {
@@ -214,6 +238,11 @@ export function buildApp(): FastifyInstance {
   app.post("/api/questions/:id/approve", { preHandler: optionalAuthenticate }, questionsCtrl.approve);
   app.post("/api/questions/:id/reject", { preHandler: optionalAuthenticate }, questionsCtrl.reject);
   app.post("/api/whatsapp/reply", questionsCtrl.replyViaWhatsapp);
+
+  // Rutas — Reclamos & Post-Venta
+  app.get("/api/claims", { preHandler: optionalAuthenticate }, claimsCtrl.getClaims);
+  app.post("/api/claims/simulate", claimsCtrl.simulate);
+  app.post("/api/claims/:id/ack", { preHandler: optionalAuthenticate }, claimsCtrl.acknowledge);
 
   // Rutas — Simulator, Health, Tenant
   app.post("/api/simulate-question", simulatorCtrl.simulate);
