@@ -1,0 +1,219 @@
+/* Reuse shared page structure from QuestionsPage.css */
+@import './QuestionsPage.css';
+
+.claims-list {
+  flex: 1;
+  padding: 20px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Claim card */
+.claim-card {
+  overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.2s;
+  cursor: default;
+}
+
+.claim-card:hover {
+  box-shadow: var(--shadow-float);
+  transform: translateY(-1px);
+}
+
+.claim-card--critical { border-color: var(--rose-border);    background: rgba(244, 63, 94, 0.04); }
+.claim-card--warning  { border-color: var(--amber-border);   background: rgba(245, 166, 35, 0.03); }
+.claim-card--safe     {}
+
+.claim-card-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.claim-card-row:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+/* Urgency */
+.claim-urgency {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 72px;
+}
+
+.claim-urgency-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+
+.claim-urgency--critical .claim-urgency-dot {
+  background: var(--rose);
+  box-shadow: var(--phosphor-rose);
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+.claim-urgency--warning .claim-urgency-dot {
+  background: var(--amber);
+  box-shadow: var(--phosphor-amber);
+}
+
+.claim-urgency--safe .claim-urgency-dot { background: var(--emerald); }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.claim-urgency-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.claim-urgency--critical .claim-urgency-label { color: var(--rose); }
+.claim-urgency--warning  .claim-urgency-label { color: var(--amber); }
+.claim-urgency--safe     .claim-urgency-label { color: var(--emerald); }
+
+/* Main */
+.claim-main { min-width: 0; }
+
+.claim-type {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.claim-reason {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Timer */
+.claim-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 52px;
+}
+
+.claim-timer-value {
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.claim-timer--phosphor .claim-timer-value {
+  color: var(--rose);
+  text-shadow: var(--phosphor-rose);
+}
+
+.claim-timer-label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.claim-expand-icon {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+/* Detail panel */
+.claim-detail {
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--border-glass);
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.claim-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.claim-detail-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.claim-detail-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.claim-detail-value {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Actions */
+.claim-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.claim-action-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
+.claim-action-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.claim-action-dot.mandatory { background: var(--amber); }
+
+.claim-action-due {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.btn-ack {
+  align-self: flex-start;
+  padding: 7px 16px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+
+.btn-ack:hover { box-shadow: 0 0 12px var(--blue-glow); }

@@ -1,0 +1,17 @@
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-void);
+}
+
+.app-main {
+  flex: 1;
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  /* Subtle radial glow behind content — depth from light source */
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(59, 130, 246, 0.04) 0%, transparent 60%),
+    var(--bg-void);
+}
