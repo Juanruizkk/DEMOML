@@ -47,8 +47,8 @@ export default function ClaimsPage() {
     setLoading(true)
     setError('')
     try {
-      const data = await api.get<Claim[]>('/claims')
-      setClaims(data)
+      const data = await api.get<{ claims: Claim[]; metrics?: unknown }>('/claims')
+      setClaims(Array.isArray(data) ? data : (data.claims ?? []))
     } catch (err: any) {
       setError(err.message)
     } finally {

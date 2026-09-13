@@ -15,6 +15,42 @@ interface Question {
   createdAt: string
 }
 
+// Shape returned by GET /api/questions
+interface ApiQuestion {
+  id: string
+  text: string
+  itemId: string
+  appStatus: string
+  suggestedAnswer?: string
+  finalAnswer?: string
+  confidence?: number
+  receivedAt?: string
+}
+
+interface GroupedResponse {
+  pending_review: ApiQuestion[]
+  auto_answered:  ApiQuestion[]
+  other:          ApiQuestion[]
+}
+
+function normalize(q: ApiQuestion): Question {
+  const statusMap: Record<string, Question['status']> = {
+    pending_review: 'pending',
+    auto_answered:  'auto_answered',
+    approved:       'approved',
+    rejected:       'rejected',
+  }
+  return {
+    id:        q.id,
+    text:      q.text,
+    itemId:    q.itemId,
+    status:    statusMap[q.appStatus] ?? 'approved',
+    aiAnswer:  q.suggestedAnswer ?? q.finalAnswer,
+    confidence: q.confidence,
+    createdAt: q.receivedAt ?? new Date().toISOString(),
+  }
+}
+
 type Filter = 'pending' | 'auto_answered' | 'resolved'
 
 export default function QuestionsPage() {
@@ -34,8 +70,13 @@ export default function QuestionsPage() {
     setLoading(true)
     setError('')
     try {
-      const data = await api.get<Question[]>('/questions')
-      setQuestions(data)
+      const data = await api.get<GroupedResponse>('/questions')
+      const flat = [
+        ...(data.pending_review ?? []),
+        ...(data.auto_answered  ?? []),
+        ...(data.other          ?? []),
+      ].map(normalize)
+      setQuestions(flat)
     } catch (err: any) {
       setError(err.message)
     } finally {

@@ -15,10 +15,8 @@ interface TenantOverview {
   sellerId: string
   nickname?: string
   email?: string
-  questionsCount?: number
-  claimsCount?: number
+  totalQuestions?: number
   autoAnswerEnabled?: boolean
-  permissions?: Record<string, boolean>
 }
 
 const PERMISSION_LABELS: Record<string, string> = {
@@ -47,12 +45,17 @@ export default function AdminPage() {
     }).catch(console.error).finally(() => setLoading(false))
   }, [])
 
-  const selectTenant = (t: TenantOverview) => {
+  const selectTenant = async (t: TenantOverview) => {
     setSelected(t.sellerId)
-    setLocalPerms(t.permissions || {
-      whatsappEnabled: true, telegramEnabled: true, emailEnabled: false,
-      preSaleEnabled: true, postSaleEnabled: true,
-    })
+    try {
+      const detail = await api.get<{ settings: { permissions?: Record<string, boolean> } }>(`/admin/tenants/${t.sellerId}`)
+      setLocalPerms(detail.settings?.permissions || {
+        whatsappEnabled: true, telegramEnabled: true, emailEnabled: false,
+        preSaleEnabled: true, postSaleEnabled: true,
+      })
+    } catch {
+      setLocalPerms({ whatsappEnabled: true, telegramEnabled: true, emailEnabled: false, preSaleEnabled: true, postSaleEnabled: true })
+    }
   }
 
   const savePermissions = async () => {
@@ -105,8 +108,8 @@ export default function AdminPage() {
                   {t.email && <span className="tenant-row-email">{t.email}</span>}
                 </div>
                 <div className="tenant-row-stats">
-                  {t.questionsCount !== undefined && (
-                    <span className="tenant-row-badge">{t.questionsCount} Q</span>
+                  {t.totalQuestions !== undefined && (
+                    <span className="tenant-row-badge">{t.totalQuestions} Q</span>
                   )}
                   {t.autoAnswerEnabled && (
                     <span className="tenant-row-badge tenant-row-badge--green">IA ✓</span>
