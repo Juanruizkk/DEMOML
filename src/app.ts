@@ -275,5 +275,10 @@ export function buildApp(): FastifyInstance {
   app.get("/api/tenant/settings", { preHandler: optionalAuthenticate }, tenantCtrl.getSettings);
   app.put("/api/tenant/settings", { preHandler: optionalAuthenticate }, tenantCtrl.updateSettings);
 
+  // SPA fallback — any route not matched by /api/* serves the React app
+  app.setNotFoundHandler((_request, reply) => {
+    reply.sendFile('app/index.html')
+  });
+
   return app;
 }
