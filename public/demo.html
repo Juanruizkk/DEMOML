@@ -81,8 +81,225 @@
       </div>
     </header>
 
-    <!-- ── Main Content (Task 6 will paste index.html <main> content here) ── -->
-    <main id="demo-main-content">
+    <!-- ── Main Content ── -->
+    <main class="panel-management-side" id="demo-main-content">
+
+      <!-- Management Header -->
+      <div class="management-header">
+        <div class="management-title-wrap">
+          <!-- Subnav Toggle: Pre-Venta vs Post-Venta -->
+          <div class="management-subnav" id="management-subnav">
+            <button class="subnav-tab active" id="subtab-presale" data-section="presale">
+              <span class="tab-icon">📨</span> Pre-Venta (Preguntas con IA)
+              <span class="subnav-pill" id="badge-total-questions-pill">0</span>
+            </button>
+            <button class="subnav-tab" id="subtab-postsale" data-section="postsale">
+              <span class="tab-icon">⚖️</span> Post-Venta (Reclamos & SLA)
+              <span class="subnav-pill subnav-pill-urgent" id="badge-claims-urgent-pill">0</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Badges Info -->
+        <div class="header-badges-info">
+          <span class="info-badge" id="badge-provider">LLM: Groq (GPT OSS 120B)</span>
+          <span class="info-badge" id="badge-token">Token MELI: Activo</span>
+          <span class="info-badge" id="badge-sse">SSE: Conectado</span>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────────────────── -->
+      <!-- ── SECTION A: PRE-VENTA (PREGUNTAS) ─────────────────────── -->
+      <!-- ─────────────────────────────────────────────────────────── -->
+      <div class="management-section active" id="section-presale">
+        <!-- Subtitle -->
+        <p class="management-subtitle" style="margin-bottom: 12px;">
+          Preguntas pre-venta sincronizadas en tiempo real con Mercado Libre y moderación determinística.
+        </p>
+
+        <!-- Filters & Search Bar -->
+        <div class="filters-bar">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search-input" placeholder="Buscar por pregunta, producto o comprador..." />
+          </div>
+
+          <div class="filters-group">
+            <select id="filter-status" class="select-filter">
+              <option value="all">Todos los estados</option>
+              <option value="pending_review">👤 Pendientes de revisión</option>
+              <option value="auto_answered">⚡ Respondidas automáticamente</option>
+              <option value="approved">✅ Aprobadas por WhatsApp / Panel</option>
+            </select>
+
+            <select id="filter-intent" class="select-filter">
+              <option value="all">Todas las intenciones</option>
+              <option value="stock">📦 Stock</option>
+              <option value="precio_negociacion">🏷️ Negociación de precio</option>
+              <option value="caracteristicas">🔧 Características</option>
+              <option value="contacto_externo">⛔ Contacto externo</option>
+              <option value="garantia">🛡️ Garantía</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Metrics Row Cards — Pre-Venta -->
+        <div class="stats-row" id="metrics-row">
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-label">Tiempo Promedio</span>
+              <span class="stat-card-icon">⏱️</span>
+            </div>
+            <span class="stat-value" id="metric-total">—</span>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-label">Horario Laboral</span>
+              <span class="stat-card-icon">🏢</span>
+            </div>
+            <span class="stat-value" id="metric-labor">—</span>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-label">Fuera de Horario</span>
+              <span class="stat-card-icon">🌙</span>
+            </div>
+            <span class="stat-value" id="metric-offhours">—</span>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-label">Fin de Semana</span>
+              <span class="stat-card-icon">🏖️</span>
+            </div>
+            <span class="stat-value" id="metric-weekend">—</span>
+          </div>
+        </div>
+
+        <!-- Questions Table / Cards List -->
+        <div class="table-container">
+          <table class="questions-table" id="questions-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">PREGUNTA / ORIGEN</th>
+                <th style="width: 26%;">ÍTEM & PUBLICACIÓN</th>
+                <th style="width: 20%;">ESTADO & INTENCIÓN</th>
+                <th style="width: 32%;">RESPUESTA & ACCIÓN</th>
+              </tr>
+            </thead>
+            <tbody id="questions-tbody">
+              <tr>
+                <td colspan="4" class="empty-table-msg">
+                  Cargando preguntas de Mercado Libre...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────────────────── -->
+      <!-- ── SECTION B: POST-VENTA (RECLAMOS & SLA) ───────────────── -->
+      <!-- ─────────────────────────────────────────────────────────── -->
+      <div class="management-section" id="section-postsale" style="display: none;">
+        <!-- Subtitle -->
+        <p class="management-subtitle" style="margin-bottom: 12px;">
+          Monitoreo de reclamos post-venta, tiempos límites de SLA y alertas tempranas a WhatsApp antes de que afecte la reputación.
+        </p>
+
+        <!-- Claims Filters & Search Bar -->
+        <div class="filters-bar">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search-claims-input" placeholder="Buscar por ID de reclamo, orden o comprador..." />
+          </div>
+
+          <div class="filters-group">
+            <select id="filter-claim-urgency" class="select-filter">
+              <option value="all">Todas las urgencias</option>
+              <option value="critical">🔴 Críticos (&lt; 12 hs restantes)</option>
+              <option value="high">🟠 Alta prioridad (12 - 24 hs)</option>
+              <option value="normal">🟢 En plazo (&gt; 24 hs)</option>
+              <option value="closed">⚪ Cerrados / Resueltos</option>
+            </select>
+
+            <select id="filter-claim-type" class="select-filter">
+              <option value="all">Todos los tipos</option>
+              <option value="med_pdd">🔧 PDD (Producto defectuoso)</option>
+              <option value="med_pnr">📦 PNR (Paquete no recibido)</option>
+              <option value="return">🔄 Devolución</option>
+              <option value="cancel_purchase">❌ Cancelación</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Claims Metrics Row -->
+        <div class="stats-row" id="claims-metrics-row">
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-label">Reclamos Activos</span>
+              <span class="stat-card-icon">📋</span>
+            </div>
+            <span class="stat-value" id="metric-claims-total">0</span>
+          </div>
+          <div class="stat-card stat-card-critical">
+            <div class="stat-card-header">
+              <span class="stat-label" style="color: #fca5a5;">Críticos (&lt; 12 hs)</span>
+              <span class="stat-card-icon" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4);">🔴</span>
+            </div>
+            <span class="stat-value" id="metric-claims-critical" style="color: #ef4444;">0</span>
+          </div>
+          <div class="stat-card stat-card-high">
+            <div class="stat-card-header">
+              <span class="stat-label" style="color: #fdba74;">Alta Prioridad</span>
+              <span class="stat-card-icon" style="background: rgba(249, 115, 22, 0.2); border-color: rgba(249, 115, 22, 0.4);">🟠</span>
+            </div>
+            <span class="stat-value" id="metric-claims-high" style="color: #f97316;">0</span>
+          </div>
+          <div class="stat-card stat-card-normal">
+            <div class="stat-card-header">
+              <span class="stat-label" style="color: #86efac;">En Plazo Normal</span>
+              <span class="stat-card-icon" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.35);">🟢</span>
+            </div>
+            <span class="stat-value" id="metric-claims-normal" style="color: #10b981;">0</span>
+          </div>
+        </div>
+
+        <!-- Claims Table -->
+        <div class="table-container">
+          <table class="questions-table claims-table" id="claims-table">
+            <thead>
+              <tr>
+                <th style="width: 24%;">RECLAMO & ORDEN</th>
+                <th style="width: 24%;">TIPO & MOTIVO</th>
+                <th style="width: 28%;">SLA & CUENTA REGRESIVA</th>
+                <th style="width: 24%;">ESTADO & ACCIÓN</th>
+              </tr>
+            </thead>
+            <tbody id="claims-tbody">
+              <tr>
+                <td colspan="4" class="empty-table-msg">
+                  Cargando reclamos de Mercado Libre...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Live Event Console Drawer (Collapsible) -->
+      <div class="console-drawer">
+        <div class="console-drawer-header">
+          <div class="console-title">
+            <span>📡 Consola de Eventos en Vivo (Live Stream)</span>
+            <span class="console-count" id="count-events">0 eventos</span>
+          </div>
+          <button class="btn-toggle-console" id="btn-toggle-console">
+            Ocultar / Mostrar
+          </button>
+        </div>
+        <div class="console-stream-body" id="event-console"></div>
+      </div>
+
     </main>
 
   </div><!-- /#demo-dashboard -->
