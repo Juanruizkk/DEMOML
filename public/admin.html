@@ -145,6 +145,43 @@
     </div>
   </aside>
 
+  <!-- ── Permissions Panel (hidden, rendered inside drawer via JS) ── -->
+  <template id="permissions-panel-tpl">
+    <div class="drawer-section" id="permissions-section">
+      <div class="drawer-section-title">Permisos del Tenant</div>
+      <div class="permissions-panel">
+        <div class="permission-group">
+          <label class="permission-group-label">Canales de Notificacion</label>
+          <div class="permission-row">
+            <span>WhatsApp</span>
+            <input type="checkbox" class="perm-toggle" data-perm="whatsappEnabled" />
+          </div>
+          <div class="permission-row">
+            <span>Telegram</span>
+            <input type="checkbox" class="perm-toggle" data-perm="telegramEnabled" />
+          </div>
+          <div class="permission-row">
+            <span>Email <small>(proximamente)</small></span>
+            <input type="checkbox" class="perm-toggle" data-perm="emailEnabled" disabled />
+          </div>
+        </div>
+        <div class="permission-group">
+          <label class="permission-group-label">Etapa de Venta</label>
+          <div class="permission-row">
+            <span>Pre-venta (preguntas)</span>
+            <input type="checkbox" class="perm-toggle" data-perm="preSaleEnabled" />
+          </div>
+          <div class="permission-row">
+            <span>Post-venta (reclamos)</span>
+            <input type="checkbox" class="perm-toggle" data-perm="postSaleEnabled" />
+          </div>
+        </div>
+        <button id="save-permissions-btn" class="btn-save-permissions">Guardar Permisos</button>
+        <span id="permissions-status" class="permissions-status"></span>
+      </div>
+    </div>
+  </template>
+
   <script src="admin.js"></script>
 </body>
 </html>

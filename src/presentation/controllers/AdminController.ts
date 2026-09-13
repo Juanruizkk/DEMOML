@@ -4,6 +4,8 @@ import { ListTenantsOverviewUseCase } from "../../application/use-cases/admin/Li
 import { GetTenantDetailUseCase } from "../../application/use-cases/admin/GetTenantDetailUseCase.js";
 import { ToggleTenantAutoAnswerUseCase } from "../../application/use-cases/admin/ToggleTenantAutoAnswerUseCase.js";
 import { ForceTokenRefreshUseCase } from "../../application/use-cases/admin/ForceTokenRefreshUseCase.js";
+import { UpdateTenantPermissionsUseCase } from "../../application/use-cases/admin/UpdateTenantPermissionsUseCase.js";
+import { TenantPermissions } from "../../domain/entities/Tenant.js";
 
 export class AdminController {
   constructor(
@@ -11,7 +13,8 @@ export class AdminController {
     private readonly listTenantsOverviewUseCase: ListTenantsOverviewUseCase,
     private readonly getTenantDetailUseCase: GetTenantDetailUseCase,
     private readonly toggleTenantAutoAnswerUseCase: ToggleTenantAutoAnswerUseCase,
-    private readonly forceTokenRefreshUseCase: ForceTokenRefreshUseCase
+    private readonly forceTokenRefreshUseCase: ForceTokenRefreshUseCase,
+    private readonly updateTenantPermissionsUseCase: UpdateTenantPermissionsUseCase
   ) {}
 
   public getMetrics = async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -61,6 +64,17 @@ export class AdminController {
       return reply.send(result);
     } catch (err: any) {
       return reply.status(502).send({ error: err.message });
+    }
+  };
+
+  public updatePermissions = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { sellerId } = request.params as { sellerId: string };
+    const { permissions } = request.body as { permissions: Partial<TenantPermissions> };
+    try {
+      const result = await this.updateTenantPermissionsUseCase.execute({ sellerId, permissions });
+      return reply.send(result);
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
     }
   };
 }

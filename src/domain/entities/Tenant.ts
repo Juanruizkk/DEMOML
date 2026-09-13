@@ -1,5 +1,16 @@
 export type WhatsAppMode = "platform_shared" | "custom_byo";
 
+export interface TenantPermissions {
+  // Notification channels — super admin controls which are available to this tenant
+  whatsappEnabled: boolean;
+  telegramEnabled: boolean;
+  emailEnabled: boolean; // reserved for future use
+
+  // Sale stage access
+  preSaleEnabled: boolean; // questions + auto-answer
+  postSaleEnabled: boolean; // claims / reclamos
+}
+
 export interface TenantSettings {
   autoAnswerEnabled: boolean;
   confidenceThreshold: number;
@@ -18,6 +29,9 @@ export interface TenantSettings {
   monthlyAlertsLimit: number;
   alertsSentThisMonth: number;
   cycleResetDate: string;
+
+  // Granular feature permissions (admin-controlled)
+  permissions?: TenantPermissions;
 }
 
 export interface TenantProps {
@@ -86,9 +100,37 @@ export class Tenant {
     this.updatedAt = new Date();
   }
 
+  public get effectivePermissions(): TenantPermissions {
+    return this.settings.permissions ?? {
+      whatsappEnabled: true,
+      telegramEnabled: true,
+      emailEnabled: false,
+      preSaleEnabled: true,
+      postSaleEnabled: true,
+    };
+  }
+
   public canSendWhatsAppAlert(): boolean {
+    if (!this.effectivePermissions.whatsappEnabled) return false;
     if (this.settings.whatsappMode === "custom_byo") return true;
     return this.settings.alertsSentThisMonth < this.settings.monthlyAlertsLimit;
+  }
+
+  public canSendTelegramAlert(): boolean {
+    if (!this.effectivePermissions.telegramEnabled) return false;
+    return this.isTelegramConfigured();
+  }
+
+  public isTelegramConfigured(): boolean {
+    return !!(this.settings as any).telegramEnabled;
+  }
+
+  public updatePermissions(permissions: Partial<TenantPermissions>): void {
+    this.settings = {
+      ...this.settings,
+      permissions: { ...this.effectivePermissions, ...permissions },
+    };
+    this.updatedAt = new Date();
   }
 
   public incrementAlertsSent(): void {
@@ -140,6 +182,13 @@ export class Tenant {
         monthlyAlertsLimit: 150,
         alertsSentThisMonth: 0,
         cycleResetDate: nextMonth.toISOString(),
+        permissions: {
+          whatsappEnabled: true,
+          telegramEnabled: true,
+          emailEnabled: false,
+          preSaleEnabled: true,
+          postSaleEnabled: true,
+        },
       },
       createdAt: now,
       updatedAt: now,

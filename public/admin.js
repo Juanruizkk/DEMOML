@@ -39,6 +39,7 @@ const state = {
   countdownTimer: null,
   countdown:      POLL_INTERVAL_MS / 1000,
   isRefreshing:   false,
+  currentSellerId: null,
 };
 
 // ── DOM helper ───────────────────────────────────
@@ -363,6 +364,7 @@ async function handleRefreshToken(sellerId, btn) {
 
 // ── Detail Drawer ─────────────────────────────────
 async function handleOpenDetail(sellerId) {
+  state.currentSellerId = sellerId;
   const drawer  = $('detail-drawer');
   const backdrop = $('drawer-backdrop');
   const body    = $('drawer-body');
@@ -382,6 +384,44 @@ async function handleOpenDetail(sellerId) {
     renderDrawerDetail(data);
   } catch (err) {
     body.innerHTML = `<div class="drawer-loading">⚠️ ${esc(err.message)}</div>`;
+  }
+}
+
+function populatePermissions(permissions) {
+  if (!permissions) return;
+  document.querySelectorAll('.perm-toggle').forEach(checkbox => {
+    const key = checkbox.dataset.perm;
+    if (key && permissions[key] !== undefined) {
+      checkbox.checked = permissions[key];
+    }
+  });
+}
+
+async function savePermissions() {
+  const sellerId = state.currentSellerId;
+  if (!sellerId) return;
+
+  const statusEl = $('permissions-status');
+  const btn = $('save-permissions-btn');
+  const permissions = {};
+  document.querySelectorAll('.perm-toggle:not([disabled])').forEach(checkbox => {
+    permissions[checkbox.dataset.perm] = checkbox.checked;
+  });
+
+  btn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Guardando...';
+
+  try {
+    await apiFetch(`/api/admin/tenants/${encodeURIComponent(sellerId)}/permissions`, {
+      method: 'PUT',
+      body: JSON.stringify({ permissions }),
+    });
+    if (statusEl) { statusEl.textContent = 'Guardado'; setTimeout(() => { statusEl.textContent = ''; }, 2000); }
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Error al guardar';
+    console.error('[Admin] Error saving permissions:', err);
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -492,6 +532,16 @@ function renderDrawerDetail({ tenant, settings, recentQuestions, recentEvents })
       </div>
     </div>
   `;
+
+  // Append permissions panel from template
+  const tpl = document.getElementById('permissions-panel-tpl');
+  if (tpl) {
+    const clone = tpl.content.cloneNode(true);
+    $('drawer-body').appendChild(clone);
+    populatePermissions(settings.permissions);
+    const saveBtn = $('save-permissions-btn');
+    if (saveBtn) saveBtn.addEventListener('click', savePermissions);
+  }
 }
 
 function closeDrawer() {
