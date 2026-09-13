@@ -1,6 +1,14 @@
 import { Database as DatabaseType } from "better-sqlite3";
 import { ITenantRepository } from "../../../application/interfaces/ITenantRepository.js";
-import { Tenant } from "../../../domain/entities/Tenant.js";
+import { Tenant, TenantPermissions } from "../../../domain/entities/Tenant.js";
+
+const DEFAULT_PERMISSIONS: TenantPermissions = {
+  whatsappEnabled: true,
+  telegramEnabled: true,
+  emailEnabled: false,
+  preSaleEnabled: true,
+  postSaleEnabled: true,
+};
 
 export class SqliteTenantRepository implements ITenantRepository {
   constructor(private readonly db: DatabaseType) {}
@@ -50,6 +58,7 @@ export class SqliteTenantRepository implements ITenantRepository {
   }
 
   private mapToDomain(row: any): Tenant {
+    const parsedSettings = JSON.parse(row.settings_json || "{}");
     return new Tenant({
       id: row.id,
       sellerId: row.seller_id,
@@ -58,7 +67,10 @@ export class SqliteTenantRepository implements ITenantRepository {
       accessToken: row.access_token,
       refreshToken: row.refresh_token,
       expiresAt: row.expires_at,
-      settings: JSON.parse(row.settings_json || "{}"),
+      settings: {
+        ...parsedSettings,
+        permissions: parsedSettings.permissions ?? DEFAULT_PERMISSIONS,
+      },
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     });

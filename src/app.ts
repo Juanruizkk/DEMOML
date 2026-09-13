@@ -45,6 +45,7 @@ import { ListTenantsOverviewUseCase } from "./application/use-cases/admin/ListTe
 import { GetTenantDetailUseCase } from "./application/use-cases/admin/GetTenantDetailUseCase.js";
 import { ToggleTenantAutoAnswerUseCase } from "./application/use-cases/admin/ToggleTenantAutoAnswerUseCase.js";
 import { ForceTokenRefreshUseCase } from "./application/use-cases/admin/ForceTokenRefreshUseCase.js";
+import { UpdateTenantPermissionsUseCase } from "./application/use-cases/admin/UpdateTenantPermissionsUseCase.js";
 
 import { WebhookController } from "./presentation/controllers/WebhookController.js";
 import { QuestionsController } from "./presentation/controllers/QuestionsController.js";
@@ -139,6 +140,7 @@ export function buildApp(): FastifyInstance {
   const getTenantDetailUseCase = new GetTenantDetailUseCase(tenantRepo, questionRepo, eventRepo);
   const toggleTenantAutoAnswerUseCase = new ToggleTenantAutoAnswerUseCase(tenantRepo, eventRepo);
   const forceTokenRefreshUseCase = new ForceTokenRefreshUseCase(tenantRepo, meliClient, eventRepo);
+  const updateTenantPermissionsUseCase = new UpdateTenantPermissionsUseCase(tenantRepo);
 
   // 7. Workers de Cola
   queueBroker.registerProcessor(async (job) => {
@@ -203,7 +205,7 @@ export function buildApp(): FastifyInstance {
   const tenantCtrl = new TenantController(tenantRepo, eventRepo, llmService);
   const adminCtrl = new AdminController(
     getGlobalMetricsUseCase, listTenantsOverviewUseCase, getTenantDetailUseCase,
-    toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase
+    toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase, updateTenantPermissionsUseCase
   );
   const waWebhookCtrl = new WhatsAppWebhookController(handleWhatsAppReplyUseCase);
   const telegramCtrl = new TelegramWebhookController(handleTelegramWebhookUseCase, telegramClient, tenantRepo);
@@ -231,6 +233,7 @@ export function buildApp(): FastifyInstance {
   app.get("/api/admin/tenants/:sellerId", { preHandler: requireSuperAdmin }, adminCtrl.getTenantDetail);
   app.post("/api/admin/tenants/:sellerId/toggle", { preHandler: requireSuperAdmin }, adminCtrl.toggleAutoAnswer);
   app.post("/api/admin/tenants/:sellerId/refresh-token", { preHandler: requireSuperAdmin }, adminCtrl.refreshToken);
+  app.put("/api/admin/tenants/:sellerId/permissions", { preHandler: requireSuperAdmin }, adminCtrl.updatePermissions);
 
   // Rutas — Webhooks & OAuth
   app.post("/webhook/ml", webhookCtrl.handle);
