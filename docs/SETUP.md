@@ -101,12 +101,43 @@ El usuario Super Admin se inicializa automáticamente al primer inicio:
 | **Vendedor** | `3680586616` | `TESTUSER4327702539223624795` | `QFxIljwqcj` |
 | **Comprador** | `3677130936` | `TESTUSER2533156973119126771` | `0PZfM1kGU1` |
 
+### 5.3 Tarjetas de Crédito de Prueba (Sandbox)
+
+Usá estas tarjetas logueado como el **usuario comprador** para simular pagos aprobados. El nombre del titular controla el resultado:
+
+| Resultado | Nombre titular |
+|---|---|
+| Aprobado | `APRO APRO` |
+| Pendiente (revisión) | `CONT CONT` |
+| Rechazado - fondos insuficientes | `FUND FUND` |
+| Rechazado - código de seguridad inválido | `SECU SECU` |
+
+| Red | Número | CVV | Vencimiento |
+|---|---|---|---|
+| Visa | `4509 9535 6623 3704` | `123` | `11/25` |
+| Mastercard | `5031 7557 3453 0604` | `123` | `11/25` |
+| American Express | `3711 803032 57522` | `1234` | `11/25` |
+
+> ℹ️ **No uses Pago Fácil / Rapipago en tests** — son pagos en efectivo y quedan en estado `pending` indefinidamente en sandbox. Usá tarjeta para obtener aprobación inmediata.
+
 > ℹ️ **Nota sobre usuarios de test de MELI:** Expiran a los 60 días sin actividad. Si necesitás regenerarlos, podés crearlos desde la API de MELI:
 > ```powershell
 > Invoke-RestMethod -Method Post -Uri "https://api.mercadolibre.com/users/test_user" `
 >   -Headers @{ "Authorization" = "Bearer $TU_TOKEN_REAL"; "Content-Type" = "application/json" } `
 >   -Body '{"site_id":"MLA"}'
 > ```
+
+### 5.4 Usuario Demo (Presentaciones)
+
+Usuario pre-seeded para usar en reuniones con clientes potenciales. Accede a `/demo` y tiene visibilidad del tenant de prueba.
+
+* **URL:** `http://localhost:3000/demo`
+* **Email:** `demo@melibot.com`
+* **Contraseña:** `Demo123456!`
+* **Seller vinculado:** `TESTUSER4327702539223624795` (sellerId: `3680586616`)
+* **Rol:** `demo` — puede ver datos del tenant de prueba pero no puede acceder al panel de admin ni al portal de otros tenants
+
+> Antes de una presentación, loguear y hacer clic en **"Preparar Demo"** para poblar preguntas y reclamos ficticios en el panel.
 
 ---
 
