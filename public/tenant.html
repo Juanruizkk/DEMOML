@@ -52,7 +52,7 @@
 
       <div class="auth-footer">
         <span>¿Querés probar la demo interactiva?</span>
-        <a href="/">Ir a Vista Demo Live</a>
+        <a href="/demo">Ir a Vista Demo Live</a>
       </div>
     </div>
   </div>
@@ -87,11 +87,15 @@
             <span class="tab-icon">📨</span> Mis Preguntas
             <span class="badge-count" id="badge-pending-count">0</span>
           </button>
+          <button class="nav-tab" data-tab="claims" onclick="switchTab('claims')">
+            <span class="tab-icon">⚖️</span> Reclamos & SLA
+            <span class="badge-count" id="badge-claims-count" style="background: rgba(239, 68, 68, 0.2); color: #f87171;">0</span>
+          </button>
           <button class="nav-tab" data-tab="ai-settings" onclick="switchTab('ai-settings')">
             <span class="tab-icon">🤖</span> Configuración de IA
           </button>
           <button class="nav-tab" data-tab="whatsapp" onclick="switchTab('whatsapp')">
-            <span class="tab-icon">📱</span> WhatsApp & Alertas
+            <span class="tab-icon">🔔</span> Canales de Alerta
           </button>
           <button class="nav-tab" data-tab="connection" onclick="switchTab('connection')">
             <span class="tab-icon">🔌</span> Conexión MELI
@@ -101,9 +105,6 @@
 
       <!-- Right Actions -->
       <div class="topbar-right">
-        <a href="/" class="btn-topbar-link" title="Ir a la consola de demostración">
-          ◫ Demo Live
-        </a>
         <a href="/admin.html" class="btn-topbar-link" title="Panel de Super Administrador">
           👑 Admin
         </a>
@@ -145,6 +146,27 @@
 
         <div class="questions-container" id="questions-list">
           <div class="loading-spinner">Cargando preguntas de la tienda...</div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────────────────────────────────── -->
+      <!-- ── TAB: RECLAMOS & POST-VENTA ─────────────────────────── -->
+      <!-- ───────────────────────────────────────────────────────── -->
+      <section class="tab-panel" id="panel-claims">
+        <div class="panel-header">
+          <div>
+            <h2>Reclamos & Monitoreo de SLA</h2>
+            <p>Controlá las disputas post-venta y tiempos límites de respuesta para proteger tu reputación.</p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn-refresh-icon" onclick="loadTenantClaims()" title="Recargar reclamos">
+              🔄
+            </button>
+          </div>
+        </div>
+
+        <div class="questions-container" id="tenant-claims-list">
+          <div class="loading-spinner">Cargando reclamos de la tienda...</div>
         </div>
       </section>
 
@@ -243,115 +265,174 @@
       </section>
 
       <!-- ───────────────────────────────────────────────────────── -->
-      <!-- ── TAB 3: WHATSAPP & ALERTAS ──────────────────────────── -->
+      <!-- ── TAB 3: CANALES DE ALERTA & NOTIFICACIONES ───────────── -->
       <!-- ───────────────────────────────────────────────────────── -->
       <section class="tab-panel" id="panel-whatsapp">
         <div class="panel-header">
           <div>
-            <h2>Notificaciones y Alertas por WhatsApp</h2>
-            <p>Recibí alertas instantáneas en tu celular para preguntas dudosas y reclamos urgentes.</p>
+            <h2>Canales de Alerta & Notificaciones</h2>
+            <p>Elegí cómo y dónde recibir alertas instantáneas de preguntas dudosas y reclamos de Mercado Libre.</p>
           </div>
-          <button class="btn-save-primary" onclick="saveWhatsAppSettings()">
+          <button class="btn-save-primary" onclick="saveAlertSettings()">
             💾 Guardar Configuración
           </button>
         </div>
 
         <div class="settings-grid">
 
-          <!-- A. Mode selector card -->
-          <div class="settings-card">
-            <h3>🔌 Modo de Integración WhatsApp</h3>
-            <div class="wa-mode-selector">
+          <!-- 1. Preferred Channel Selector -->
+          <div class="settings-card" style="grid-column: 1 / -1;">
+            <h3>🎯 Canal de Notificaciones Preferido</h3>
+            <p>Seleccioná por qué medios querés que el asistente te envíe alertas con botones de acción.</p>
+            <div class="wa-mode-selector" style="margin-top:12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+              <label class="wa-mode-option" id="channel-opt-telegram">
+                <input type="radio" name="preferred-channel" value="telegram" id="radio-channel-tg" onchange="onChannelPrefChange()" />
+                <div class="wa-mode-content">
+                  <span class="wa-mode-title">✈️ Solo Telegram</span>
+                  <span class="wa-mode-desc">100% Gratis e ilimitado. Acciones interactivas en 1-click.</span>
+                </div>
+              </label>
+              <label class="wa-mode-option" id="channel-opt-whatsapp">
+                <input type="radio" name="preferred-channel" value="whatsapp" id="radio-channel-wa" onchange="onChannelPrefChange()" />
+                <div class="wa-mode-content">
+                  <span class="wa-mode-title">📱 Solo WhatsApp</span>
+                  <span class="wa-mode-desc">Alertas en tu WhatsApp Business o celular habitual.</span>
+                </div>
+              </label>
+              <label class="wa-mode-option" id="channel-opt-both">
+                <input type="radio" name="preferred-channel" value="both" id="radio-channel-both" onchange="onChannelPrefChange()" />
+                <div class="wa-mode-content">
+                  <span class="wa-mode-title">⚡ Ambos Canales</span>
+                  <span class="wa-mode-desc">Recibí alertas simultáneas en Telegram y WhatsApp.</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- 2. Telegram Bot Integration Card -->
+          <div class="settings-card" id="card-telegram-config">
+            <div class="card-header-flex">
+              <div>
+                <h3>✈️ Integración Telegram Bot</h3>
+                <p>Alertas gratuitas sin límite de cuota mensual y botones inline ultra-rápidos.</p>
+              </div>
+              <span class="status-badge" id="tg-status-badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8;">
+                ⚪ Desconectado
+              </span>
+            </div>
+
+            <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; margin-top: 16px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                <div>
+                  <div style="font-weight:600; color:#f8fafc; font-size:15px; margin-bottom:4px;">Vinculación Automática en 1-Click</div>
+                  <div style="color:#94a3b8; font-size:13px;">Hacé click en el botón para abrir Telegram y enviar <code>/start</code>.</div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <a href="#" id="btn-tg-connect" target="_blank" class="btn-table-action" style="background: linear-gradient(135deg, #0088cc, #0077b5); color: #fff; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;">
+                    ✈️ Conectar en Telegram
+                  </a>
+                  <button type="button" onclick="testTelegramAlert()" class="btn-table-action" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #e2e8f0; padding: 8px 14px; border-radius: 8px;">
+                    🧪 Probar
+                  </button>
+                </div>
+              </div>
+
+              <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr; gap: 12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label style="font-size:12px; color:#94a3b8;">Chat ID Vinculado</label>
+                  <div style="display:flex; gap:8px;">
+                    <input type="text" id="setting-telegram-chat-id" class="form-input" placeholder="Ej. 123456789" style="font-family: monospace;" />
+                    <button type="button" class="btn-refresh-icon" onclick="fetchTelegramInfo()" title="Verificar estado">🔄</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Advanced Telegram Token (Optional) -->
+            <details style="margin-top: 14px; color: #94a3b8; font-size: 13px;">
+              <summary style="cursor: pointer; padding: 4px 0; color: #38bdf8;">⚙️ Configuración Avanzada: Bot Propio (Opcional)</summary>
+              <div class="form-group" style="margin-top: 10px;">
+                <label style="font-size:12px;">Token de tu propio Bot de Telegram (de @BotFather)</label>
+                <input type="password" id="setting-telegram-bot-token" class="form-input" placeholder="1234567890:ABCdefGHIjklMNOpqrs..." />
+                <span class="field-hint">Dejalo vacío para usar el bot oficial compartido de MeliBot.</span>
+              </div>
+            </details>
+          </div>
+
+          <!-- 3. WhatsApp Integration Card -->
+          <div class="settings-card" id="card-whatsapp-config">
+            <h3>📱 Integración WhatsApp (Meta API)</h3>
+            <p>Configuración del servicio de mensajería de WhatsApp.</p>
+
+            <div class="wa-mode-selector" style="margin-top:14px;">
               <label class="wa-mode-option" id="mode-opt-shared">
                 <input type="radio" name="wa-mode" value="platform_shared" id="radio-platform-shared" onchange="onWaModeChange()" />
                 <div class="wa-mode-content">
                   <span class="wa-mode-title">🤖 Bot Oficial MeliBot</span>
-                  <span class="wa-mode-desc">Incluido en tu plan. Recomendado para la mayoría de los vendedores.</span>
+                  <span class="wa-mode-desc">Incluido en tu plan.</span>
                 </div>
               </label>
               <label class="wa-mode-option" id="mode-opt-byo">
                 <input type="radio" name="wa-mode" value="custom_byo" id="radio-custom-byo" onchange="onWaModeChange()" />
                 <div class="wa-mode-content">
-                  <span class="wa-mode-title">🏢 Conectar mi propia cuenta de Meta</span>
-                  <span class="wa-mode-desc">Para cuentas Enterprise con WABA propia. Sin límite de cuota.</span>
+                  <span class="wa-mode-title">🏢 Cuenta Propia Meta</span>
+                  <span class="wa-mode-desc">Para cuentas Enterprise.</span>
                 </div>
               </label>
             </div>
-          </div>
 
-          <!-- B. Platform Shared panel -->
-          <div id="panel-mode-shared">
-            <!-- Phone input -->
-            <div class="settings-card">
-              <h3>📱 Teléfono de Alertas</h3>
-              <p>Ingresá tu número con código de país (ej. +5491112345678 para Argentina).</p>
-              <div class="form-group" style="margin-top:12px;">
-                <input type="tel" id="setting-whatsapp-phone" class="form-input" placeholder="+5491112345678" style="max-width:420px;" />
+            <!-- Platform Shared panel -->
+            <div id="panel-mode-shared" style="margin-top:14px;">
+              <div class="form-group">
+                <label>Teléfono de Alertas WhatsApp</label>
+                <input type="tel" id="setting-whatsapp-phone" class="form-input" placeholder="+5491112345678" />
               </div>
-            </div>
-            <!-- Quota bar card -->
-            <div class="settings-card" style="margin-top:20px;">
-              <div class="card-header-flex">
-                <div>
-                  <h3>📊 Consumo del Mes</h3>
-                  <p>Alertas WhatsApp enviadas en el ciclo actual.</p>
+              <div class="quota-bar-wrap" style="margin-top:14px;">
+                <div class="card-header-flex" style="margin-bottom:8px;">
+                  <span style="font-size:13px; color:#cbd5e1;">Consumo mensual</span>
+                  <span class="plan-badge" id="quota-plan-badge" style="font-size:11px;">Plan Starter</span>
                 </div>
-                <span class="plan-badge" id="quota-plan-badge">Plan Starter</span>
-              </div>
-              <div class="quota-bar-wrap" style="margin-top:16px;">
                 <div class="quota-bar-track">
                   <div class="quota-bar-fill" id="quota-bar-fill" style="width:0%"></div>
                 </div>
                 <div class="quota-bar-labels">
                   <span id="quota-used-label">0 alertas usadas</span>
-                  <span id="quota-limit-label">de 150 este mes</span>
+                  <span id="quota-limit-label">de 150</span>
                 </div>
               </div>
-              <div class="alert-warning" id="quota-warning" style="display:none; margin-top:12px;">
-                ⚠️ Superaste el 80% de tu cuota mensual. Considerá actualizar tu plan.
-              </div>
-              <div class="info-callout" style="margin-top:12px;">
-                <span class="callout-icon">💡</span>
-                <p>El ciclo se resetea el <strong id="quota-reset-date">—</strong>. Para aumentar el límite contactá soporte.</p>
+              <div class="alert-warning" id="quota-warning" style="display:none; margin-top:10px;">
+                ⚠️ Superaste el 80% de tu cuota mensual.
               </div>
             </div>
-          </div>
 
-          <!-- C. BYO panel -->
-          <div id="panel-mode-byo" style="display:none;">
-            <div class="settings-card">
-              <h3>🏢 Credenciales de tu cuenta Meta Business</h3>
-              <p>Ingresá los datos de tu WhatsApp Business Account para enviar desde tu propio número.</p>
-              <div class="form-group" style="margin-top:16px;">
-                <label>Teléfono de destino para alertas</label>
-                <input type="tel" id="setting-whatsapp-phone-byo" class="form-input" placeholder="+5491112345678" style="max-width:420px;" />
+            <!-- BYO panel -->
+            <div id="panel-mode-byo" style="display:none; margin-top:14px;">
+              <div class="form-group">
+                <label>Teléfono de destino</label>
+                <input type="tel" id="setting-whatsapp-phone-byo" class="form-input" placeholder="+5491112345678" />
               </div>
               <div class="form-group">
-                <label>Phone Number ID <span class="field-hint">(de Meta Business Manager)</span></label>
+                <label>Phone Number ID (Meta)</label>
                 <input type="text" id="setting-custom-phone-id" class="form-input" placeholder="109283746501928" />
               </div>
               <div class="form-group">
                 <label>Access Token Permanente</label>
                 <input type="password" id="setting-custom-token" class="form-input" placeholder="EAAG..." />
               </div>
-              <div class="form-group">
-                <label>WABA ID <span class="field-hint">(WhatsApp Business Account ID)</span></label>
-                <input type="text" id="setting-custom-waba-id" class="form-input" placeholder="987654321098765" />
-              </div>
             </div>
           </div>
 
-          <!-- D. Notification triggers card -->
-          <div class="settings-card">
-            <h3>Disparadores de Notificación</h3>
-            <div class="checkbox-group">
-              <label class="checkbox-label">
+          <!-- 4. Notification triggers card -->
+          <div class="settings-card" style="grid-column: 1 / -1;">
+            <h3>🔔 Eventos que Disparan Alertas Inmediatas</h3>
+            <div class="checkbox-group" style="margin-top:12px; display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:12px;">
+              <label class="checkbox-label" style="background: rgba(15, 23, 42, 0.4); padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
                 <input type="checkbox" id="check-alert-questions" checked />
-                <span>Preguntas con intención de negociación o dudas técnicas fuera de catálogo.</span>
+                <span><strong>Preguntas dudosas pre-venta</strong> (intenciones fuera de catálogo o confianza &lt; umbral).</span>
               </label>
-              <label class="checkbox-label">
+              <label class="checkbox-label" style="background: rgba(15, 23, 42, 0.4); padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
                 <input type="checkbox" id="check-alert-claims" checked />
-                <span>Reclamos post-venta urgentes (PNR / PDD) con cuenta regresiva de SLA.</span>
+                <span><strong>Reclamos post-venta urgentes</strong> (PNR / PDD con SLA crítico &lt; 24h).</span>
               </label>
             </div>
           </div>
