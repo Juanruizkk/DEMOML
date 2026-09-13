@@ -171,11 +171,8 @@ export function buildApp(): FastifyInstance {
   };
 
   const requireDemo = async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      await authenticate(request, reply);
-    } catch {
-      return;
-    }
+    await authenticate(request, reply);
+    if (reply.sent) return;
     const user = (request as any).user;
     if (!user || (user.role !== "demo" && user.role !== "super_admin")) {
       return reply.status(403).send({ error: "Acceso denegado. Se requiere cuenta demo." });
