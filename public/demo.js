@@ -8,8 +8,14 @@ function getDemoToken() {
 }
 
 function getDemoUser() {
-  const raw = localStorage.getItem(DEMO_USER_KEY);
-  return raw ? JSON.parse(raw) : null;
+  try {
+    const raw = localStorage.getItem(DEMO_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    console.warn("[Demo] Corrupted demo user in localStorage, clearing...");
+    localStorage.removeItem(DEMO_USER_KEY);
+    return null;
+  }
 }
 
 function demoLogout() {
@@ -79,6 +85,10 @@ document.addEventListener("DOMContentLoaded", () => {
           method: "POST",
           headers: { Authorization: `Bearer ${getDemoToken()}` },
         });
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || `Error HTTP ${res.status}`);
+        }
         const data = await res.json();
         seedBtn.textContent = `✓ ${data.message}`;
         setTimeout(() => {
