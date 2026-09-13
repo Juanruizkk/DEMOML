@@ -1,0 +1,207 @@
+.tenant-content {
+  padding: 24px 32px;
+}
+
+.tenant-form {
+  max-width: 560px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tenant-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tenant-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.tenant-value { color: var(--blue); }
+
+.tenant-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  flex: 1;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Toggle */
+.toggle {
+  flex-shrink: 0;
+  width: 40px; height: 22px;
+  border-radius: var(--r-full);
+  border: none;
+  background: var(--border-glass);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle--on { background: var(--blue); }
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  box-shadow: var(--shadow-xs);
+}
+
+.toggle--on .toggle-thumb { transform: translateX(18px); }
+
+/* Range */
+.tenant-range {
+  width: 100%;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+.tenant-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+/* Select */
+.tenant-select {
+  padding: 9px 12px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--r-md);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-family: var(--font-sans);
+  cursor: pointer;
+}
+
+.tenant-select:focus {
+  outline: none;
+  border-color: var(--blue-border);
+  box-shadow: 0 0 0 3px var(--blue-glow);
+}
+
+/* Input */
+.tenant-input {
+  padding: 9px 12px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--r-md);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-family: var(--font-sans);
+}
+
+.tenant-input:focus {
+  outline: none;
+  border-color: var(--blue-border);
+  box-shadow: 0 0 0 3px var(--blue-glow);
+}
+
+/* Textarea */
+.tenant-textarea {
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--r-md);
+  color: var(--text-primary);
+  font-size: 0.87rem;
+  font-family: var(--font-sans);
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.5;
+}
+
+.tenant-textarea:focus {
+  outline: none;
+  border-color: var(--blue-border);
+  box-shadow: 0 0 0 3px var(--blue-glow);
+}
+
+.tenant-textarea::placeholder { color: var(--text-dim); }
+
+/* Channel buttons */
+.channel-options {
+  display: flex;
+  gap: 8px;
+}
+
+.channel-btn {
+  padding: 8px 18px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-glass);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.channel-btn:hover { background: var(--bg-hover); }
+
+.channel-btn--active {
+  background: var(--blue-glow);
+  border-color: var(--blue-border);
+  color: var(--blue);
+}
+
+/* Save button */
+.btn-save {
+  align-self: flex-start;
+  padding: 9px 20px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+
+.btn-save:hover { box-shadow: 0 0 14px var(--blue-glow); }
+
+/* Connection */
+.connection-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.connection-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.connection-dot--ok { background: var(--emerald); box-shadow: 0 0 8px rgba(16,185,129,0.5); }
+
+.connection-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.connection-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}

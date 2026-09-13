@@ -1,102 +1,173 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
+import PageHeader from '../components/PageHeader'
+import './TenantPage.css'
 
-type Tab = 'preguntas' | 'reclamos' | 'configuracion'
-
-interface Question {
-  id: string
-  text: string
-  status: string
+interface TenantSettings {
+  autoAnswerEnabled: boolean
+  confidenceThreshold: number
+  tone: string
+  customInstructions?: string
+  preferredAlertChannel?: string
+  whatsappAlertPhone?: string
+  telegramAlertChatId?: string
+  telegramEnabled?: boolean
 }
 
-interface Claim {
-  id: string
-  orderId: string
-  status: string
-}
-
-export default function TenantPage() {
-  const { logout } = useAuth()
-  const [tab, setTab] = useState<Tab>('preguntas')
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [claims, setClaims] = useState<Claim[]>([])
-  const [loadingData, setLoadingData] = useState(false)
+export default function TenantPage({ tab }: { tab?: string }) {
+  const activeTab = tab || 'settings'
+  const [settings, setSettings] = useState<TenantSettings | null>(null)
+  const [loading, setLoading]   = useState(true)
+  const [saved, setSaved]       = useState(false)
 
   useEffect(() => {
-    if (tab === 'preguntas') {
-      setLoadingData(true)
-      api.get<Question[]>('/questions').then(setQuestions).catch(console.error).finally(() => setLoadingData(false))
-    } else if (tab === 'reclamos') {
-      setLoadingData(true)
-      api.get<Claim[]>('/claims').then(setClaims).catch(console.error).finally(() => setLoadingData(false))
-    }
-  }, [tab])
+    api.get<TenantSettings>('/tenant/settings')
+      .then(setSettings)
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
 
-  const tabStyle = (t: Tab) => ({
-    padding: '0.5rem 1rem',
-    background: tab === t ? '#3b82f6' : '#1e293b',
-    color: '#e2e8f0',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  })
+  const save = async () => {
+    if (!settings) return
+    await api.put('/tenant/settings', settings)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const titles: Record<string, string> = {
+    settings:   'Configuración IA',
+    channels:   'Canales de Alerta',
+    connection: 'Conexión MELI',
+  }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1>Portal Tenant</h1>
-        <button onClick={logout} style={{ padding: '0.5rem 1rem', background: '#334155', border: 'none', borderRadius: '4px', color: '#e2e8f0', cursor: 'pointer' }}>
-          Cerrar sesión
-        </button>
+    <div className="page">
+      <PageHeader title={titles[activeTab] || 'Configuración'} subtitle="Portal del vendedor" />
+      <div className="tenant-content">
+        {loading && <div className="list-empty"><span className="pulse-dot" /> Cargando…</div>}
+
+        {!loading && settings && activeTab === 'settings' && (
+          <div className="tenant-form glass">
+            <div className="tenant-field">
+              <label className="tenant-label">Auto-respuesta IA</label>
+              <div className="toggle-row">
+                <span className="tenant-hint">Activar respuesta automática con IA para preguntas de alta confianza</span>
+                <button
+                  className={`toggle${settings.autoAnswerEnabled ? ' toggle--on' : ''}`}
+                  onClick={() => setSettings(s => s ? { ...s, autoAnswerEnabled: !s.autoAnswerEnabled } : s)}
+                >
+                  <span className="toggle-thumb" />
+                </button>
+              </div>
+            </div>
+
+            <div className="tenant-field">
+              <label className="tenant-label">
+                Umbral de confianza — <span className="tenant-value">{Math.round((settings.confidenceThreshold || 0) * 100)}%</span>
+              </label>
+              <input
+                type="range" min="0" max="1" step="0.05"
+                value={settings.confidenceThreshold}
+                onChange={e => setSettings(s => s ? { ...s, confidenceThreshold: parseFloat(e.target.value) } : s)}
+                className="tenant-range"
+              />
+              <div className="tenant-range-labels">
+                <span>0% (todo manual)</span>
+                <span>100% (todo auto)</span>
+              </div>
+            </div>
+
+            <div className="tenant-field">
+              <label className="tenant-label">Tono de respuesta</label>
+              <select
+                className="tenant-select"
+                value={settings.tone}
+                onChange={e => setSettings(s => s ? { ...s, tone: e.target.value } : s)}
+              >
+                <option value="casual_rioplatense">Casual rioplatense</option>
+                <option value="formal">Formal</option>
+                <option value="concise">Conciso</option>
+              </select>
+            </div>
+
+            <div className="tenant-field">
+              <label className="tenant-label">Instrucciones personalizadas</label>
+              <textarea
+                className="tenant-textarea"
+                rows={4}
+                value={settings.customInstructions || ''}
+                onChange={e => setSettings(s => s ? { ...s, customInstructions: e.target.value } : s)}
+                placeholder="Ej: Siempre mencionar garantía de 12 meses. No prometer envíos en el día."
+              />
+            </div>
+
+            <button className="btn-save" onClick={save}>
+              {saved ? '✓ Guardado' : 'Guardar cambios'}
+            </button>
+          </div>
+        )}
+
+        {!loading && settings && activeTab === 'channels' && (
+          <div className="tenant-form glass">
+            <div className="tenant-field">
+              <label className="tenant-label">Canal preferido de alertas</label>
+              <div className="channel-options">
+                {['whatsapp', 'telegram', 'both'].map(ch => (
+                  <button
+                    key={ch}
+                    className={`channel-btn${settings.preferredAlertChannel === ch ? ' channel-btn--active' : ''}`}
+                    onClick={() => setSettings(s => s ? { ...s, preferredAlertChannel: ch } : s)}
+                  >
+                    {ch === 'whatsapp' ? 'WhatsApp' : ch === 'telegram' ? 'Telegram' : 'Ambos'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {(settings.preferredAlertChannel === 'whatsapp' || settings.preferredAlertChannel === 'both') && (
+              <div className="tenant-field">
+                <label className="tenant-label">Teléfono WhatsApp</label>
+                <input
+                  type="tel"
+                  className="tenant-input"
+                  value={settings.whatsappAlertPhone || ''}
+                  onChange={e => setSettings(s => s ? { ...s, whatsappAlertPhone: e.target.value } : s)}
+                  placeholder="+5491112345678"
+                />
+              </div>
+            )}
+
+            {(settings.preferredAlertChannel === 'telegram' || settings.preferredAlertChannel === 'both') && (
+              <div className="tenant-field">
+                <label className="tenant-label">Telegram Chat ID</label>
+                <input
+                  type="text"
+                  className="tenant-input"
+                  value={settings.telegramAlertChatId || ''}
+                  onChange={e => setSettings(s => s ? { ...s, telegramAlertChatId: e.target.value } : s)}
+                  placeholder="-100123456789"
+                />
+              </div>
+            )}
+
+            <button className="btn-save" onClick={save}>
+              {saved ? '✓ Guardado' : 'Guardar cambios'}
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'connection' && (
+          <div className="tenant-form glass">
+            <div className="connection-status">
+              <span className="connection-dot connection-dot--ok" />
+              <div>
+                <p className="connection-label">Conexión MELI activa</p>
+                <p className="connection-hint">Tu token está sincronizado. Se renueva automáticamente.</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-        <button style={tabStyle('preguntas')} onClick={() => setTab('preguntas')}>Preguntas</button>
-        <button style={tabStyle('reclamos')} onClick={() => setTab('reclamos')}>Reclamos</button>
-        <button style={tabStyle('configuracion')} onClick={() => setTab('configuracion')}>Configuración</button>
-      </div>
-
-      {loadingData && <p style={{ color: '#64748b' }}>Cargando...</p>}
-
-      {!loadingData && tab === 'preguntas' && (
-        <div>
-          {questions.length === 0 ? (
-            <p style={{ color: '#64748b' }}>No hay preguntas pendientes.</p>
-          ) : (
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {questions.map(q => (
-                <li key={q.id} style={{ padding: '1rem', background: '#1e293b', borderRadius: '4px' }}>
-                  <p>{q.text}</p>
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{q.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {!loadingData && tab === 'reclamos' && (
-        <div>
-          {claims.length === 0 ? (
-            <p style={{ color: '#64748b' }}>No hay reclamos activos.</p>
-          ) : (
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {claims.map(c => (
-                <li key={c.id} style={{ padding: '1rem', background: '#1e293b', borderRadius: '4px' }}>
-                  <p>Orden: {c.orderId}</p>
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{c.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {tab === 'configuracion' && (
-        <div style={{ padding: '1rem', background: '#1e293b', borderRadius: '4px' }}>
-          <p style={{ color: '#94a3b8' }}>Configuración del tenant — próximamente.</p>
-        </div>
-      )}
     </div>
   )
 }

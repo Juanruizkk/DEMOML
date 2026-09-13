@@ -1,0 +1,255 @@
+.admin-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  padding: 20px 32px 32px;
+  min-height: 0;
+}
+
+/* Tenant list pane */
+.tenant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px) saturate(1.4);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--r-lg);
+  padding: 12px 8px;
+  height: fit-content;
+}
+
+.tenant-list-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 4px 10px 10px;
+}
+
+.tenant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  width: 100%;
+}
+
+.tenant-row:hover { background: var(--bg-hover); }
+
+.tenant-row--active {
+  background: var(--blue-glow);
+  border: 1px solid var(--blue-border);
+}
+
+.tenant-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tenant-row-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tenant-row-email {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tenant-row-stats {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.tenant-row-badge {
+  padding: 2px 6px;
+  border-radius: var(--r-full);
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.tenant-row-badge--green {
+  background: rgba(16,185,129,0.12);
+  color: var(--emerald);
+}
+
+/* Detail pane */
+.tenant-detail {
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  height: fit-content;
+}
+
+.tenant-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 20px;
+}
+
+.tenant-detail-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.tenant-detail-id {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.tenant-detail-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  padding: 60px 20px;
+}
+
+.list-empty-icon {
+  font-size: 2rem;
+  opacity: 0.3;
+}
+
+/* Permissions section */
+.permissions-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.permissions-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.permissions-hint {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin-top: -12px;
+}
+
+.permissions-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.permission-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  transition: background 0.12s;
+}
+
+.permission-item:hover { background: var(--bg-hover); }
+
+.permission-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.permission-label {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.permission-soon {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.05);
+  padding: 2px 7px;
+  border-radius: var(--r-full);
+}
+
+/* Toggle — shared with TenantPage.css but scoped here for AdminPage */
+.toggle {
+  flex-shrink: 0;
+  width: 40px; height: 22px;
+  border-radius: var(--r-full);
+  border: none;
+  background: var(--border-glass);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle--on { background: var(--blue); }
+
+.toggle--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  box-shadow: var(--shadow-xs);
+}
+
+.toggle--on .toggle-thumb { transform: translateX(18px); }
+
+/* Save button */
+.btn-save {
+  align-self: flex-start;
+  padding: 9px 20px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+
+.btn-save:hover:not(:disabled) { box-shadow: 0 0 14px var(--blue-glow); }
+
+.btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -1,0 +1,86 @@
+.onboarding-content {
+  padding: 20px 32px 32px;
+  max-width: 560px;
+}
+
+.onboarding-error {
+  font-size: 0.88rem;
+  color: var(--rose);
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid var(--rose-border);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+}
+
+.onboarding-card {
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.onboarding-status-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.onboarding-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.onboarding-dot--ok {
+  background: var(--emerald);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.onboarding-dot--pending {
+  background: var(--amber);
+  box-shadow: 0 0 8px rgba(245, 166, 35, 0.4);
+}
+
+.onboarding-status-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.onboarding-status-hint {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.onboarding-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  border-top: 1px solid var(--border-glass);
+  padding-top: 20px;
+}
+
+.onboarding-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.onboarding-step-num {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  min-width: 20px;
+}
+
+.onboarding-step-text {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
