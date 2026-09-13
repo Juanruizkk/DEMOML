@@ -57,6 +57,10 @@ export class User {
     return this.role === "super_admin";
   }
 
+  public isDemo(): boolean {
+    return this.role === "demo";
+  }
+
   public canAccessSeller(sellerId: string): boolean {
     if (this.isSuperAdmin()) return true;
     return this.sellerId === sellerId;

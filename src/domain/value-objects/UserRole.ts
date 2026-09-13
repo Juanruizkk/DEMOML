@@ -1,6 +1,7 @@
-export type UserRoleType = "super_admin" | "tenant";
+export type UserRoleType = "super_admin" | "tenant" | "demo";
 
 export const USER_ROLES = {
-  SUPER_ADMIN: "super_admin" as UserRoleType,
-  TENANT: "tenant" as UserRoleType,
-};
+  SUPER_ADMIN: "super_admin",
+  TENANT: "tenant",
+  DEMO: "demo",
+} as const;

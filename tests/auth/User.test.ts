@@ -56,4 +56,21 @@ describe("User Entity (Domain)", () => {
     expect(tenant.canAccessSeller("SELLER_PROPIO")).toBe(true);
     expect(tenant.canAccessSeller("SELLER_AJENO")).toBe(false);
   });
+
+  it("debe identificar un usuario demo correctamente", () => {
+    const user = new User({
+      id: "demo-id",
+      email: "demo@melibot.com",
+      passwordHash: "hash",
+      name: "Demo User",
+      role: "demo",
+      sellerId: "3680586616",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    expect(user.isDemo()).toBe(true);
+    expect(user.isSuperAdmin()).toBe(false);
+    expect(user.canAccessSeller("3680586616")).toBe(true);
+    expect(user.canAccessSeller("9999999999")).toBe(false);
+  });
 });
