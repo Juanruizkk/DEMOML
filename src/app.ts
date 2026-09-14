@@ -62,10 +62,13 @@ import { ForceTokenRefreshUseCase } from "./application/use-cases/admin/ForceTok
 import { UpdateTenantPermissionsUseCase } from "./application/use-cases/admin/UpdateTenantPermissionsUseCase.js";
 import { UpdateTenantIntegrationsUseCase } from "./application/use-cases/admin/UpdateTenantIntegrationsUseCase.js";
 import { CreateTenantUseCase } from "./application/use-cases/admin/CreateTenantUseCase.js";
+import { GetLLMUsageStatsUseCase } from "./application/use-cases/admin/GetLLMUsageStatsUseCase.js";
 import { ActivateTenantUseCase } from "./application/use-cases/auth/ActivateTenantUseCase.js";
 import { ListTeamMembersUseCase } from "./application/use-cases/tenant/ListTeamMembersUseCase.js";
 import { InviteTeamMemberUseCase } from "./application/use-cases/tenant/InviteTeamMemberUseCase.js";
 import { RemoveTeamMemberUseCase } from "./application/use-cases/tenant/RemoveTeamMemberUseCase.js";
+import { GetTenantLLMUsageUseCase } from "./application/use-cases/tenant/GetTenantLLMUsageUseCase.js";
+import { SetLLMSpendingLimitUseCase } from "./application/use-cases/tenant/SetLLMSpendingLimitUseCase.js";
 
 import { WebhookController } from "./presentation/controllers/WebhookController.js";
 import { QuestionsController } from "./presentation/controllers/QuestionsController.js";
@@ -79,6 +82,7 @@ import { TelegramWebhookController } from "./presentation/controllers/TelegramWe
 import { ClaimsController } from "./presentation/controllers/ClaimsController.js";
 import { DemoController } from "./presentation/controllers/DemoController.js";
 import { ProductsController } from "./presentation/controllers/ProductsController.js";
+import { LLMUsageController } from "./presentation/controllers/LLMUsageController.js";
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -110,7 +114,22 @@ export function buildApp(): FastifyInstance {
 
   // 3. Adaptadores
   const meliClient = new MeliApiClient(tenantRepo);
-  const llmService = new LangChainLLMService(llmUsageRepo);
+  const llmService = new LangChainLLMService(
+    llmUsageRepo,
+    (sellerId) => {
+      tenantRepo.findBySellerId(sellerId).then((tenant) => {
+        if (!tenant) return;
+        const msg = `⚠️ Tu consumo de IA este mes superó el límite configurado.`;
+        if (tenant.canSendTelegramAlert()) {
+          telegramClient.sendMessage({
+            chatId: tenant.settings.telegramAlertChatId!,
+            text: msg,
+            botToken: tenant.settings.telegramAlertBotToken,
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+  );
   const queueBroker = new InMemoryQueueBroker(5);
   const sseNotifier = new FastifySseNotifier();
   const whatsAppClient = new MetaWhatsAppClient();
@@ -199,6 +218,9 @@ export function buildApp(): FastifyInstance {
   const updateTenantIntegrationsUseCase = new UpdateTenantIntegrationsUseCase(tenantRepo);
   const createTenantUseCase = new CreateTenantUseCase(userRepo);
   const activateTenantUseCase = new ActivateTenantUseCase(userRepo, passwordHasher, tokenService);
+  const getLLMUsageStatsUseCase = new GetLLMUsageStatsUseCase(llmUsageRepo, tenantRepo);
+  const getTenantLLMUsageUseCase = new GetTenantLLMUsageUseCase(llmUsageRepo);
+  const setLLMSpendingLimitUseCase = new SetLLMSpendingLimitUseCase(llmUsageRepo);
 
   // 7. Workers de Cola & Poller de Respaldo Mercado Libre
   queueBroker.registerProcessor(async (job) => {
@@ -310,6 +332,12 @@ export function buildApp(): FastifyInstance {
     llmService,
     tenantRepo
   );
+  const llmUsageCtrl = new LLMUsageController(
+    getLLMUsageStatsUseCase,
+    getTenantLLMUsageUseCase,
+    setLLMSpendingLimitUseCase,
+    tenantRepo,
+  );
 
   // 10. Rutas — Auth
   app.post("/api/auth/register", authCtrl.register);
@@ -329,6 +357,7 @@ export function buildApp(): FastifyInstance {
   app.post("/api/admin/tenants/:sellerId/refresh-token", { preHandler: requireSuperAdmin }, adminCtrl.refreshToken);
   app.put("/api/admin/tenants/:sellerId/permissions", { preHandler: requireSuperAdmin }, adminCtrl.updatePermissions);
   app.patch("/api/admin/tenants/:sellerId/integrations", { preHandler: requireSuperAdmin }, adminCtrl.updateTenantIntegrations);
+  app.get("/api/admin/llm-usage", { preHandler: requireSuperAdmin }, llmUsageCtrl.getAdminStats);
   app.post("/api/admin/tenants", { preHandler: requireSuperAdmin }, adminCtrl.createTenant);
   app.get("/api/admin/invitations", { preHandler: requireSuperAdmin }, adminCtrl.getPendingInvitations);
   app.post("/api/admin/users/:userId/reset-password", { preHandler: requireSuperAdmin }, adminCtrl.resetUserPassword);
@@ -396,6 +425,10 @@ export function buildApp(): FastifyInstance {
   app.post("/api/config/auto-answer", { preHandler: optionalAuthenticate }, tenantCtrl.updateSettings);
   app.get("/api/tenant/settings", { preHandler: optionalAuthenticate }, tenantCtrl.getSettings);
   app.put("/api/tenant/settings", { preHandler: optionalAuthenticate }, tenantCtrl.updateSettings);
+
+  // Rutas — LLM Usage
+  app.get("/api/tenant/llm-usage", { preHandler: authenticate }, llmUsageCtrl.getTenantUsage);
+  app.patch("/api/tenant/llm-usage/limit", { preHandler: authenticate }, llmUsageCtrl.setSpendingLimit);
 
   // Rutas — Equipo / Colaboradores del Tenant
   app.get("/api/tenant/team", { preHandler: authenticate }, tenantCtrl.getTeamMembers);
