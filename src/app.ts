@@ -237,7 +237,7 @@ export function buildApp(): FastifyInstance {
   const adminCtrl = new AdminController(
     getGlobalMetricsUseCase, listTenantsOverviewUseCase, getTenantDetailUseCase,
     toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase, updateTenantPermissionsUseCase,
-    createTenantUseCase, userRepo
+    createTenantUseCase, userRepo, requestPasswordResetUseCase
   );
   const waWebhookCtrl = new WhatsAppWebhookController(handleWhatsAppReplyUseCase);
   const telegramCtrl = new TelegramWebhookController(handleTelegramWebhookUseCase, telegramClient, tenantRepo);
@@ -267,6 +267,8 @@ export function buildApp(): FastifyInstance {
   app.get("/api/auth/onboarding-status", { preHandler: authenticate }, authCtrl.getOnboardingStatus);
   app.get("/api/auth/meli-auth-url", { preHandler: optionalAuthenticate }, authCtrl.getMeliAuthUrl);
   app.post("/api/auth/activate/:token", authCtrl.activateTenant);
+  app.post("/api/auth/forgot-password", authCtrl.forgotPassword);
+  app.post("/api/auth/reset-password/:token", authCtrl.resetPassword);
 
   // Rutas — Super Admin
   app.get("/api/admin/metrics", { preHandler: requireSuperAdmin }, adminCtrl.getMetrics);
@@ -277,6 +279,7 @@ export function buildApp(): FastifyInstance {
   app.put("/api/admin/tenants/:sellerId/permissions", { preHandler: requireSuperAdmin }, adminCtrl.updatePermissions);
   app.post("/api/admin/tenants", { preHandler: requireSuperAdmin }, adminCtrl.createTenant);
   app.get("/api/admin/invitations", { preHandler: requireSuperAdmin }, adminCtrl.getPendingInvitations);
+  app.post("/api/admin/users/:userId/reset-password", { preHandler: requireSuperAdmin }, adminCtrl.resetUserPassword);
 
   // Rutas — Webhooks & OAuth
   app.post("/webhook/ml", webhookCtrl.handle);
