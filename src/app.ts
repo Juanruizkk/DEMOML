@@ -44,6 +44,8 @@ import { SeedSuperAdminUseCase } from "./application/use-cases/auth/SeedSuperAdm
 import { SeedDemoUserUseCase } from "./application/use-cases/auth/SeedDemoUserUseCase.js";
 import { ConnectMeliAccountUseCase } from "./application/use-cases/auth/ConnectMeliAccountUseCase.js";
 import { GetOnboardingStatusUseCase } from "./application/use-cases/auth/GetOnboardingStatusUseCase.js";
+import { RequestPasswordResetUseCase } from "./application/use-cases/auth/RequestPasswordResetUseCase.js";
+import { ResetPasswordUseCase } from "./application/use-cases/auth/ResetPasswordUseCase.js";
 
 import { GetGlobalMetricsUseCase } from "./application/use-cases/admin/GetGlobalMetricsUseCase.js";
 import { ListTenantsOverviewUseCase } from "./application/use-cases/admin/ListTenantsOverviewUseCase.js";
@@ -109,6 +111,8 @@ export function buildApp(): FastifyInstance {
     meliClient, tenantRepo, userRepo, eventRepo, tokenService
   );
   const getOnboardingStatusUseCase = new GetOnboardingStatusUseCase(userRepo, tenantRepo);
+  const requestPasswordResetUseCase = new RequestPasswordResetUseCase(userRepo, emailClient);
+  const resetPasswordUseCase = new ResetPasswordUseCase(userRepo, passwordHasher, tokenService);
 
   seedSuperAdminUseCase.execute().catch((err) => console.error("Error seeding super admin:", err));
 
@@ -226,7 +230,7 @@ export function buildApp(): FastifyInstance {
   const authCtrl = new AuthController(
     registerUserUseCase, loginUserUseCase, getCurrentUserUseCase,
     connectMeliAccountUseCase, getOnboardingStatusUseCase, tokenService,
-    activateTenantUseCase
+    activateTenantUseCase, requestPasswordResetUseCase, resetPasswordUseCase
   );
   const simulatorCtrl = new SimulatorController(simulateQuestionUseCase);
   const tenantCtrl = new TenantController(tenantRepo, eventRepo, llmService, emailClient);

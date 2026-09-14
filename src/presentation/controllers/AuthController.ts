@@ -5,6 +5,8 @@ import { GetCurrentUserUseCase } from "../../application/use-cases/auth/GetCurre
 import { ConnectMeliAccountUseCase } from "../../application/use-cases/auth/ConnectMeliAccountUseCase.js";
 import { GetOnboardingStatusUseCase } from "../../application/use-cases/auth/GetOnboardingStatusUseCase.js";
 import { ActivateTenantUseCase } from "../../application/use-cases/auth/ActivateTenantUseCase.js";
+import { RequestPasswordResetUseCase } from "../../application/use-cases/auth/RequestPasswordResetUseCase.js";
+import { ResetPasswordUseCase } from "../../application/use-cases/auth/ResetPasswordUseCase.js";
 import { ITokenService } from "../../application/interfaces/ITokenService.js";
 
 export class AuthController {
@@ -15,7 +17,9 @@ export class AuthController {
     private readonly connectMeliUseCase: ConnectMeliAccountUseCase,
     private readonly getOnboardingStatusUseCase: GetOnboardingStatusUseCase,
     private readonly tokenService: ITokenService,
-    private readonly activateTenantUseCase: ActivateTenantUseCase
+    private readonly activateTenantUseCase: ActivateTenantUseCase,
+    private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase,
+    private readonly resetPasswordUseCase: ResetPasswordUseCase
   ) {}
 
   public register = async (
@@ -114,6 +118,32 @@ export class AuthController {
     const { password } = request.body as { password: string };
     try {
       const result = await this.activateTenantUseCase.execute({ token, password });
+      return reply.send(result);
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  };
+
+  public forgotPassword = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { email } = (request.body as { email?: string }) || {};
+    if (!email) {
+      return reply.status(400).send({ error: "El campo email es requerido." });
+    }
+    const origin = request.headers.origin || process.env.APP_BASE_URL || "http://localhost:5173";
+    await this.requestPasswordResetUseCase
+      .execute({ email, baseUrl: origin as string })
+      .catch((err) => console.error("[AuthController.forgotPassword]", err));
+    return reply.send({ ok: true });
+  };
+
+  public resetPassword = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { token } = request.params as { token: string };
+    const { password } = (request.body as { password?: string }) || {};
+    if (!password) {
+      return reply.status(400).send({ error: "El campo password es requerido." });
+    }
+    try {
+      const result = await this.resetPasswordUseCase.execute({ token, password });
       return reply.send(result);
     } catch (err: any) {
       return reply.status(400).send({ error: err.message });
