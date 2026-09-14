@@ -3,6 +3,14 @@ import { IQuestionRepository } from "../../interfaces/IQuestionRepository.js";
 import { IEventRepository } from "../../interfaces/IEventRepository.js";
 import { TenantDetailDTO, TokenHealthStatus } from "../../dtos/AdminDTOs.js";
 
+function maskSecrets(settings: any): any {
+  return {
+    ...settings,
+    llmApiKey: settings.llmApiKey ? "***" : undefined,
+    customAccessToken: settings.customAccessToken ? "***" : undefined,
+  };
+}
+
 export class GetTenantDetailUseCase {
   constructor(
     private readonly tenantRepo: ITenantRepository,
@@ -45,7 +53,7 @@ export class GetTenantDetailUseCase {
         createdAt: tenant.createdAt.toISOString(),
         updatedAt: tenant.updatedAt.toISOString(),
       },
-      settings: tenant.settings,
+      settings: maskSecrets(tenant.settings),
       recentQuestions: recentQuestions.map((q) => ({
         id: q.id,
         text: q.text,
