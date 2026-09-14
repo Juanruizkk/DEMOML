@@ -19,6 +19,18 @@ interface TenantOverview {
   autoAnswerEnabled?: boolean
 }
 
+interface PendingInvitation {
+  id: string
+  name: string
+  email: string
+  createdAt: string
+}
+
+interface CreateTenantResult {
+  userId: string
+  activationUrl: string
+}
+
 const PERMISSION_LABELS: Record<string, string> = {
   whatsappEnabled:  'WhatsApp',
   telegramEnabled:  'Telegram',
@@ -28,20 +40,32 @@ const PERMISSION_LABELS: Record<string, string> = {
 }
 
 export default function AdminPage() {
-  const [metrics, setMetrics]     = useState<Metrics | null>(null)
-  const [tenants, setTenants]     = useState<TenantOverview[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [selected, setSelected]   = useState<string | null>(null)
-  const [saving, setSaving]       = useState(false)
-  const [localPerms, setLocalPerms] = useState<Record<string, boolean>>({})
+  const [metrics, setMetrics]           = useState<Metrics | null>(null)
+  const [tenants, setTenants]           = useState<TenantOverview[]>([])
+  const [pending, setPending]           = useState<PendingInvitation[]>([])
+  const [loading, setLoading]           = useState(true)
+  const [selected, setSelected]         = useState<string | null>(null)
+  const [saving, setSaving]             = useState(false)
+  const [localPerms, setLocalPerms]     = useState<Record<string, boolean>>({})
+
+  // Modal state
+  const [showModal, setShowModal]       = useState(false)
+  const [newName, setNewName]           = useState('')
+  const [newEmail, setNewEmail]         = useState('')
+  const [creating, setCreating]         = useState(false)
+  const [createError, setCreateError]   = useState<string | null>(null)
+  const [createdLink, setCreatedLink]   = useState<string | null>(null)
+  const [copied, setCopied]             = useState(false)
 
   useEffect(() => {
     Promise.all([
       api.get<Metrics>('/admin/metrics'),
       api.get<TenantOverview[]>('/admin/tenants'),
-    ]).then(([m, t]) => {
+      api.get<PendingInvitation[]>('/admin/invitations'),
+    ]).then(([m, t, p]) => {
       setMetrics(m)
       setTenants(t)
+      setPending(p)
     }).catch(console.error).finally(() => setLoading(false))
   }, [])
 
@@ -73,6 +97,42 @@ export default function AdminPage() {
     }
   }
 
+  const openModal = () => {
+    setShowModal(true)
+    setNewName('')
+    setNewEmail('')
+    setCreateError(null)
+    setCreatedLink(null)
+    setCopied(false)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setCreatedLink(null)
+  }
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCreateError(null)
+    setCreating(true)
+    try {
+      const result = await api.post<CreateTenantResult>('/admin/tenants', { name: newName, email: newEmail })
+      setCreatedLink(result.activationUrl)
+      setPending(p => [...p, { id: result.userId, name: newName, email: newEmail, createdAt: new Date().toISOString() }])
+    } catch (err: any) {
+      setCreateError(err.message)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const copyLink = () => {
+    if (!createdLink) return
+    navigator.clipboard.writeText(createdLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   const selectedTenant = tenants.find(t => t.sellerId === selected)
 
   return (
@@ -93,8 +153,27 @@ export default function AdminPage() {
         <div className="admin-layout">
           {/* Tenant list */}
           <div className="tenant-list">
-            <p className="tenant-list-title">Tenants</p>
-            {tenants.length === 0 && (
+            <div className="tenant-list-header">
+              <p className="tenant-list-title">Tenants</p>
+              <button className="btn-new-tenant" onClick={openModal}>+ Nuevo</button>
+            </div>
+
+            {/* Pending invitations */}
+            {pending.length > 0 && (
+              <div className="pending-section">
+                {pending.map(inv => (
+                  <div key={inv.id} className="tenant-row tenant-row--pending">
+                    <div className="tenant-row-info">
+                      <span className="tenant-row-name">{inv.name}</span>
+                      <span className="tenant-row-email">{inv.email}</span>
+                    </div>
+                    <span className="badge-pending">Pendiente</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {tenants.length === 0 && pending.length === 0 && (
               <p className="list-empty" style={{ padding: '24px 16px' }}>Sin tenants registrados</p>
             )}
             {tenants.map(t => (
@@ -164,6 +243,65 @@ export default function AdminPage() {
               <p>Seleccioná un tenant para ver y editar sus permisos</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Create Tenant Modal */}
+      {showModal && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-card glass" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Nuevo tenant</h3>
+              <button className="modal-close" onClick={closeModal}>✕</button>
+            </div>
+
+            {createdLink ? (
+              <div className="modal-success">
+                <p className="modal-success-text">
+                  Cuenta creada. Enviá este link al tenant para que active su cuenta:
+                </p>
+                <div className="activation-link-box">
+                  <span className="activation-link-text">{createdLink}</span>
+                </div>
+                <button className="btn-copy" onClick={copyLink}>
+                  {copied ? '✓ Copiado' : 'Copiar link'}
+                </button>
+                <button className="btn-save" style={{ marginTop: 12 }} onClick={closeModal}>
+                  Cerrar
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleCreate}>
+                <div className="modal-field">
+                  <label className="modal-label">Nombre</label>
+                  <input
+                    type="text"
+                    className="tenant-input"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    placeholder="Acme Corp"
+                    required
+                    autoFocus
+                  />
+                </div>
+                <div className="modal-field">
+                  <label className="modal-label">Email</label>
+                  <input
+                    type="email"
+                    className="tenant-input"
+                    value={newEmail}
+                    onChange={e => setNewEmail(e.target.value)}
+                    placeholder="admin@acme.com"
+                    required
+                  />
+                </div>
+                {createError && <p className="modal-error">{createError}</p>}
+                <button type="submit" className="btn-save" disabled={creating}>
+                  {creating ? 'Creando…' : 'Crear tenant'}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       )}
     </div>

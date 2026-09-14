@@ -1,15 +1,18 @@
 import { ReactElement, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { NotificationProvider } from './context/NotificationContext'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 
 const QuestionsPage   = lazy(() => import('./pages/QuestionsPage'))
 const ClaimsPage      = lazy(() => import('./pages/ClaimsPage'))
+const ProductsPage    = lazy(() => import('./pages/ProductsPage'))
 const AdminPage       = lazy(() => import('./pages/AdminPage'))
 const TenantPage      = lazy(() => import('./pages/TenantPage'))
 const OnboardingPage  = lazy(() => import('./pages/OnboardingPage'))
 const DemoPage        = lazy(() => import('./pages/DemoPage'))
+const ActivatePage    = lazy(() => import('./pages/ActivatePage'))
 
 function PrivateRoute({ children, roles }: { children: ReactElement; roles: string[] }) {
   const { user, loading } = useAuth()
@@ -43,7 +46,8 @@ export default function App() {
   }
 
   return (
-    <Suspense fallback={<PageLoading />}>
+    <NotificationProvider>
+      <Suspense fallback={<PageLoading />}>
       <Routes>
         {/* Public */}
         <Route
@@ -53,32 +57,37 @@ export default function App() {
 
         {/* Tenant + demo */}
         <Route path="/questions" element={
-          <PrivateRoute roles={['tenant', 'super_admin', 'demo']}>
+          <PrivateRoute roles={['tenant', 'demo']}>
             <Layout><QuestionsPage /></Layout>
           </PrivateRoute>
         } />
         <Route path="/claims" element={
-          <PrivateRoute roles={['tenant', 'super_admin', 'demo']}>
+          <PrivateRoute roles={['tenant', 'demo']}>
             <Layout><ClaimsPage /></Layout>
           </PrivateRoute>
         } />
+        <Route path="/products" element={
+          <PrivateRoute roles={['tenant', 'demo']}>
+            <Layout><ProductsPage /></Layout>
+          </PrivateRoute>
+        } />
         <Route path="/settings" element={
-          <PrivateRoute roles={['tenant', 'super_admin']}>
+          <PrivateRoute roles={['tenant']}>
             <Layout><TenantPage tab="settings" /></Layout>
           </PrivateRoute>
         } />
         <Route path="/channels" element={
-          <PrivateRoute roles={['tenant', 'super_admin']}>
+          <PrivateRoute roles={['tenant']}>
             <Layout><TenantPage tab="channels" /></Layout>
           </PrivateRoute>
         } />
         <Route path="/connection" element={
-          <PrivateRoute roles={['tenant', 'super_admin']}>
+          <PrivateRoute roles={['tenant']}>
             <Layout><TenantPage tab="connection" /></Layout>
           </PrivateRoute>
         } />
         <Route path="/onboarding" element={
-          <PrivateRoute roles={['tenant', 'super_admin']}>
+          <PrivateRoute roles={['tenant']}>
             <Layout><OnboardingPage /></Layout>
           </PrivateRoute>
         } />
@@ -97,17 +106,21 @@ export default function App() {
           </PrivateRoute>
         } />
 
+        {/* Activation — public, no auth required */}
+        <Route path="/activate/:token" element={<ActivatePage />} />
+
         {/* Catch-all */}
         <Route path="*" element={
           <Navigate to={user ? defaultRoute(user.role) : '/login'} replace />
         } />
       </Routes>
     </Suspense>
+    </NotificationProvider>
   )
 }
 
 function defaultRoute(role: string): string {
   if (role === 'super_admin') return '/admin'
-  if (role === 'demo')        return '/questions'
+  if (role === 'demo')        return '/demo'
   return '/questions'
 }
