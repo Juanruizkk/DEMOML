@@ -147,3 +147,11 @@ Usuario pre-seeded para usar en reuniones con clientes potenciales. Accede a `/d
 1. **Onboarding de un nuevo cliente:** Entrar a `http://localhost:3000/onboarding.html`, registrar una cuenta y hacer clic en *"Conectar con Mercado Libre"*.
 2. **Operación y Aprobador Live:** Entrar a `http://localhost:3000/` para ver las preguntas entrantes, simular escenarios y usar el aprobador WhatsApp.
 3. **Control y Monitoreo:** Entrar a `http://localhost:3000/admin.html` para ver métricas globales, pausar/activar tiendas y forzar refrescos de tokens OAuth.
+
+---
+
+## 7. 📚 Documentación Adicional & Guías de Canales
+
+* 📧 **[Guía de Integración de Resend (Alertas por Email)](file:///c:/JUAN%20RUIZ/Trabajos/DEMOML/docs/resend/RESEND_INTEGRATION_GUIDE.md)**: Configuración de API Key, templates HTML responsive y alertas por correo para preguntas y reclamos urgentes.
+* 🤖 **[Guía del Asistente & Tools en Telegram](file:///c:/JUAN%20RUIZ/Trabajos/DEMOML/docs/telegram/TELEGRAM_TOOLS_GUIDE.md)**: Catálogo de herramientas conversacionales (`get_pending_questions`, `get_claims`, `get_claim_detail`, `get_recent_alerts`, `get_store_metrics`) y flujo de botones interactivos.
+* 🔑 **[Referencia de Usuarios y Credenciales](file:///c:/JUAN%20RUIZ/Trabajos/DEMOML/docs/USERS.md)**: Lista de usuarios de prueba, tenants y claves maestras.

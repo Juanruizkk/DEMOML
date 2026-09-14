@@ -82,7 +82,7 @@ export class TelegramAssistantService implements ITelegramAssistantService {
     // Definición de Tools para LangChain
     const getPendingQuestionsTool = tool(
       async ({ limit }) => {
-        const res = await this.getPendingQuestionsData(sellerId, limit || 5);
+        const res = await this.getPendingQuestionsData(sellerId, limit || 10);
         // Agregar botones rápidos para aprobar/rechazar las preguntas pendientes encontradas
         res.questions.forEach((q) => {
           collectedButtons.push([
@@ -97,7 +97,7 @@ export class TelegramAssistantService implements ITelegramAssistantService {
         description:
           "Obtiene las preguntas pre-venta del vendedor que requieren revisión humana o están pendientes de moderación.",
         schema: z.object({
-          limit: z.number().optional().describe("Cantidad máxima de preguntas a traer (por defecto 5)"),
+          limit: z.number().optional().describe("Cantidad máxima de preguntas a traer (por defecto 10)"),
         }),
       }
     );
@@ -186,15 +186,34 @@ export class TelegramAssistantService implements ITelegramAssistantService {
     const modelWithTools = model.bindTools(tools);
 
     const systemPrompt = `Sos el Asistente Inteligente de Telegram para el vendedor "${tenant.nickname || tenant.sellerId}" en Mercado Libre.
-Tu función es consultar el estado de la tienda utilizando tus herramientas (tools) y responder al vendedor de manera clara, concisa y profesional.
+Tu función es consultar el estado de la tienda utilizando tus herramientas (tools) y responder al vendedor de manera clara, visualmente atractiva y muy legible.
 
-REGLAS DE FORMATO:
-- Respondé SIEMPRE en Español rioplatense cordial y directo.
-- Usá Markdown estándar de Telegram: negrita (*texto*), cursiva (_texto_), código (\`codigo\`).
-- Usá emojis informativos (📦 para ítems, ❓ para preguntas, ⚖️ o 🚨 para reclamos, ⏳ para SLA, 📊 para métricas).
-- Destacá siempre números de orden, IDs y plazos límite de respuesta.
-- Si no hay datos pendientes, celebralo amablemente con un mensaje positivo.
-- Mantené las respuestas compactas para lectura cómoda en smartphones.`;
+REGLAS CRÍTICAS DE FORMATO EN TELEGRAM (¡OBLIGATORIO!):
+1. ⚠️ NUNCA USES TABLAS MARKDOWN (NO uses '| Columna | Columna |' ni líneas divisoras '|---|---|'). Telegram no soporta tablas y se renderizan rotas, desalineadas e ilegibles en pantallas móviles.
+2. 📱 Formateá SIEMPRE la información como TARJETAS O LISTAS NUMERADAS con emojis, negritas y saltos de línea claros:
+   - Para Preguntas pendientes:
+     1️⃣ *Pregunta #ID* · 🏷️ _[Tema/Intención]_
+     📦 *Ítem:* [Título de la publicación]
+     💬 _"[Texto exacto de la pregunta]"_
+     💡 *Sugerencia IA:* "[Respuesta sugerida si existe]"
+     🔍 *Motivo:* [Razón de derivación]
+
+     ━━━━━━━━━━━━━━━━━━━━
+
+   - Para Reclamos:
+     1️⃣ 🚨 *Reclamo #ID* (Orden: \`[ORD-ID]\`)
+     👤 *Comprador ID:* \`[BUYER-ID]\`
+     💬 *Motivo:* [Motivo del reclamo]
+     ⏳ *Tiempo restante:* *[X] horas* (Vence: [Fecha/Hora])
+     🛠️ *Acciones:* [Acciones sugeridas]
+
+     ━━━━━━━━━━━━━━━━━━━━
+
+3. Respondé SIEMPRE en Español rioplatense cordial, prolijo y directo.
+4. Mantené la lectura cómoda y limpia en pantallas de smartphones.
+5. Al final de la lista de preguntas, agregá:
+   "👇 _Podés aprobar o rechazar directamente tocando los botones inferiores:_"
+6. Si no hay elementos pendientes o reclamos, respondé con un mensaje positivo y amigable (ej: "🎉 *¡Al día!* No tenés preguntas pendientes en este momento.").`;
 
     const messages: any[] = [
       new SystemMessage(systemPrompt),
@@ -230,24 +249,98 @@ REGLAS DE FORMATO:
       }
 
       const finalResponse = await model.invoke(messages);
-      const textOutput = typeof finalResponse.content === "string"
+      const rawText = typeof finalResponse.content === "string"
         ? finalResponse.content
         : JSON.stringify(finalResponse.content);
 
       return {
-        text: textOutput,
+        text: TelegramAssistantService.sanitizeTelegramMarkdown(rawText),
         buttons: collectedButtons.length > 0 ? collectedButtons.slice(0, 5) : undefined,
       };
     }
 
-    const textOutput = typeof response.content === "string"
+    const rawText = typeof response.content === "string"
       ? response.content
       : JSON.stringify(response.content);
 
     return {
-      text: textOutput,
+      text: TelegramAssistantService.sanitizeTelegramMarkdown(rawText),
       buttons: collectedButtons.length > 0 ? collectedButtons.slice(0, 5) : undefined,
     };
+  }
+
+  /**
+   * Sanitiza y transforma cualquier tabla Markdown accidental en elegantes tarjetas para Telegram
+   */
+  public static sanitizeTelegramMarkdown(text: string): string {
+    const lines = text.split("\n");
+    const hasTable = lines.some((l) => l.trim().startsWith("|") && l.includes("|"));
+    if (!hasTable) return text;
+
+    const result: string[] = [];
+    let insideTable = false;
+    let headers: string[] = [];
+    let cardIndex = 1;
+    const numEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      if (line.startsWith("|") && line.endsWith("|")) {
+        // Ignorar fila divisoria |--|---|
+        if (/^\|[-:\s|]+\|$/.test(line)) {
+          continue;
+        }
+
+        const cells = line
+          .split("|")
+          .map((c) => c.trim())
+          .filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+
+        if (!insideTable) {
+          insideTable = true;
+          headers = cells;
+          continue;
+        }
+
+        // Fila de datos convertida a tarjeta limpia
+        const numIcon = numEmojis[cardIndex - 1] || `[${cardIndex}]`;
+        cardIndex++;
+
+        // Buscar ID, pregunta y tema en las celdas
+        const id = cells.find((c) => /^\d{4,}$/.test(c) || /^C\d+$/i.test(c) || /^Q\d+$/i.test(c));
+        const questionText = cells.find((c) => c.length > 12 && !/^\d+$/.test(c));
+        const otherCells = cells.filter((c) => c !== id && c !== questionText && !/^\d+$/.test(c) && c.length > 0);
+
+        let card = `${numIcon} ${id ? `*Pregunta #${id}*` : "*Elemento*"}`;
+        if (otherCells.length > 0) {
+          card += ` · _${otherCells[0]}_`;
+        }
+        if (questionText) {
+          card += `\n💬 _"${questionText}"_`;
+        } else {
+          // Fallback a listado de celdas
+          const details = cells
+            .map((c, idx) => (headers[idx] ? `*${headers[idx]}:* ${c}` : c))
+            .join("\n");
+          card += `\n${details}`;
+        }
+
+        result.push(card);
+        result.push(`\n━━━━━━━━━━━━━━━━━━━━\n`);
+      } else {
+        if (insideTable) {
+          insideTable = false;
+          headers = [];
+        }
+        result.push(lines[i]);
+      }
+    }
+
+    return result
+      .join("\n")
+      .replace(/(\n━━━━━━━━━━━━━━━━━━━━\n\s*)+$/g, "")
+      .replace(/\n{3,}/g, "\n\n");
   }
 
   /**
@@ -297,7 +390,7 @@ REGLAS DE FORMATO:
 
     // 2. Preguntas pendientes / alertas no vistas
     if (lower.includes("pregunta") || lower.includes("pendiente") || lower.includes("alerta") || lower.includes("duda")) {
-      const data = await this.getPendingQuestionsData(sellerId, 5);
+      const data = await this.getPendingQuestionsData(sellerId, 10);
       if (data.totalPending === 0) {
         return {
           text: `🎉 *¡Al día!* No tenés preguntas pendientes de revisión humana en este momento.`,
@@ -306,20 +399,30 @@ REGLAS DE FORMATO:
 
       let msg = `❓ *Tenés ${data.totalPending} pregunta(s) pendiente(s) de revisión:*\n\n`;
       const buttons: TelegramInlineButton[][] = [];
+      const numEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 
       data.questions.forEach((q, idx) => {
-        msg += `${idx + 1}. 📦 *${q.itemTitle}*\n`;
+        const numIcon = numEmojis[idx] || `[${idx + 1}]`;
+        msg += `${numIcon} *Pregunta #${q.id.slice(-4)}* · 🏷️ _${q.intent || "Consulta"}_\n`;
+        msg += `📦 *Ítem:* ${q.itemTitle}\n`;
         msg += `💬 _"${q.question}"_\n`;
         if (q.suggestedAnswer) {
           msg += `💡 *Sugerencia IA:* "${q.suggestedAnswer}"\n`;
         }
-        msg += `🔍 *Motivo:* ${q.reason}\n\n`;
+        msg += `🔍 *Motivo:* ${q.reason}\n`;
+        if (idx < data.questions.length - 1) {
+          msg += `\n━━━━━━━━━━━━━━━━━━━━\n\n`;
+        } else {
+          msg += `\n`;
+        }
 
         buttons.push([
           { text: `✅ Aprobar #${q.id.slice(-4)}`, callbackData: `approve_${q.id}` },
           { text: `❌ Rechazar #${q.id.slice(-4)}`, callbackData: `reject_${q.id}` },
         ]);
       });
+
+      msg += `👇 _Podés responder tocando los botones inferiores:_`;
 
       return { text: msg, buttons };
     }
@@ -339,12 +442,19 @@ REGLAS DE FORMATO:
 
       let msg = `⚖️ *Reclamos ${status === "opened" ? "en Gestión" : "Resueltos"} (${data.claims.length}):*\n\n`;
       const buttons: TelegramInlineButton[][] = [];
+      const numEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 
-      data.claims.forEach((c) => {
+      data.claims.forEach((c, idx) => {
+        const numIcon = numEmojis[idx] || `[${idx + 1}]`;
         const urgencyIcon = c.urgency === "critical" ? "🚨" : c.urgency === "high" ? "⏰" : "📌";
-        msg += `• ${urgencyIcon} *Reclamo #${c.id}* (Orden: \`${c.orderId || "N/A"}\`)\n`;
-        msg += `  💬 Motivo: ${c.reason}\n`;
-        msg += `  ⏳ Restan: *${c.remainingHours}h*\n\n`;
+        msg += `${numIcon} ${urgencyIcon} *Reclamo #${c.id}* (Orden: \`${c.orderId || "N/A"}\`)\n`;
+        msg += `💬 Motivo: ${c.reason}\n`;
+        msg += `⏳ Restan: *${c.remainingHours}h*\n`;
+        if (idx < data.claims.length - 1) {
+          msg += `\n━━━━━━━━━━━━━━━━━━━━\n\n`;
+        } else {
+          msg += `\n`;
+        }
 
         buttons.push([
           { text: `🔍 Detalle Reclamo #${c.id.slice(-6)}`, callbackData: `claim_detail_${c.id}` },
