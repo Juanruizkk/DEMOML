@@ -8,6 +8,7 @@ import { UpdateTenantPermissionsUseCase } from "../../application/use-cases/admi
 import { CreateTenantUseCase } from "../../application/use-cases/admin/CreateTenantUseCase.js";
 import { IUserRepository } from "../../application/interfaces/IUserRepository.js";
 import { TenantPermissions } from "../../domain/entities/Tenant.js";
+import { RequestPasswordResetUseCase } from "../../application/use-cases/auth/RequestPasswordResetUseCase.js";
 
 export class AdminController {
   constructor(
@@ -18,7 +19,8 @@ export class AdminController {
     private readonly forceTokenRefreshUseCase: ForceTokenRefreshUseCase,
     private readonly updateTenantPermissionsUseCase: UpdateTenantPermissionsUseCase,
     private readonly createTenantUseCase: CreateTenantUseCase,
-    private readonly userRepo: IUserRepository
+    private readonly userRepo: IUserRepository,
+    private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase
   ) {}
 
   public getMetrics = async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -101,6 +103,21 @@ export class AdminController {
       return reply.status(201).send({ userId: result.userId, activationUrl });
     } catch (err: any) {
       return reply.status(400).send({ error: err.message });
+    }
+  };
+
+  public resetUserPassword = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { userId } = request.params as { userId: string };
+    const origin = request.headers.origin || process.env.APP_BASE_URL || "http://localhost:5173";
+    try {
+      const user = await this.userRepo.findById(userId);
+      if (!user) {
+        return reply.status(404).send({ error: "Usuario no encontrado." });
+      }
+      await this.requestPasswordResetUseCase.execute({ email: user.email, baseUrl: origin as string });
+      return reply.send({ ok: true, email: user.email });
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
     }
   };
 }
