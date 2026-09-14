@@ -128,36 +128,22 @@ export class LangChainLLMService implements ILLMService {
   }
 
   private async buildBaseModel(override?: { provider: string; apiKey: string }): Promise<any> {
-    const defaultProvider = process.env.LLM_PROVIDER ?? "groq";
-    const provider = override?.provider ?? defaultProvider;
-    const isOverride = Boolean(override?.provider && override.provider !== defaultProvider);
+    const { provider, model } = this.resolveProviderModel(override);
     const apiKey = override?.apiKey;
 
     if (provider === "groq") {
       const { ChatGroq } = await import("@langchain/groq");
-      return new ChatGroq({
-        model: (!isOverride && process.env.LLM_MODEL) || "openai/gpt-oss-120b",
-        temperature: 0.1,
-        apiKey: apiKey ?? process.env.GROQ_API_KEY,
-      });
+      return new ChatGroq({ model, temperature: 0.1, apiKey: apiKey ?? process.env.GROQ_API_KEY });
     }
 
     if (provider === "anthropic") {
       const { ChatAnthropic } = await import("@langchain/anthropic");
-      return new ChatAnthropic({
-        model: (!isOverride && process.env.LLM_MODEL) || "claude-3-5-sonnet-latest",
-        temperature: 0.1,
-        apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY,
-      });
+      return new ChatAnthropic({ model, temperature: 0.1, apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY });
     }
 
     if (provider === "openai") {
       const { ChatOpenAI } = await import("@langchain/openai");
-      return new ChatOpenAI({
-        model: (!isOverride && process.env.LLM_MODEL) || "gpt-4o-mini",
-        temperature: 0.1,
-        apiKey: apiKey ?? process.env.OPENAI_API_KEY,
-      });
+      return new ChatOpenAI({ model, temperature: 0.1, apiKey: apiKey ?? process.env.OPENAI_API_KEY });
     }
 
     throw new Error(`LLM_PROVIDER desconocido: ${provider}. Usá "groq", "anthropic" u "openai".`);

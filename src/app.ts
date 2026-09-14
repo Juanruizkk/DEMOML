@@ -13,6 +13,7 @@ import { SqliteUserRepository } from "./infrastructure/persistence/sqlite/Sqlite
 import { SqliteClaimRepository } from "./infrastructure/persistence/sqlite/SqliteClaimRepository.js";
 import { SqliteItemKnowledgeRepository } from "./infrastructure/persistence/sqlite/SqliteItemKnowledgeRepository.js";
 import { SqliteOrderMessageRepository } from "./infrastructure/persistence/sqlite/SqliteOrderMessageRepository.js";
+import { SqliteLLMUsageRepository } from "./infrastructure/persistence/sqlite/SqliteLLMUsageRepository.js";
 
 import { CryptoPasswordHasher } from "./infrastructure/security/CryptoPasswordHasher.js";
 import { JwtTokenService } from "./infrastructure/security/JwtTokenService.js";
@@ -102,13 +103,14 @@ export function buildApp(): FastifyInstance {
   const claimRepo = new SqliteClaimRepository(db);
   const itemKnowledgeRepo = new SqliteItemKnowledgeRepository(db);
   const orderMessageRepo = new SqliteOrderMessageRepository(db);
+  const llmUsageRepo = new SqliteLLMUsageRepository(db);
 
   const passwordHasher = new CryptoPasswordHasher();
   const tokenService = new JwtTokenService();
 
   // 3. Adaptadores
   const meliClient = new MeliApiClient(tenantRepo);
-  const llmService = new LangChainLLMService();
+  const llmService = new LangChainLLMService(llmUsageRepo);
   const queueBroker = new InMemoryQueueBroker(5);
   const sseNotifier = new FastifySseNotifier();
   const whatsAppClient = new MetaWhatsAppClient();
