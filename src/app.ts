@@ -12,11 +12,13 @@ import { SqliteEventRepository } from "./infrastructure/persistence/sqlite/Sqlit
 import { SqliteUserRepository } from "./infrastructure/persistence/sqlite/SqliteUserRepository.js";
 import { SqliteClaimRepository } from "./infrastructure/persistence/sqlite/SqliteClaimRepository.js";
 import { SqliteItemKnowledgeRepository } from "./infrastructure/persistence/sqlite/SqliteItemKnowledgeRepository.js";
+import { SqliteOrderMessageRepository } from "./infrastructure/persistence/sqlite/SqliteOrderMessageRepository.js";
 
 import { CryptoPasswordHasher } from "./infrastructure/security/CryptoPasswordHasher.js";
 import { JwtTokenService } from "./infrastructure/security/JwtTokenService.js";
 
 import { MeliApiClient } from "./infrastructure/meli/MeliApiClient.js";
+import { QuestionsPoller } from "./infrastructure/meli/QuestionsPoller.js";
 import { LangChainLLMService } from "./infrastructure/llm/LangChainLLMService.js";
 import { InMemoryQueueBroker } from "./infrastructure/queue/InMemoryQueueBroker.js";
 import { FastifySseNotifier } from "./infrastructure/realtime/FastifySseNotifier.js";
@@ -27,8 +29,12 @@ import { ResendEmailClient } from "./infrastructure/email/ResendEmailClient.js";
 
 import { IngestWebhookUseCase } from "./application/use-cases/IngestWebhookUseCase.js";
 import { IngestClaimWebhookUseCase } from "./application/use-cases/IngestClaimWebhookUseCase.js";
+import { IngestOrderMessageWebhookUseCase } from "./application/use-cases/IngestOrderMessageWebhookUseCase.js";
 import { ProcessQuestionUseCase } from "./application/use-cases/ProcessQuestionUseCase.js";
 import { ProcessClaimUseCase } from "./application/use-cases/ProcessClaimUseCase.js";
+import { ProcessOrderMessageUseCase } from "./application/use-cases/ProcessOrderMessageUseCase.js";
+import { ReplyOrderMessageUseCase } from "./application/use-cases/ReplyOrderMessageUseCase.js";
+import { ListOrderMessagesUseCase } from "./application/use-cases/ListOrderMessagesUseCase.js";
 import { ApproveAnswerUseCase } from "./application/use-cases/ApproveAnswerUseCase.js";
 import { RejectAnswerUseCase } from "./application/use-cases/RejectAnswerUseCase.js";
 import { SimulateQuestionUseCase } from "./application/use-cases/SimulateQuestionUseCase.js";
@@ -53,6 +59,7 @@ import { GetTenantDetailUseCase } from "./application/use-cases/admin/GetTenantD
 import { ToggleTenantAutoAnswerUseCase } from "./application/use-cases/admin/ToggleTenantAutoAnswerUseCase.js";
 import { ForceTokenRefreshUseCase } from "./application/use-cases/admin/ForceTokenRefreshUseCase.js";
 import { UpdateTenantPermissionsUseCase } from "./application/use-cases/admin/UpdateTenantPermissionsUseCase.js";
+import { UpdateTenantIntegrationsUseCase } from "./application/use-cases/admin/UpdateTenantIntegrationsUseCase.js";
 import { CreateTenantUseCase } from "./application/use-cases/admin/CreateTenantUseCase.js";
 import { ActivateTenantUseCase } from "./application/use-cases/auth/ActivateTenantUseCase.js";
 import { ListTeamMembersUseCase } from "./application/use-cases/tenant/ListTeamMembersUseCase.js";
@@ -61,6 +68,7 @@ import { RemoveTeamMemberUseCase } from "./application/use-cases/tenant/RemoveTe
 
 import { WebhookController } from "./presentation/controllers/WebhookController.js";
 import { QuestionsController } from "./presentation/controllers/QuestionsController.js";
+import { OrderMessagesController } from "./presentation/controllers/OrderMessagesController.js";
 import { AuthController } from "./presentation/controllers/AuthController.js";
 import { SimulatorController } from "./presentation/controllers/SimulatorController.js";
 import { TenantController } from "./presentation/controllers/TenantController.js";
@@ -70,6 +78,7 @@ import { TelegramWebhookController } from "./presentation/controllers/TelegramWe
 import { ClaimsController } from "./presentation/controllers/ClaimsController.js";
 import { DemoController } from "./presentation/controllers/DemoController.js";
 import { ProductsController } from "./presentation/controllers/ProductsController.js";
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -92,6 +101,7 @@ export function buildApp(): FastifyInstance {
   const userRepo = new SqliteUserRepository(db);
   const claimRepo = new SqliteClaimRepository(db);
   const itemKnowledgeRepo = new SqliteItemKnowledgeRepository(db);
+  const orderMessageRepo = new SqliteOrderMessageRepository(db);
 
   const passwordHasher = new CryptoPasswordHasher();
   const tokenService = new JwtTokenService();
@@ -135,6 +145,13 @@ export function buildApp(): FastifyInstance {
   );
   const ingestClaimUseCase = new IngestClaimWebhookUseCase(processClaimUseCase, eventRepo);
 
+  const processOrderMessageUseCase = new ProcessOrderMessageUseCase(
+    orderMessageRepo, tenantRepo, eventRepo, meliClient, llmService, sseNotifier, telegramClient, emailClient
+  );
+  const ingestOrderMessageUseCase = new IngestOrderMessageWebhookUseCase(processOrderMessageUseCase, eventRepo);
+  const replyOrderMessageUseCase = new ReplyOrderMessageUseCase(orderMessageRepo, meliClient, eventRepo, sseNotifier);
+  const listOrderMessagesUseCase = new ListOrderMessagesUseCase(orderMessageRepo);
+
   const processQuestionUseCase = new ProcessQuestionUseCase(
     questionRepo, itemCacheRepo, tenantRepo, eventRepo, meliClient, llmService, sseNotifier, whatsAppClient, telegramClient, itemKnowledgeRepo, emailClient
   );
@@ -153,7 +170,8 @@ export function buildApp(): FastifyInstance {
   const telegramAssistantService = new TelegramAssistantService(
     questionRepo,
     claimRepo,
-    eventRepo
+    eventRepo,
+    orderMessageRepo
   );
 
   const handleTelegramWebhookUseCase = new HandleTelegramWebhookUseCase(
@@ -162,8 +180,12 @@ export function buildApp(): FastifyInstance {
     eventRepo,
     approveAnswerUseCase,
     rejectAnswerUseCase,
-    telegramAssistantService
+    telegramAssistantService,
+    replyOrderMessageUseCase,
+    orderMessageRepo,
+    claimRepo
   );
+
 
   // 6. Casos de Uso Admin
   const getGlobalMetricsUseCase = new GetGlobalMetricsUseCase(questionRepo, tenantRepo);
@@ -172,13 +194,23 @@ export function buildApp(): FastifyInstance {
   const toggleTenantAutoAnswerUseCase = new ToggleTenantAutoAnswerUseCase(tenantRepo, eventRepo);
   const forceTokenRefreshUseCase = new ForceTokenRefreshUseCase(tenantRepo, meliClient, eventRepo);
   const updateTenantPermissionsUseCase = new UpdateTenantPermissionsUseCase(tenantRepo);
+  const updateTenantIntegrationsUseCase = new UpdateTenantIntegrationsUseCase(tenantRepo);
   const createTenantUseCase = new CreateTenantUseCase(userRepo);
   const activateTenantUseCase = new ActivateTenantUseCase(userRepo, passwordHasher, tokenService);
 
-  // 7. Workers de Cola
+  // 7. Workers de Cola & Poller de Respaldo Mercado Libre
   queueBroker.registerProcessor(async (job) => {
     await processQuestionUseCase.execute(job);
   });
+
+  const questionsPoller = new QuestionsPoller(
+    tenantRepo,
+    questionRepo,
+    meliClient,
+    queueBroker,
+    eventRepo
+  );
+  questionsPoller.start();
 
   // 8. Guards de Auth
   const authenticate = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -232,8 +264,14 @@ export function buildApp(): FastifyInstance {
   const removeTeamMemberUseCase = new RemoveTeamMemberUseCase(userRepo, tenantRepo, eventRepo);
 
   // 9. Controladores
-  const webhookCtrl = new WebhookController(ingestWebhookUseCase, ingestClaimUseCase);
+  const webhookCtrl = new WebhookController(ingestWebhookUseCase, ingestClaimUseCase, ingestOrderMessageUseCase);
   const questionsCtrl = new QuestionsController(questionRepo, approveAnswerUseCase, rejectAnswerUseCase, itemCacheRepo);
+  const orderMessagesCtrl = new OrderMessagesController(
+    listOrderMessagesUseCase,
+    replyOrderMessageUseCase,
+    processOrderMessageUseCase,
+    orderMessageRepo
+  );
   const authCtrl = new AuthController(
     registerUserUseCase, loginUserUseCase, getCurrentUserUseCase,
     connectMeliAccountUseCase, getOnboardingStatusUseCase, tokenService,
@@ -247,7 +285,8 @@ export function buildApp(): FastifyInstance {
   const adminCtrl = new AdminController(
     getGlobalMetricsUseCase, listTenantsOverviewUseCase, getTenantDetailUseCase,
     toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase, updateTenantPermissionsUseCase,
-    createTenantUseCase, userRepo, requestPasswordResetUseCase
+    createTenantUseCase, userRepo, requestPasswordResetUseCase, emailClient,
+    updateTenantIntegrationsUseCase
   );
   const waWebhookCtrl = new WhatsAppWebhookController(handleWhatsAppReplyUseCase);
   const telegramCtrl = new TelegramWebhookController(handleTelegramWebhookUseCase, telegramClient, tenantRepo);
@@ -287,6 +326,7 @@ export function buildApp(): FastifyInstance {
   app.post("/api/admin/tenants/:sellerId/toggle", { preHandler: requireSuperAdmin }, adminCtrl.toggleAutoAnswer);
   app.post("/api/admin/tenants/:sellerId/refresh-token", { preHandler: requireSuperAdmin }, adminCtrl.refreshToken);
   app.put("/api/admin/tenants/:sellerId/permissions", { preHandler: requireSuperAdmin }, adminCtrl.updatePermissions);
+  app.patch("/api/admin/tenants/:sellerId/integrations", { preHandler: requireSuperAdmin }, adminCtrl.updateTenantIntegrations);
   app.post("/api/admin/tenants", { preHandler: requireSuperAdmin }, adminCtrl.createTenant);
   app.get("/api/admin/invitations", { preHandler: requireSuperAdmin }, adminCtrl.getPendingInvitations);
   app.post("/api/admin/users/:userId/reset-password", { preHandler: requireSuperAdmin }, adminCtrl.resetUserPassword);
@@ -323,6 +363,11 @@ export function buildApp(): FastifyInstance {
   app.post("/api/questions/:id/reject", { preHandler: optionalAuthenticate }, questionsCtrl.reject);
   app.post("/api/whatsapp/reply", questionsCtrl.replyViaWhatsapp);
 
+  // Rutas — Mensajería Post-Venta (Packs / Orders)
+  app.get("/api/order-messages", { preHandler: optionalAuthenticate }, orderMessagesCtrl.getMessages);
+  app.post("/api/order-messages/:id/reply", { preHandler: optionalAuthenticate }, orderMessagesCtrl.replyMessage);
+  app.post("/api/order-messages/simulate", { preHandler: optionalAuthenticate }, orderMessagesCtrl.simulate);
+
   // Rutas — Reclamos & Post-Venta
   app.get("/api/claims", { preHandler: optionalAuthenticate }, claimsCtrl.getClaims);
   app.post("/api/claims/simulate", claimsCtrl.simulate);
@@ -330,6 +375,7 @@ export function buildApp(): FastifyInstance {
   app.post("/api/claims/:id/unack", { preHandler: optionalAuthenticate }, claimsCtrl.unacknowledge);
   app.post("/api/claims/:id/close", { preHandler: optionalAuthenticate }, claimsCtrl.closeClaim);
   app.post("/api/claims/:id/reopen", { preHandler: optionalAuthenticate }, claimsCtrl.reopenClaim);
+
 
   // Rutas — Demo
   app.post("/api/demo/seed", { preHandler: requireDemo }, demoCtrl.seed);

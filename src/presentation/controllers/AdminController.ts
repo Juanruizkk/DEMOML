@@ -9,6 +9,8 @@ import { CreateTenantUseCase } from "../../application/use-cases/admin/CreateTen
 import { IUserRepository } from "../../application/interfaces/IUserRepository.js";
 import { TenantPermissions } from "../../domain/entities/Tenant.js";
 import { RequestPasswordResetUseCase } from "../../application/use-cases/auth/RequestPasswordResetUseCase.js";
+import { IEmailClient } from "../../application/interfaces/IEmailClient.js";
+import { UpdateTenantIntegrationsUseCase } from "../../application/use-cases/admin/UpdateTenantIntegrationsUseCase.js";
 
 export class AdminController {
   constructor(
@@ -20,7 +22,9 @@ export class AdminController {
     private readonly updateTenantPermissionsUseCase: UpdateTenantPermissionsUseCase,
     private readonly createTenantUseCase: CreateTenantUseCase,
     private readonly userRepo: IUserRepository,
-    private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase
+    private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase,
+    private readonly emailClient?: IEmailClient,
+    private readonly updateTenantIntegrationsUseCase?: UpdateTenantIntegrationsUseCase,
   ) {}
 
   public getMetrics = async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -100,6 +104,13 @@ export class AdminController {
       const result = await this.createTenantUseCase.execute({ name, email });
       const origin = `${request.protocol}://${request.hostname}`;
       const activationUrl = `${origin}/activate/${result.activationToken}`;
+
+      if (this.emailClient) {
+        this.emailClient.sendTenantInvitation({ to: email, name, activationUrl }).catch((err) => {
+          console.error("❌ [AdminController] Error enviando email de invitación:", err);
+        });
+      }
+
       return reply.status(201).send({ userId: result.userId, activationUrl });
     } catch (err: any) {
       return reply.status(400).send({ error: err.message });
@@ -118,6 +129,29 @@ export class AdminController {
       return reply.send({ ok: true, email: user.email });
     } catch (err: any) {
       return reply.status(500).send({ error: err.message });
+    }
+  };
+
+  public updateTenantIntegrations = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { sellerId } = request.params as { sellerId: string };
+    const { integrations } = request.body as {
+      integrations: {
+        whatsappMode?: "platform_shared" | "custom_byo";
+        customPhoneNumberId?: string;
+        customAccessToken?: string;
+        customWabaId?: string;
+        llmProvider?: "groq" | "openai" | "anthropic";
+        llmApiKey?: string;
+      };
+    };
+    try {
+      if (!this.updateTenantIntegrationsUseCase) {
+        return reply.status(501).send({ error: "Integrations use case not configured" });
+      }
+      const result = await this.updateTenantIntegrationsUseCase.execute({ sellerId, integrations });
+      return reply.send(result);
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
     }
   };
 }
