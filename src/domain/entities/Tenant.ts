@@ -8,6 +8,7 @@ export interface TenantPermissions {
   emailEnabled: boolean;
   preSaleEnabled: boolean;
   postSaleEnabled: boolean;
+  multiUserEnabled?: boolean;
 }
 
 export interface WebNotificationsSettings {
@@ -55,6 +56,10 @@ export interface TenantSettings {
   customPhoneNumberId?: string;
   customAccessToken?: string;
   customWabaId?: string;
+
+  // LLM (Bring Your Own Key)
+  llmProvider?: "groq" | "openai" | "anthropic";
+  llmApiKey?: string;
 
   // Multi-channel alerts
   preferredAlertChannel?: "whatsapp" | "telegram" | "email" | "both" | "all";
@@ -144,6 +149,7 @@ export class Tenant {
       emailEnabled: false,
       preSaleEnabled: true,
       postSaleEnabled: true,
+      multiUserEnabled: false,
     };
   }
 
@@ -172,7 +178,7 @@ export class Tenant {
     if (this.effectivePermissions.emailEnabled === false) return false;
 
     const pref = this.settings.preferredAlertChannel;
-    const channelAllowed = !pref || pref === "email" || pref === "all" || pref === "both";
+    const channelAllowed = !pref || pref === "email" || pref === "all";
     if (!channelAllowed) return false;
 
     if (type && this.settings.emailAlertTypes) {
@@ -208,6 +214,16 @@ export class Tenant {
       return {
         phoneNumberId: this.settings.customPhoneNumberId,
         accessToken: this.settings.customAccessToken,
+      };
+    }
+    return null;
+  }
+
+  public getLLMCredentials(): { provider: string; apiKey: string } | null {
+    if (this.settings.llmProvider && this.settings.llmApiKey) {
+      return {
+        provider: this.settings.llmProvider,
+        apiKey: this.settings.llmApiKey,
       };
     }
     return null;
@@ -351,6 +367,7 @@ export class Tenant {
           emailEnabled: false,
           preSaleEnabled: true,
           postSaleEnabled: true,
+          multiUserEnabled: false,
         },
       },
       createdAt: now,

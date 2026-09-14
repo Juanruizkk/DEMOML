@@ -96,3 +96,35 @@ describe("Tenant.createDefault", () => {
     expect(tenant.settings.alertsSentThisMonth).toBe(0);
   });
 });
+
+describe("Tenant.getLLMCredentials", () => {
+  it("returns null when no LLM settings configured", () => {
+    const tenant = makeTenant();
+    expect(tenant.getLLMCredentials()).toBeNull();
+  });
+
+  it("returns null when provider is set but apiKey is missing", () => {
+    const tenant = makeTenant({ llmProvider: "groq" });
+    expect(tenant.getLLMCredentials()).toBeNull();
+  });
+
+  it("returns null when apiKey is set but provider is missing", () => {
+    const tenant = makeTenant({ llmApiKey: "gsk_abc123" });
+    expect(tenant.getLLMCredentials()).toBeNull();
+  });
+
+  it("returns null when apiKey is empty string", () => {
+    const tenant = makeTenant({ llmProvider: "groq", llmApiKey: "" });
+    expect(tenant.getLLMCredentials()).toBeNull();
+  });
+
+  it("returns credentials when both provider and apiKey are set", () => {
+    const tenant = makeTenant({ llmProvider: "groq", llmApiKey: "gsk_abc123" });
+    expect(tenant.getLLMCredentials()).toEqual({ provider: "groq", apiKey: "gsk_abc123" });
+  });
+
+  it("returns credentials for openai provider", () => {
+    const tenant = makeTenant({ llmProvider: "openai", llmApiKey: "sk-openai-abc" });
+    expect(tenant.getLLMCredentials()).toEqual({ provider: "openai", apiKey: "sk-openai-abc" });
+  });
+});
