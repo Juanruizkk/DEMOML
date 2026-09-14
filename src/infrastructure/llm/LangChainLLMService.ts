@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { ILLMService, LLMClassificationResult } from "../../application/interfaces/ILLMService.js";
+import { ILLMService, LLMClassificationResult, LLMOrderMessageResult } from "../../application/interfaces/ILLMService.js";
 import { Item } from "../../domain/entities/Item.js";
+import { ItemKnowledge } from "../../domain/entities/ItemKnowledge.js";
 import { TenantSettings } from "../../domain/entities/Tenant.js";
 
 const questionSchema = z.object({
@@ -23,51 +24,92 @@ const questionSchema = z.object({
   answer: z.string().max(2000).describe("Texto de la respuesta propuesta"),
 });
 
+const orderMessageSchema = z.object({
+  intent: z
+    .enum([
+      "facturacion",
+      "envio_seguimiento",
+      "soporte_tecnico",
+      "garantia_consulta",
+      "reclamo_potencial",
+      "agradecimiento",
+      "otro",
+    ])
+    .describe("Intención principal del mensaje post-venta del comprador"),
+  confidence: z.number().min(0).max(1).describe("Nivel de certeza de 0 a 1"),
+  requires_human: z.boolean().describe("true si requiere intervención o revisión humana obligatoria"),
+  reason: z.string().nullable().describe("Motivo de derivación humana o null si se auto-responde"),
+  answer: z.string().max(2000).describe("Texto de la respuesta post-venta propuesta"),
+});
+
 export class LangChainLLMService implements ILLMService {
   private cachedModel: any = null;
   private cachedProvider: string | null = null;
+  private cachedOrderModel: any = null;
+  private cachedOrderProvider: string | null = null;
 
-  private async buildBaseModel(): Promise<any> {
-    const provider = process.env.LLM_PROVIDER || "groq";
+  private async buildBaseModel(override?: { provider: string; apiKey: string }): Promise<any> {
+    const defaultProvider = process.env.LLM_PROVIDER ?? "groq";
+    const provider = override?.provider ?? defaultProvider;
+    const isOverride = Boolean(override?.provider && override.provider !== defaultProvider);
+    const apiKey = override?.apiKey;
 
     if (provider === "groq") {
       const { ChatGroq } = await import("@langchain/groq");
       return new ChatGroq({
-        model: process.env.LLM_MODEL || "openai/gpt-oss-120b",
+        model: (!isOverride && process.env.LLM_MODEL) || "openai/gpt-oss-120b",
         temperature: 0.1,
-        apiKey: process.env.GROQ_API_KEY,
+        apiKey: apiKey ?? process.env.GROQ_API_KEY,
       });
     }
 
     if (provider === "anthropic") {
       const { ChatAnthropic } = await import("@langchain/anthropic");
       return new ChatAnthropic({
-        model: process.env.LLM_MODEL || "claude-3-5-sonnet-latest",
+        model: (!isOverride && process.env.LLM_MODEL) || "claude-3-5-sonnet-latest",
         temperature: 0.1,
-        apiKey: process.env.ANTHROPIC_API_KEY,
+        apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY,
       });
     }
 
     if (provider === "openai") {
       const { ChatOpenAI } = await import("@langchain/openai");
       return new ChatOpenAI({
-        model: process.env.LLM_MODEL || "gpt-4o-mini",
+        model: (!isOverride && process.env.LLM_MODEL) || "gpt-4o-mini",
         temperature: 0.1,
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: apiKey ?? process.env.OPENAI_API_KEY,
       });
     }
 
     throw new Error(`LLM_PROVIDER desconocido: ${provider}. Usá "groq", "anthropic" u "openai".`);
   }
 
-  private async getStructuredModel(): Promise<any> {
-    const provider = process.env.LLM_PROVIDER || "groq";
+  private async getStructuredModel(credentials?: { provider: string; apiKey: string } | null): Promise<any> {
+    if (credentials) {
+      const base = await this.buildBaseModel(credentials);
+      return base.withStructuredOutput(questionSchema, { name: "clasificar_pregunta" });
+    }
+    const provider = process.env.LLM_PROVIDER ?? "groq";
     if (!this.cachedModel || this.cachedProvider !== provider) {
       const base = await this.buildBaseModel();
       this.cachedModel = base.withStructuredOutput(questionSchema, { name: "clasificar_pregunta" });
       this.cachedProvider = provider;
     }
     return this.cachedModel;
+  }
+
+  private async getStructuredOrderModel(credentials?: { provider: string; apiKey: string } | null): Promise<any> {
+    if (credentials) {
+      const base = await this.buildBaseModel(credentials);
+      return base.withStructuredOutput(orderMessageSchema, { name: "clasificar_mensaje_postventa" });
+    }
+    const provider = process.env.LLM_PROVIDER ?? "groq";
+    if (!this.cachedOrderModel || this.cachedOrderProvider !== provider) {
+      const base = await this.buildBaseModel();
+      this.cachedOrderModel = base.withStructuredOutput(orderMessageSchema, { name: "clasificar_mensaje_postventa" });
+      this.cachedOrderProvider = provider;
+    }
+    return this.cachedOrderModel;
   }
 
   private buildSystemPrompt(settings?: Partial<TenantSettings>): string {
@@ -113,6 +155,57 @@ ${rulesContext}
 El campo "answer" debe incluir la respuesta completa lista para publicar en Mercado Libre.`;
   }
 
+  private buildOrderMessageSystemPrompt(settings?: Partial<TenantSettings>): string {
+    const tone = settings?.tone || "casual_rioplatense";
+    const policies = settings?.policies;
+
+    let toneInstructions: string;
+    if (tone === "formal") {
+      toneInstructions = "Tono: Formal, empático y respetuoso ('Estimado/a cliente, gracias por su compra. Con respecto a su consulta...').";
+    } else if (tone === "concise") {
+      toneInstructions = "Tono: Claro, rápido y directo sin rodeos.";
+    } else {
+      toneInstructions = "Tono: Cálido, servicial y empático rioplatense profesional ('¡Hola! Muchas gracias por tu compra. Te ayudamos con tu consulta...').";
+    }
+
+    const storeRules: string[] = [];
+    if (policies?.greeting) storeRules.push(`Saludo inicial: "${policies.greeting}"`);
+    if (policies?.billingPolicy) storeRules.push(`Facturación: ${policies.billingPolicy}`);
+    if (policies?.shippingPolicy) storeRules.push(`Envíos: ${policies.shippingPolicy}`);
+    if (policies?.warrantyPolicy) storeRules.push(`Garantía: ${policies.warrantyPolicy}`);
+    if (policies?.signature) storeRules.push(`Firma de cierre: "${policies.signature}"`);
+    if (settings?.customInstructions) storeRules.push(`Instrucciones adicionales: ${settings.customInstructions}`);
+
+    const rulesContext = storeRules.length > 0
+      ? `\n--- POLÍTICAS DE LA TIENDA ---\n${storeRules.map(r => `- ${r}`).join("\n")}\n`
+      : "";
+
+    return `Sos el asistente inteligente de atención post-venta y soporte al cliente en Mercado Libre.
+El comprador YA realizó la compra y se comunica a través de la mensajería interna del pedido.
+
+Objetivo crucial: Resolver dudas rápidamente, dar excelente soporte post-venta y PREVENIR que el comprador abra un reclamo o mediación en Mercado Libre.
+
+Reglas de clasificación de intenciones:
+- facturacion: Consulta por Factura A o B, solicitud de CUIT o datos fiscales.
+- envio_seguimiento: Consulta por fecha de entrega, despacho, código de seguimiento o estado de envío.
+- soporte_tecnico: Dudas sobre uso, manuales, armado, configuración o funcionamiento del producto comprado.
+- garantia_consulta: Consultas preventivas sobre cobertura de garantía, cambio directo o servicio técnico.
+- reclamo_potencial: El cliente manifiesta disconformidad, producto roto, faltante o demora crítica (¡MUY IMPORTANTE actuar con máxima empatía y predisposición a solucionarlo de inmediato para evitar que abra reclamo formal!).
+- agradecimiento: El cliente confirma recepción, agradece o envía saludos.
+- otro: Consultas generales post-venta.
+
+Reglas para requires_human:
+- Marcá requires_human: false si la consulta es un agradecimiento simple, una solicitud de facturación que encaja en la política estándar de la tienda, o una consulta clara donde la respuesta esté 100% cubierta.
+- Marcá requires_human: true si:
+  - Es un reclamo_potencial (falla del producto, rotura, producto equivocado) donde un humano debe verificar o gestionar el reemplazo.
+  - El comprador pide algo fuera de las políticas establecidas o solicita cancelar la compra.
+  - La respuesta requiere verificar stock físico interno o datos no provistos.
+
+${toneInstructions}
+${rulesContext}
+El campo "answer" debe incluir la respuesta completa, cordial y tranquilizadora para el comprador.`;
+  }
+
   private buildUserPrompt(
     questionText: string,
     item: Item,
@@ -146,8 +239,9 @@ Clasificá la pregunta y generá la respuesta siguiendo las reglas del sistema.`
     item: Item;
     settings?: Partial<TenantSettings>;
     itemKnowledge?: ItemKnowledge | null;
+    llmCredentials?: { provider: string; apiKey: string } | null;
   }): Promise<LLMClassificationResult> {
-    const model = await this.getStructuredModel();
+    const model = await this.getStructuredModel(params.llmCredentials);
     const systemPrompt = this.buildSystemPrompt(params.settings);
     const userPrompt = this.buildUserPrompt(
       params.questionText,
@@ -163,6 +257,34 @@ Clasificá la pregunta y generá la respuesta siguiendo las reglas del sistema.`
     return result as LLMClassificationResult;
   }
 
+  public async classifyOrderMessage(params: {
+    messageText: string;
+    itemTitle?: string;
+    buyerNickname?: string;
+    settings?: Partial<TenantSettings>;
+    orderContext?: string;
+    llmCredentials?: { provider: string; apiKey: string } | null;
+  }): Promise<LLMOrderMessageResult> {
+    const model = await this.getStructuredOrderModel(params.llmCredentials);
+    const systemPrompt = this.buildOrderMessageSystemPrompt(params.settings);
+
+    const userPrompt = `Contexto del Pedido Post-Venta:
+Producto comprado: ${params.itemTitle || "Producto comprado en la tienda"}
+Comprador: ${params.buyerNickname || "Comprador"}
+${params.orderContext ? `Detalles adicionales: ${params.orderContext}\n` : ""}
+Mensaje recibido del comprador:
+"${params.messageText}"
+
+Clasificá el mensaje post-venta y redactá la mejor respuesta según las políticas.`;
+
+    const result = await model.invoke([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ]);
+
+    return result as LLMOrderMessageResult;
+  }
+
   public getProviderLabel(): string {
     const provider = process.env.LLM_PROVIDER || "groq";
     const model = process.env.LLM_MODEL;
@@ -174,3 +296,4 @@ Clasificá la pregunta y generá la respuesta siguiendo las reglas del sistema.`
     return labels[provider] || provider;
   }
 }
+
