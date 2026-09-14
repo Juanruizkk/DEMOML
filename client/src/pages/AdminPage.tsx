@@ -72,7 +72,7 @@ interface TenantIntegrations {
   hasCustomAccessToken: boolean
 }
 
-const PERMISSION_CONFIG: PermissionMeta[] = [
+const CHANNEL_PERMISSIONS: PermissionMeta[] = [
   {
     key: 'whatsappEnabled',
     label: 'Canal WhatsApp',
@@ -91,6 +91,9 @@ const PERMISSION_CONFIG: PermissionMeta[] = [
     desc: 'Notificaciones de urgencias y vencimiento SLA vía Resend',
     icon: <Mail size={16} />,
   },
+]
+
+const MODULE_PERMISSIONS: PermissionMeta[] = [
   {
     key: 'preSaleEnabled',
     label: 'Respuestas Pre-venta',
@@ -464,8 +467,9 @@ export default function AdminPage() {
                   </div>
                 </div>
 
+                <p style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-dim)', margin: 0 }}>Canales de Alerta</p>
                 <div className="permissions-grid">
-                  {PERMISSION_CONFIG.map((item) => {
+                  {CHANNEL_PERMISSIONS.map((item) => {
                     const isChecked = Boolean(localPerms[item.key])
                     return (
                       <div
@@ -473,26 +477,43 @@ export default function AdminPage() {
                         className={`permission-item${isChecked ? ' permission-item--active' : ''}`}
                         onClick={() => setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] }))}
                       >
-                        <div className="permission-item-icon">
-                          {item.icon}
-                        </div>
+                        <div className="permission-item-icon">{item.icon}</div>
                         <div className="permission-info">
                           <div className="permission-label-row">
                             <span className="permission-label">{item.label}</span>
-                            {item.soon && (
-                              <span className="permission-soon">próximamente</span>
-                            )}
+                            {item.soon && <span className="permission-soon">próximamente</span>}
                           </div>
                           <span className="permission-desc">{item.desc}</span>
                         </div>
-                        <button
-                          type="button"
-                          className={`toggle${isChecked ? ' toggle--on' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] }))
-                          }}
-                        >
+                        <button type="button" className={`toggle${isChecked ? ' toggle--on' : ''}`} onClick={(e) => { e.stopPropagation(); setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] })) }}>
+                          <span className="toggle-thumb" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div style={{ height: '1px', background: 'var(--border-glass)' }} />
+
+                <p style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-dim)', margin: 0 }}>Módulos Funcionales</p>
+                <div className="permissions-grid">
+                  {MODULE_PERMISSIONS.map((item) => {
+                    const isChecked = Boolean(localPerms[item.key])
+                    return (
+                      <div
+                        key={item.key}
+                        className={`permission-item${isChecked ? ' permission-item--active' : ''}`}
+                        onClick={() => setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] }))}
+                      >
+                        <div className="permission-item-icon">{item.icon}</div>
+                        <div className="permission-info">
+                          <div className="permission-label-row">
+                            <span className="permission-label">{item.label}</span>
+                            {item.soon && <span className="permission-soon">próximamente</span>}
+                          </div>
+                          <span className="permission-desc">{item.desc}</span>
+                        </div>
+                        <button type="button" className={`toggle${isChecked ? ' toggle--on' : ''}`} onClick={(e) => { e.stopPropagation(); setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] })) }}>
                           <span className="toggle-thumb" />
                         </button>
                       </div>
@@ -504,7 +525,14 @@ export default function AdminPage() {
                   <button className="btn-save" onClick={savePermissions} disabled={saving}>
                     {saving ? 'Guardando cambios…' : savedSuccess ? '✓ Permisos Guardados' : 'Guardar Configuración'}
                   </button>
-                  {selectedTenant.email && (
+                </div>
+
+                {selectedTenant.email && (
+                  <div style={{ paddingTop: '14px', borderTop: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <div>
+                      <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', margin: 0 }}>Acceso & Contraseña</p>
+                      <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', margin: '2px 0 0' }}>Enviá un enlace de restablecimiento al correo del tenant</p>
+                    </div>
                     <button
                       type="button"
                       className="btn-admin-reset"
@@ -512,10 +540,10 @@ export default function AdminPage() {
                       onClick={() => handleResetForTenant(selectedTenant.email!)}
                     >
                       <KeyRound size={14} />
-                      {resetting === selectedTenant.email ? 'Enviando email…' : 'Enviar Reset de Contraseña'}
+                      {resetting === selectedTenant.email ? 'Enviando email…' : 'Reset Contraseña'}
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {resetSent && (
                   <div className="admin-alert admin-alert--success">
@@ -538,8 +566,8 @@ export default function AdminPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                  {/* WhatsApp */}
-                  <fieldset style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
+                  {/* WhatsApp — solo si el canal está habilitado */}
+                  {localPerms.whatsappEnabled !== false && <fieldset style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
                     <legend style={{ padding: '0 8px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>WhatsApp</legend>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Modo</label>
@@ -581,7 +609,7 @@ export default function AdminPage() {
                         </>
                       )}
                     </div>
-                  </fieldset>
+                  </fieldset>}
 
                   {/* LLM */}
                   <fieldset style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
