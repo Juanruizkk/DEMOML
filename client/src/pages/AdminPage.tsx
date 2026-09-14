@@ -138,6 +138,11 @@ export default function AdminPage() {
   const [clearLlmKey, setClearLlmKey]               = useState(false)
   const [clearWaToken, setClearWaToken]             = useState(false)
 
+  const [activeSection, setActiveSection] = useState<'tenants' | 'llm_usage'>('tenants')
+  const [llmStats, setLlmStats] = useState<any | null>(null)
+  const [llmMonth, setLlmMonth] = useState(() => new Date().toISOString().slice(0, 7))
+  const [loadingLlm, setLoadingLlm] = useState(false)
+
   // Modal state
   const [showModal, setShowModal]       = useState(false)
   const [newName, setNewName]           = useState('')
@@ -315,6 +320,18 @@ export default function AdminPage() {
     }
   }
 
+  const fetchLlmStats = (month: string) => {
+    setLoadingLlm(true)
+    api.get<any>(`/admin/llm-usage?month=${month}`)
+      .then(setLlmStats)
+      .catch(console.error)
+      .finally(() => setLoadingLlm(false))
+  }
+
+  useEffect(() => {
+    if (activeSection === 'llm_usage') fetchLlmStats(llmMonth)
+  }, [activeSection, llmMonth])
+
   const selectedTenant = tenants.find(t => t.sellerId === selected)
 
   return (
@@ -332,6 +349,23 @@ export default function AdminPage() {
       {loading && <div className="list-empty"><span className="pulse-dot" /> Cargando…</div>}
 
       {!loading && (
+        <>
+          <div className="admin-section-tabs">
+            <button
+              className={`admin-section-tab${activeSection === 'tenants' ? ' admin-section-tab--active' : ''}`}
+              onClick={() => setActiveSection('tenants')}
+            >
+              Tenants
+            </button>
+            <button
+              className={`admin-section-tab${activeSection === 'llm_usage' ? ' admin-section-tab--active' : ''}`}
+              onClick={() => setActiveSection('llm_usage')}
+            >
+              Consumo IA
+            </button>
+          </div>
+
+          {activeSection === 'tenants' && (
         <div className="admin-layout">
           {/* Tenant list */}
           <div className="tenant-list">
@@ -687,6 +721,77 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+          )}
+
+          {activeSection === 'llm_usage' && (
+            <div className="llm-usage-panel">
+              <div className="llm-usage-header">
+                <h3>Consumo de IA</h3>
+                <input
+                  type="month"
+                  value={llmMonth}
+                  onChange={(e) => setLlmMonth(e.target.value)}
+                  className="llm-month-picker"
+                />
+              </div>
+
+              {loadingLlm && <p className="llm-loading">Cargando...</p>}
+
+              {!loadingLlm && llmStats && (
+                <>
+                  <div className="llm-kpis">
+                    <div className="llm-kpi">
+                      <span className="llm-kpi-label">💵 Gasto total</span>
+                      <span className="llm-kpi-value">${llmStats.totals.totalCostUsd.toFixed(4)} USD</span>
+                    </div>
+                    <div className="llm-kpi">
+                      <span className="llm-kpi-label">🔢 Tokens</span>
+                      <span className="llm-kpi-value">{(llmStats.totals.totalTokens / 1000).toFixed(1)}K</span>
+                    </div>
+                    <div className="llm-kpi">
+                      <span className="llm-kpi-label">⚡ Llamadas</span>
+                      <span className="llm-kpi-value">{llmStats.totals.totalCalls}</span>
+                    </div>
+                    <div className="llm-kpi">
+                      <span className="llm-kpi-label">🤖 Providers</span>
+                      <span className="llm-kpi-value">
+                        {Object.entries(llmStats.totals.byProvider as Record<string, { calls: number; costUsd: number }>)
+                          .map(([p, s]) => `${p} (${s.calls})`)
+                          .join(' · ') || '—'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <table className="llm-table">
+                    <thead>
+                      <tr>
+                        <th>Cliente</th>
+                        <th>Llamadas</th>
+                        <th>Tokens</th>
+                        <th>Costo USD</th>
+                        <th>Límite</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {llmStats.tenants.length === 0 && (
+                        <tr><td colSpan={5} className="llm-empty">Sin datos para este mes</td></tr>
+                      )}
+                      {llmStats.tenants.map((t: any) => (
+                        <tr key={t.sellerId}>
+                          <td>{t.nickname ?? t.sellerId}</td>
+                          <td>{t.totalCalls}</td>
+                          <td>{(t.totalTokens / 1000).toFixed(1)}K</td>
+                          <td>${t.totalCostUsd.toFixed(4)}</td>
+                          <td>{t.spendingLimitUsd != null ? `$${t.spendingLimitUsd}` : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* Create Tenant Modal */}
