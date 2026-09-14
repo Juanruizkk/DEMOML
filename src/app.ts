@@ -55,6 +55,9 @@ import { ForceTokenRefreshUseCase } from "./application/use-cases/admin/ForceTok
 import { UpdateTenantPermissionsUseCase } from "./application/use-cases/admin/UpdateTenantPermissionsUseCase.js";
 import { CreateTenantUseCase } from "./application/use-cases/admin/CreateTenantUseCase.js";
 import { ActivateTenantUseCase } from "./application/use-cases/auth/ActivateTenantUseCase.js";
+import { ListTeamMembersUseCase } from "./application/use-cases/tenant/ListTeamMembersUseCase.js";
+import { InviteTeamMemberUseCase } from "./application/use-cases/tenant/InviteTeamMemberUseCase.js";
+import { RemoveTeamMemberUseCase } from "./application/use-cases/tenant/RemoveTeamMemberUseCase.js";
 
 import { WebhookController } from "./presentation/controllers/WebhookController.js";
 import { QuestionsController } from "./presentation/controllers/QuestionsController.js";
@@ -224,6 +227,10 @@ export function buildApp(): FastifyInstance {
     }
   };
 
+  const listTeamMembersUseCase = new ListTeamMembersUseCase(userRepo, tenantRepo);
+  const inviteTeamMemberUseCase = new InviteTeamMemberUseCase(userRepo, tenantRepo, eventRepo, emailClient);
+  const removeTeamMemberUseCase = new RemoveTeamMemberUseCase(userRepo, tenantRepo, eventRepo);
+
   // 9. Controladores
   const webhookCtrl = new WebhookController(ingestWebhookUseCase, ingestClaimUseCase);
   const questionsCtrl = new QuestionsController(questionRepo, approveAnswerUseCase, rejectAnswerUseCase, itemCacheRepo);
@@ -233,7 +240,10 @@ export function buildApp(): FastifyInstance {
     activateTenantUseCase, requestPasswordResetUseCase, resetPasswordUseCase
   );
   const simulatorCtrl = new SimulatorController(simulateQuestionUseCase);
-  const tenantCtrl = new TenantController(tenantRepo, eventRepo, llmService, emailClient);
+  const tenantCtrl = new TenantController(
+    tenantRepo, eventRepo, llmService, emailClient,
+    listTeamMembersUseCase, inviteTeamMemberUseCase, removeTeamMemberUseCase
+  );
   const adminCtrl = new AdminController(
     getGlobalMetricsUseCase, listTenantsOverviewUseCase, getTenantDetailUseCase,
     toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase, updateTenantPermissionsUseCase,
@@ -280,6 +290,13 @@ export function buildApp(): FastifyInstance {
   app.post("/api/admin/tenants", { preHandler: requireSuperAdmin }, adminCtrl.createTenant);
   app.get("/api/admin/invitations", { preHandler: requireSuperAdmin }, adminCtrl.getPendingInvitations);
   app.post("/api/admin/users/:userId/reset-password", { preHandler: requireSuperAdmin }, adminCtrl.resetUserPassword);
+  app.post("/api/admin/reset-password", { preHandler: requireSuperAdmin }, async (request, reply) => {
+    const { email } = (request.body as { email?: string }) || {};
+    if (!email) return reply.status(400).send({ error: "El campo email es requerido." });
+    const origin = (request.headers.origin as string) || process.env.APP_BASE_URL || "http://localhost:5173";
+    await requestPasswordResetUseCase.execute({ email, baseUrl: origin }).catch(() => {});
+    return reply.send({ ok: true });
+  });
 
   // Rutas — Webhooks & OAuth
   app.post("/webhook/ml", webhookCtrl.handle);
@@ -331,6 +348,11 @@ export function buildApp(): FastifyInstance {
   app.post("/api/config/auto-answer", { preHandler: optionalAuthenticate }, tenantCtrl.updateSettings);
   app.get("/api/tenant/settings", { preHandler: optionalAuthenticate }, tenantCtrl.getSettings);
   app.put("/api/tenant/settings", { preHandler: optionalAuthenticate }, tenantCtrl.updateSettings);
+
+  // Rutas — Equipo / Colaboradores del Tenant
+  app.get("/api/tenant/team", { preHandler: authenticate }, tenantCtrl.getTeamMembers);
+  app.post("/api/tenant/team/invite", { preHandler: authenticate }, tenantCtrl.inviteTeamMember);
+  app.delete("/api/tenant/team/:memberId", { preHandler: authenticate }, tenantCtrl.removeTeamMember);
 
   // SPA fallback — any route not matched by /api/* serves the React app
   app.setNotFoundHandler((_request, reply) => {

@@ -53,6 +53,7 @@ const PERMISSION_LABELS: Record<string, string> = {
   emailEnabled:     'Email',
   preSaleEnabled:   'Pre-venta',
   postSaleEnabled:  'Post-venta',
+  multiUserEnabled: 'Equipo / Multi-Usuario',
 }
 
 export default function AdminPage() {
@@ -87,16 +88,20 @@ export default function AdminPage() {
     }).catch(console.error).finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    setResetSent(null)
+  }, [selected])
+
   const selectTenant = async (t: TenantOverview) => {
     setSelected(t.sellerId)
     try {
       const detail = await api.get<{ settings: { permissions?: Record<string, boolean> } }>(`/admin/tenants/${t.sellerId}`)
       setLocalPerms(detail.settings?.permissions || {
         whatsappEnabled: true, telegramEnabled: true, emailEnabled: false,
-        preSaleEnabled: true, postSaleEnabled: true,
+        preSaleEnabled: true, postSaleEnabled: true, multiUserEnabled: false,
       })
     } catch {
-      setLocalPerms({ whatsappEnabled: true, telegramEnabled: true, emailEnabled: false, preSaleEnabled: true, postSaleEnabled: true })
+      setLocalPerms({ whatsappEnabled: true, telegramEnabled: true, emailEnabled: false, preSaleEnabled: true, postSaleEnabled: true, multiUserEnabled: false })
     }
   }
 
@@ -167,11 +172,7 @@ export default function AdminPage() {
   const handleResetForTenant = async (email: string) => {
     setResetting(email)
     try {
-      await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
+      await api.post('/admin/reset-password', { email })
       setResetSent(email)
       setTimeout(() => setResetSent(null), 4000)
     } catch (err: any) {
