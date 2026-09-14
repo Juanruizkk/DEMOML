@@ -84,6 +84,12 @@ export class MeliApiClient implements IMeliClient {
     });
   }
 
+  public async getSellerItemIds(sellerId: string, status: string = "active"): Promise<string[]> {
+    const query = status ? `?status=${status}` : "";
+    const data = await this.meliFetch<any>(sellerId, `/users/${sellerId}/items/search${query}`);
+    return (data.results as string[]) || [];
+  }
+
   public async postAnswer(sellerId: string, questionId: string, text: string): Promise<void> {
     await this.meliFetch(sellerId, "/answers", {
       method: "POST",
@@ -155,6 +161,18 @@ export class MeliApiClient implements IMeliClient {
 
   public async getClaim(sellerId: string, claimId: string): Promise<MeliClaimDTO> {
     return this.meliFetch<MeliClaimDTO>(sellerId, `/post-purchase/v1/claims/${claimId}`);
+  }
+
+  public async searchClaims(sellerId: string, status: string = "opened"): Promise<MeliClaimDTO[]> {
+    try {
+      const res = await this.meliFetch<{ data: MeliClaimDTO[] }>(
+        sellerId,
+        `/post-purchase/v1/claims/search?status=${status}`
+      );
+      return res.data || [];
+    } catch (e) {
+      return [];
+    }
   }
 
   public async refreshTokens(refreshToken: string): Promise<{

@@ -72,35 +72,60 @@ export class LangChainLLMService implements ILLMService {
 
   private buildSystemPrompt(settings?: Partial<TenantSettings>): string {
     const tone = settings?.tone || "casual_rioplatense";
-    const customInstructions = settings?.customInstructions ? `\nReglas específicas de este vendedor:\n${settings.customInstructions}` : "";
+    const policies = settings?.policies;
 
-    const toneInstructions =
-      tone === "formal"
-        ? "Tono: Formal y respetuoso ('Estimado/a, le confirmamos que...')."
-        : tone === "concise"
-        ? "Tono: Ultraconciso y directo al grano, máximo 1 o 2 oraciones."
-        : "Tono: Cordial, rioplatense profesional argentino estándar ('¡Hola! Sí, tenemos stock...', '¡Buenas! Hacemos envíos...').";
+    let toneInstructions: string;
+    if (tone === "formal") {
+      toneInstructions = "Tono: Formal y respetuoso ('Estimado/a, le confirmamos que disponemos de stock...').";
+    } else if (tone === "concise") {
+      toneInstructions = "Tono: Ultraconciso y directo al grano, máximo 1 o 2 oraciones breves.";
+    } else if (tone === "sales_oriented") {
+      toneInstructions = "Tono: Comercial, entusiasta y persuasivo orientado al cierre de venta ('¡Hola! Sí, tenemos stock listo para despacho hoy. ¡Esperamos tu compra!').";
+    } else {
+      toneInstructions = "Tono: Cordial, rioplatense profesional argentino estándar ('¡Hola! Sí, tenemos stock...', '¡Buenas! Hacemos envíos...').";
+    }
 
-    return `Sos el asistente de un vendedor en Mercado Libre que responde preguntas pre-venta.
+    const storeRules: string[] = [];
+    if (policies?.greeting) storeRules.push(`Saludo inicial sugerido: "${policies.greeting}"`);
+    if (policies?.billingPolicy) storeRules.push(`Facturación: ${policies.billingPolicy}`);
+    if (policies?.shippingPolicy) storeRules.push(`Envíos y retiro: ${policies.shippingPolicy}`);
+    if (policies?.warrantyPolicy) storeRules.push(`Garantía: ${policies.warrantyPolicy}`);
+    if (policies?.signature) storeRules.push(`Firma de cierre: "${policies.signature}"`);
+    if (settings?.customInstructions) storeRules.push(`Instrucciones adicionales: ${settings.customInstructions}`);
+
+    const rulesContext = storeRules.length > 0
+      ? `\n--- POLÍTICAS GENERALES DE LA TIENDA ---\n${storeRules.map(r => `- ${r}`).join("\n")}\n`
+      : "";
+
+    return `Sos el asistente inteligente de un vendedor en Mercado Libre que responde preguntas pre-venta.
 
 Reglas estrictas de clasificación:
-- Preguntas sobre stock: intent: "stock". Si hay stock disponible (available_quantity > 0), marcá requires_human: false y confirmá el stock con tono cordial.
-- Preguntas sobre características técnicas presentes en el texto: son intent: "caracteristicas" y se auto-responden si el dato está explícito en la publicación.
+- Preguntas sobre stock: intent: "stock". Si hay stock disponible (available_quantity > 0), confirmá con entusiasmo y marcá requires_human: false.
+- Preguntas sobre características técnicas presentes en el texto: intent: "caracteristicas" y se auto-responden si el dato está explícito en la publicación.
 - Marcá requires_human: true ÚNICAMENTE para:
   - Pedidos de descuento, rebaja o negociación de precio (intent: "precio_negociacion").
-  - Intentos explícitos de contacto por fuera (pedir teléfonos, WhatsApp, email, redes sociales, coordinar pago por fuera) -> intent: "contacto_externo".
-  - Reclamos, quejas o garantías conflictivas (intent: "reclamo" o "garantia").
-  - Cualquier dato o consulta que NO figure explícitamente en la publicación ni en las reglas del vendedor.
+  - Intentos explícitos de contacto por fuera (pedir teléfonos, WhatsApp, email, redes sociales) -> intent: "contacto_externo".
+  - Reclamos, quejas o garantías conflictivas (intent: "reclamo").
+  - Cualquier dato o consulta que NO figure en la publicación, las políticas de la tienda ni las reglas del producto.
 
-${toneInstructions}${customInstructions}
-
-El campo "answer" siempre debe tener un texto de respuesta propuesto listo para usar.`;
+${toneInstructions}
+${rulesContext}
+El campo "answer" debe incluir la respuesta completa lista para publicar en Mercado Libre.`;
   }
 
-  private buildUserPrompt(questionText: string, item: Item): string {
+  private buildUserPrompt(
+    questionText: string,
+    item: Item,
+    itemKnowledge?: ItemKnowledge | null
+  ): string {
     const attributes = (item.attributes || [])
       .map((a) => `- ${a.name}: ${a.value_name ?? "N/D"}`)
       .join("\n") || "(sin atributos listados)";
+
+    const knowledgeSection =
+      itemKnowledge && itemKnowledge.hasContent()
+        ? `\n--- REGLAS PRIORITARIAS DEL VENDEDOR PARA ESTA PUBLICACIÓN ---\n${itemKnowledge.formatPromptContext()}\n(Estas reglas tienen máxima prioridad sobre suposiciones generales)\n`
+        : "";
 
     return `Publicación:
 Título: ${item.title}
@@ -110,7 +135,7 @@ Condición: ${item.condition}
 Atributos:
 ${attributes}
 Descripción: ${item.descriptionText || "(sin descripción)"}
-
+${knowledgeSection}
 Pregunta del comprador: "${questionText}"
 
 Clasificá la pregunta y generá la respuesta siguiendo las reglas del sistema.`;
@@ -120,10 +145,15 @@ Clasificá la pregunta y generá la respuesta siguiendo las reglas del sistema.`
     questionText: string;
     item: Item;
     settings?: Partial<TenantSettings>;
+    itemKnowledge?: ItemKnowledge | null;
   }): Promise<LLMClassificationResult> {
     const model = await this.getStructuredModel();
     const systemPrompt = this.buildSystemPrompt(params.settings);
-    const userPrompt = this.buildUserPrompt(params.questionText, params.item);
+    const userPrompt = this.buildUserPrompt(
+      params.questionText,
+      params.item,
+      params.itemKnowledge
+    );
 
     const result = await model.invoke([
       { role: "system", content: systemPrompt },

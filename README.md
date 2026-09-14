@@ -62,6 +62,8 @@ Plataforma SaaS Multi-Tenant para la **automatización inteligente de respuestas
 
 ## 📚 Documentación Técnica
 
+* [👥 Usuarios y Credenciales](docs/USERS.md)
+* [🛍️ Publicaciones y Catálogo Mercado Libre](docs/ML/PUBLICACIONES_Y_CATALOGO.md)
 * [📖 Referencia de API](docs/API_REFERENCE.md)
 * [🏛️ Arquitectura del Sistema](docs/ARCHITECTURE.md)
 * [🛠️ Guía de Setup y Runbook](docs/SETUP.md)

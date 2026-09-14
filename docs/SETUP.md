@@ -88,6 +88,7 @@ Al iniciar, verás en consola:
 ---
 
 ## 5. 🔑 Credenciales del Sistema
+> 💡 *Para una referencia exhaustiva de roles, tenants y cuentas de prueba, consultá [docs/USERS.md](file:///c:/JUAN%20RUIZ/Trabajos/DEMOML/docs/USERS.md).*
 
 ### 5.1 Super Administrador (Acceso Global)
 El usuario Super Admin se inicializa automáticamente al primer inicio:

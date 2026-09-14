@@ -106,6 +106,7 @@ async function initTenantApp() {
     renderHeader();
     renderSettingsForm();
     await loadTenantQuestions();
+    await loadTenantClaims();
     initRealtimeEvents();
   } catch (e) {
     console.warn("Token expirado o inválido:", e);
@@ -312,13 +313,28 @@ function renderSettingsForm() {
   document.getElementById("setting-threshold").value = s.confidenceThreshold ?? 0.75;
   document.getElementById("label-threshold-val").textContent = `${Math.round((s.confidenceThreshold ?? 0.75) * 100)}%`;
   document.getElementById("setting-instructions").value = s.customInstructions || "";
+
+  // Preferred alert channel
+  const prefChannel = s.preferredAlertChannel || "whatsapp";
+  const radTg = document.getElementById("radio-channel-tg");
+  const radWa = document.getElementById("radio-channel-wa");
+  const radBoth = document.getElementById("radio-channel-both");
+  if (prefChannel === "telegram" && radTg) radTg.checked = true;
+  else if (prefChannel === "both" && radBoth) radBoth.checked = true;
+  else if (radWa) radWa.checked = true;
+
+  // Telegram settings
+  document.getElementById("setting-telegram-chat-id").value = s.telegramAlertChatId || "";
+  document.getElementById("setting-telegram-bot-token").value = s.telegramAlertBotToken || "";
+  updateTelegramBadge(Boolean(s.telegramAlertChatId));
+  fetchTelegramInfo();
+
   // WhatsApp settings
   const mode = s.whatsappMode || "platform_shared";
   document.getElementById("setting-whatsapp-phone").value = s.whatsappAlertPhone || "";
   document.getElementById("setting-whatsapp-phone-byo").value = s.whatsappAlertPhone || "";
   document.getElementById("setting-custom-phone-id").value = s.customPhoneNumberId || "";
   document.getElementById("setting-custom-token").value = s.customAccessToken || "";
-  document.getElementById("setting-custom-waba-id").value = s.customWabaId || "";
 
   // Set radio
   const radioShared = document.getElementById("radio-platform-shared");
@@ -336,16 +352,73 @@ function renderSettingsForm() {
   const pct = Math.min(100, Math.round((used / limit) * 100));
   document.getElementById("quota-bar-fill").style.width = pct + "%";
   document.getElementById("quota-used-label").textContent = `${used} alerta${used !== 1 ? "s" : ""} usada${used !== 1 ? "s" : ""}`;
-  document.getElementById("quota-limit-label").textContent = `de ${limit} este mes`;
+  document.getElementById("quota-limit-label").textContent = `de ${limit}`;
   document.getElementById("quota-warning").style.display = pct >= 80 ? "block" : "none";
   const planNames = { starter: "Plan Starter", pro: "Plan Pro", enterprise: "Plan Enterprise" };
   document.getElementById("quota-plan-badge").textContent = planNames[s.planId] || "Plan Starter";
-  const resetDate = s.cycleResetDate ? new Date(s.cycleResetDate).toLocaleDateString("es-AR") : "—";
-  document.getElementById("quota-reset-date").textContent = resetDate;
 
   const tone = s.tone || "casual_rioplatense";
   const radio = document.querySelector(`input[name="setting-tone"][value="${tone}"]`);
   if (radio) radio.checked = true;
+}
+
+function updateTelegramBadge(isConnected, chatId) {
+  const badge = document.getElementById("tg-status-badge");
+  if (!badge) return;
+  if (isConnected) {
+    badge.style.background = "rgba(34, 197, 94, 0.15)";
+    badge.style.color = "#4ade80";
+    badge.textContent = `🟢 Conectado ${chatId ? `(${chatId})` : ""}`;
+  } else {
+    badge.style.background = "rgba(148, 163, 184, 0.15)";
+    badge.style.color = "#94a3b8";
+    badge.textContent = "⚪ Desconectado";
+  }
+}
+
+async function fetchTelegramInfo() {
+  try {
+    const res = await fetch("/api/tenant/telegram/info", {
+      headers: { Authorization: `Bearer ${state.token}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const btnConnect = document.getElementById("btn-tg-connect");
+    if (btnConnect && data.deepLink) {
+      btnConnect.href = data.deepLink;
+    }
+    if (data.chatId) {
+      document.getElementById("setting-telegram-chat-id").value = data.chatId;
+    }
+    updateTelegramBadge(data.isConfigured, data.chatId);
+  } catch (err) {
+    console.warn("No se pudo obtener info de Telegram:", err);
+  }
+}
+
+async function testTelegramAlert() {
+  try {
+    showToast("✈️ Enviando alerta de prueba a Telegram...");
+    const res = await fetch("/api/tenant/telegram/test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.token}`,
+      },
+      body: JSON.stringify({}),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error enviando prueba.");
+
+    showToast("✅ Mensaje de prueba recibido en tu Telegram");
+  } catch (err) {
+    showToast(`❌ ${err.message}`);
+  }
+}
+
+function onChannelPrefChange() {
+  // Optional visual adjustments
 }
 
 function updateThresholdLabel(val) {
@@ -390,11 +463,18 @@ function onWaModeChange() {
   document.getElementById("panel-mode-byo").style.display = mode === "custom_byo" ? "block" : "none";
 }
 
-async function saveWhatsAppSettings() {
+async function saveAlertSettings() {
+  const preferredAlertChannel = document.querySelector('input[name="preferred-channel"]:checked')?.value || "whatsapp";
   const mode = document.querySelector('input[name="wa-mode"]:checked')?.value || "platform_shared";
+  const telegramAlertChatId = document.getElementById("setting-telegram-chat-id").value.trim();
+  const telegramAlertBotToken = document.getElementById("setting-telegram-bot-token").value.trim();
 
   const payload = {
+    preferredAlertChannel,
     whatsappMode: mode,
+    telegramAlertChatId: telegramAlertChatId || undefined,
+    telegramAlertBotToken: telegramAlertBotToken || undefined,
+    telegramEnabled: Boolean(telegramAlertChatId),
   };
 
   if (mode === "platform_shared") {
@@ -403,7 +483,6 @@ async function saveWhatsAppSettings() {
     payload.whatsappAlertPhone = document.getElementById("setting-whatsapp-phone-byo").value.trim();
     payload.customPhoneNumberId = document.getElementById("setting-custom-phone-id").value.trim();
     payload.customAccessToken = document.getElementById("setting-custom-token").value.trim();
-    payload.customWabaId = document.getElementById("setting-custom-waba-id").value.trim();
   }
 
   try {
@@ -420,11 +499,15 @@ async function saveWhatsAppSettings() {
     if (!res.ok) throw new Error(data.error || "Error guardando configuración.");
 
     state.tenant.settings = data.settings;
-    showToast("📱 Configuración de WhatsApp guardada");
+    updateTelegramBadge(Boolean(data.settings.telegramAlertChatId), data.settings.telegramAlertChatId);
+    showToast("🔔 Configuración de alertas guardada con éxito");
   } catch (err) {
     showToast(`❌ Error: ${err.message}`);
   }
 }
+
+// Alias for backwards compatibility
+const saveWhatsAppSettings = saveAlertSettings;
 
 // ── Realtime SSE Events ────────────────────────────────────
 function initRealtimeEvents() {
@@ -446,7 +529,107 @@ function initRealtimeEvents() {
 
   state.sseSource.addEventListener("claim_received", (e) => {
     showToast("⚠️ ALERTA: Nuevo reclamo post-venta recibido en Mercado Libre");
+    loadTenantClaims();
   });
+
+  state.sseSource.addEventListener("claim_updated", () => {
+    loadTenantClaims();
+  });
+}
+
+// ── Claims Management ──────────────────────────────────────
+async function loadTenantClaims() {
+  const listEl = document.getElementById("tenant-claims-list");
+  if (!listEl) return;
+
+  try {
+    const res = await fetch("/api/claims", {
+      headers: { Authorization: `Bearer ${state.token}` },
+    });
+
+    if (!res.ok) throw new Error("Error cargando reclamos.");
+    const data = await res.json();
+    const claims = data.claims || [];
+
+    const badgeEl = document.getElementById("badge-claims-count");
+    if (badgeEl) {
+      const urgent = claims.filter((c) => c.status === "opened" && (c.urgency === "critical" || c.urgency === "high")).length;
+      badgeEl.textContent = urgent > 0 ? `${urgent}!` : claims.length;
+      badgeEl.style.background = urgent > 0 ? "#ef4444" : "rgba(239, 68, 68, 0.2)";
+      badgeEl.style.color = urgent > 0 ? "#ffffff" : "#f87171";
+    }
+
+    renderTenantClaims(claims);
+  } catch (err) {
+    listEl.innerHTML = `<div class="empty-state">${err.message}</div>`;
+  }
+}
+
+function renderTenantClaims(claims) {
+  const listEl = document.getElementById("tenant-claims-list");
+  if (!listEl) return;
+
+  if (claims.length === 0) {
+    listEl.innerHTML = `
+      <div class="empty-state">
+        <div style="font-size: 2rem; margin-bottom: 8px;">🎉</div>
+        <h3>Sin reclamos activos</h3>
+        <p>No tenés disputas pendientes de respuesta en este momento. Tu reputación está protegida.</p>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = claims
+    .map((c) => {
+      const urgencyLabel =
+        c.urgency === "critical" ? "🔴 Crítico (< 12hs)" : c.urgency === "high" ? "🟠 Alta Prioridad" : "🟢 En Plazo";
+
+      const typeLabel =
+        c.type === "med_pdd" ? "🔧 Producto Defectuoso (PDD)" : c.type === "med_pnr" ? "📦 Paquete No Recibido (PNR)" : "🔄 Devolución";
+
+      return `
+        <div class="question-card" style="border-left: 4px solid ${c.urgency === 'critical' ? '#ef4444' : c.urgency === 'high' ? '#f97316' : '#10b981'};">
+          <div class="q-header">
+            <span class="q-item-title">⚖️ Reclamo #${escapeHtml(c.id)} — Orden #${escapeHtml(c.orderId)}</span>
+            <div class="q-badges">
+              <span class="intent-badge">${typeLabel}</span>
+              <span class="status-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171;">${urgencyLabel}</span>
+            </div>
+          </div>
+
+          <div class="q-body-quote">
+            <strong>Motivo del Reclamo:</strong><br/>
+            "${escapeHtml(c.reason || "")}"
+          </div>
+
+          <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+            <div>
+              ⏳ <strong>Tiempo restante SLA:</strong> <span style="font-weight: 700; color: #f87171;">${c.remainingHours} hs</span> (Vence: ${new Date(c.dueDate).toLocaleString("es-AR")})
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn-approve" onclick="ackTenantClaim('${c.id}')" style="padding: 6px 14px; font-size: 0.78rem;">
+                ✓ Marcar Enterado
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+async function ackTenantClaim(claimId) {
+  try {
+    await fetch(`/api/claims/${claimId}/ack`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${state.token}` },
+    });
+    await loadTenantClaims();
+    showToast("Reclamo marcado como enterado.");
+  } catch (err) {
+    showToast("Error al confirmar reclamo.");
+  }
 }
 
 // ── Helpers ────────────────────────────────────────────────

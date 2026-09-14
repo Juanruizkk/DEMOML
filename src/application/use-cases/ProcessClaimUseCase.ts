@@ -4,6 +4,7 @@ import { IEventRepository } from "../interfaces/IEventRepository.js";
 import { IMeliClient } from "../interfaces/IMeliClient.js";
 import { IWhatsAppClient } from "../interfaces/IWhatsAppClient.js";
 import { ITelegramClient } from "../interfaces/ITelegramClient.js";
+import { IEmailClient } from "../interfaces/IEmailClient.js";
 import { IRealtimeNotifier } from "../interfaces/IRealtimeNotifier.js";
 import { Claim, ClaimAction, ClaimType } from "../../domain/entities/Claim.js";
 import { EventLog } from "../../domain/entities/EventLog.js";
@@ -16,7 +17,8 @@ export class ProcessClaimUseCase {
     private readonly meliClient: IMeliClient,
     private readonly whatsAppClient: IWhatsAppClient,
     private readonly sseNotifier: IRealtimeNotifier,
-    private readonly telegramClient?: ITelegramClient
+    private readonly telegramClient?: ITelegramClient,
+    private readonly emailClient?: IEmailClient
   ) {}
 
   public async execute(params: { claimId: string; sellerId: string }): Promise<Claim | null> {
@@ -167,6 +169,35 @@ export class ProcessClaimUseCase {
               message: `✈️ Alerta Telegram enviada para reclamo ${claimId} (Chat ID: ${creds.chatId})`,
             })
           );
+        }
+      }
+
+      // Send Email alert if tenant has Email enabled & configured
+      if (this.emailClient && tenant?.canSendEmailAlert("claim")) {
+        const emailTo = tenant.getEmailAlertAddress();
+        if (emailTo) {
+          await this.emailClient
+            .sendClaimSlaAlert({
+              to: emailTo,
+              sellerId,
+              claimId: String(claim.id),
+              orderId: claim.orderId,
+              reason: typeLabel + " (" + claim.reason + ")",
+              remainingHours: claim.getRemainingHours(),
+              urgency: claim.getUrgency(),
+            })
+            .then(async (res) => {
+              if (res.success) {
+                await this.eventRepo.log(
+                  new EventLog({
+                    sellerId,
+                    type: "email_alert_sent",
+                    message: `📧 Alerta de reclamo urgente enviada por correo a ${emailTo}`,
+                  })
+                );
+              }
+            })
+            .catch((err) => console.error("[ProcessClaimUseCase] Error Email:", err));
         }
       }
 

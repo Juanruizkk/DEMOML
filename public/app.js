@@ -1,6 +1,9 @@
 const state = {
   rawQuestions: [],
   filteredQuestions: [],
+  rawClaims: [],
+  filteredClaims: [],
+  activeSection: "presale", // 'presale' | 'postsale'
   lastEventId: 0,
   autoAnswerEnabled: true,
   operatingMode: null,
@@ -8,6 +11,9 @@ const state = {
   searchTerm: "",
   statusFilter: "all",
   intentFilter: "all",
+  claimSearchTerm: "",
+  claimUrgencyFilter: "all",
+  claimTypeFilter: "all",
   consoleVisible: true,
 };
 
@@ -19,6 +25,14 @@ const el = {
   badgeSse: document.getElementById("badge-sse"),
   badgeTotalQuestions: document.getElementById("badge-total-questions"),
   
+  // Subnav Pre-Venta vs Post-Venta
+  subtabPresale: document.getElementById("subtab-presale"),
+  subtabPostsale: document.getElementById("subtab-postsale"),
+  sectionPresale: document.getElementById("section-presale"),
+  sectionPostsale: document.getElementById("section-postsale"),
+  badgeTotalQuestionsPill: document.getElementById("badge-total-questions-pill"),
+  badgeClaimsUrgentPill: document.getElementById("badge-claims-urgent-pill"),
+
   // Mode & Schedule Controls
   selectOpMode: document.getElementById("select-op-mode"),
   modeStatusBadge: document.getElementById("mode-status-badge"),
@@ -48,7 +62,17 @@ const el = {
   simulatorBackdrop: document.getElementById("simulator-backdrop"),
   simulatorText: document.getElementById("simulator-text"),
   btnSendSimulation: document.getElementById("btn-send-simulation"),
-  quickButtons: document.querySelectorAll(".quick-btn"),
+  quickButtons: document.querySelectorAll(".quick-btn[data-preset]"),
+
+  // Claim Simulator Modal Elements
+  btnOpenClaimSimulator: document.getElementById("btn-open-claim-simulator"),
+  btnCloseClaimSimulator: document.getElementById("btn-close-claim-simulator"),
+  claimSimulatorBackdrop: document.getElementById("claim-simulator-backdrop"),
+  btnSendClaimSimulation: document.getElementById("btn-send-claim-simulation"),
+  simClaimType: document.getElementById("sim-claim-type"),
+  simClaimReason: document.getElementById("sim-claim-reason"),
+  simClaimHours: document.getElementById("sim-claim-hours"),
+  claimQuickButtons: document.querySelectorAll(".quick-btn[data-claim-preset]"),
   
   // WhatsApp Elements
   waChatBody: document.getElementById("wa-chat-body"),
@@ -60,13 +84,23 @@ const el = {
   waWelcomeTime: document.getElementById("wa-welcome-time"),
   btnResetChat: document.getElementById("btn-reset-chat"),
 
-  // Table & Filters
+  // Table & Filters — Pre-Venta
   searchInput: document.getElementById("search-input"),
   filterStatus: document.getElementById("filter-status"),
   filterIntent: document.getElementById("filter-intent"),
   questionsTbody: document.getElementById("questions-tbody"),
 
-  // Metrics
+  // Table & Filters — Post-Venta (Claims)
+  searchClaimsInput: document.getElementById("search-claims-input"),
+  filterClaimUrgency: document.getElementById("filter-claim-urgency"),
+  filterClaimType: document.getElementById("filter-claim-type"),
+  claimsTbody: document.getElementById("claims-tbody"),
+  metricClaimsTotal: document.getElementById("metric-claims-total"),
+  metricClaimsCritical: document.getElementById("metric-claims-critical"),
+  metricClaimsHigh: document.getElementById("metric-claims-high"),
+  metricClaimsNormal: document.getElementById("metric-claims-normal"),
+
+  // Metrics Pre-Venta
   metricTotal: document.getElementById("metric-total"),
   metricLabor: document.getElementById("metric-labor"),
   metricOffhours: document.getElementById("metric-offhours"),
@@ -98,9 +132,18 @@ async function init() {
     btn.addEventListener("click", () => setViewMode(btn.dataset.view));
   });
 
+  // Subnav Pre-Venta vs Post-Venta
+  if (el.subtabPresale) {
+    el.subtabPresale.addEventListener("click", () => switchManagementSection("presale"));
+  }
+  if (el.subtabPostsale) {
+    el.subtabPostsale.addEventListener("click", () => switchManagementSection("postsale"));
+  }
+
   await loadHealth();
   await loadOperationMode();
   await loadQuestions();
+  await loadClaims();
   await loadResponseTime();
   connectSSE();
 
@@ -141,7 +184,7 @@ async function init() {
     el.btnSaveSchedule.addEventListener("click", saveScheduleConfig);
   }
 
-  // Simulator Modal
+  // Simulator Modal — Questions
   el.btnOpenSimulator.addEventListener("click", () => (el.simulatorBackdrop.hidden = false));
   el.btnCloseSimulator.addEventListener("click", () => (el.simulatorBackdrop.hidden = true));
   el.simulatorBackdrop.addEventListener("click", (e) => {
@@ -150,6 +193,7 @@ async function init() {
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (!el.simulatorBackdrop.hidden) el.simulatorBackdrop.hidden = true;
+      if (el.claimSimulatorBackdrop && !el.claimSimulatorBackdrop.hidden) el.claimSimulatorBackdrop.hidden = true;
       if (el.scheduleBackdrop && !el.scheduleBackdrop.hidden) el.scheduleBackdrop.hidden = true;
       if (el.confirmModeBackdrop && !el.confirmModeBackdrop.hidden) cancelModeConfirmation();
     }
@@ -157,12 +201,32 @@ async function init() {
   el.btnSendSimulation.addEventListener("click", sendSimulation);
   el.quickButtons.forEach((btn) => btn.addEventListener("click", () => applyPreset(btn.dataset.preset)));
 
+  // Claim Simulator Modal — Post-Venta
+  if (el.btnOpenClaimSimulator) {
+    el.btnOpenClaimSimulator.addEventListener("click", () => (el.claimSimulatorBackdrop.hidden = false));
+  }
+  if (el.btnCloseClaimSimulator) {
+    el.btnCloseClaimSimulator.addEventListener("click", () => (el.claimSimulatorBackdrop.hidden = true));
+  }
+  if (el.claimSimulatorBackdrop) {
+    el.claimSimulatorBackdrop.addEventListener("click", (e) => {
+      if (e.target === el.claimSimulatorBackdrop) el.claimSimulatorBackdrop.hidden = true;
+    });
+  }
+  if (el.btnSendClaimSimulation) {
+    el.btnSendClaimSimulation.addEventListener("click", sendClaimSimulation);
+  }
+  el.claimQuickButtons.forEach((btn) => {
+    btn.addEventListener("click", () => applyClaimPreset(btn.dataset.claimPreset));
+  });
+
   // Refresh Button
   if (el.btnRefresh) {
     el.btnRefresh.addEventListener("click", async () => {
       el.btnRefresh.style.transform = "rotate(360deg)";
       el.btnRefresh.style.transition = "transform 0.5s ease";
       await loadQuestions();
+      await loadClaims();
       await loadResponseTime();
       setTimeout(() => {
         el.btnRefresh.style.transform = "none";
@@ -171,7 +235,7 @@ async function init() {
     });
   }
 
-  // Search & Filters
+  // Search & Filters — Pre-Venta
   el.searchInput.addEventListener("input", (e) => {
     state.searchTerm = e.target.value.toLowerCase().trim();
     applyFilters();
@@ -184,6 +248,26 @@ async function init() {
     state.intentFilter = e.target.value;
     applyFilters();
   });
+
+  // Search & Filters — Post-Venta (Claims)
+  if (el.searchClaimsInput) {
+    el.searchClaimsInput.addEventListener("input", (e) => {
+      state.claimSearchTerm = e.target.value.toLowerCase().trim();
+      applyClaimFilters();
+    });
+  }
+  if (el.filterClaimUrgency) {
+    el.filterClaimUrgency.addEventListener("change", (e) => {
+      state.claimUrgencyFilter = e.target.value;
+      applyClaimFilters();
+    });
+  }
+  if (el.filterClaimType) {
+    el.filterClaimType.addEventListener("change", (e) => {
+      state.claimTypeFilter = e.target.value;
+      applyClaimFilters();
+    });
+  }
 
   // Console Drawer Toggle
   if (el.btnToggleConsole) {
@@ -472,7 +556,189 @@ async function saveScheduleConfig() {
   }
 }
 
-// ── Questions & Table Rendering ────────────────────────────────────────
+// ── Sub-section Switcher (Pre-Venta vs Post-Venta) ──────────────────────
+
+function switchManagementSection(section) {
+  state.activeSection = section;
+  if (el.subtabPresale) el.subtabPresale.classList.toggle("active", section === "presale");
+  if (el.subtabPostsale) el.subtabPostsale.classList.toggle("active", section === "postsale");
+  if (el.sectionPresale) el.sectionPresale.style.display = section === "presale" ? "block" : "none";
+  if (el.sectionPostsale) el.sectionPostsale.style.display = section === "postsale" ? "block" : "none";
+}
+
+// ── Claims & SLA Rendering (Post-Venta) ─────────────────────────────────
+
+async function loadClaims() {
+  try {
+    const res = await fetch("/api/claims");
+    if (!res.ok) return;
+    const data = await res.json();
+    state.rawClaims = data.claims || [];
+
+    // Update subnav pills
+    if (el.badgeClaimsUrgentPill) {
+      const urgentCount = state.rawClaims.filter((c) => c.status === "opened" && (c.urgency === "critical" || c.urgency === "high")).length;
+      el.badgeClaimsUrgentPill.textContent = urgentCount > 0 ? `${urgentCount} URGENTES` : `${state.rawClaims.length}`;
+      el.badgeClaimsUrgentPill.classList.toggle("subnav-pill-urgent", urgentCount > 0);
+    }
+
+    // Update Metrics
+    if (data.metrics) {
+      if (el.metricClaimsTotal) el.metricClaimsTotal.textContent = data.metrics.total;
+      if (el.metricClaimsCritical) el.metricClaimsCritical.textContent = data.metrics.critical;
+      if (el.metricClaimsHigh) el.metricClaimsHigh.textContent = data.metrics.high;
+      if (el.metricClaimsNormal) el.metricClaimsNormal.textContent = data.metrics.normal;
+    }
+
+    applyClaimFilters();
+  } catch (err) {
+    console.error("Error cargando reclamos:", err);
+  }
+}
+
+function applyClaimFilters() {
+  let list = [...state.rawClaims];
+
+  if (state.claimSearchTerm) {
+    list = list.filter((c) => {
+      const id = (c.id || "").toLowerCase();
+      const order = (c.orderId || "").toLowerCase();
+      const reason = (c.reason || "").toLowerCase();
+      const buyer = (c.buyerId || "").toLowerCase();
+      return id.includes(state.claimSearchTerm) || order.includes(state.claimSearchTerm) || reason.includes(state.claimSearchTerm) || buyer.includes(state.claimSearchTerm);
+    });
+  }
+
+  if (state.claimUrgencyFilter !== "all") {
+    if (state.claimUrgencyFilter === "closed") {
+      list = list.filter((c) => c.status === "closed");
+    } else {
+      list = list.filter((c) => c.urgency === state.claimUrgencyFilter && c.status === "opened");
+    }
+  }
+
+  if (state.claimTypeFilter !== "all") {
+    list = list.filter((c) => c.type === state.claimTypeFilter);
+  }
+
+  state.filteredClaims = list;
+  renderClaimsTable();
+}
+
+function renderClaimsTable() {
+  if (!el.claimsTbody) return;
+
+  if (state.filteredClaims.length === 0) {
+    el.claimsTbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="empty-table-msg">
+          No hay reclamos registrados con los filtros seleccionados.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  el.claimsTbody.innerHTML = state.filteredClaims
+    .map((c) => {
+      const dt = parseSqliteDate(c.createdAt);
+      const dateStr = dt.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }) + " " + dt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+      
+      const typeLabels = {
+        med_pdd: `<span class="intent-badge" style="color:#f87171; border-color:rgba(239,68,68,0.3);">🔧 PDD Defectuoso</span>`,
+        med_pnr: `<span class="intent-badge" style="color:#fb923c; border-color:rgba(249,115,22,0.3);">📦 PNR No Recibido</span>`,
+        return: `<span class="intent-badge" style="color:#38bdf8; border-color:rgba(56,189,248,0.3);">🔄 Devolución</span>`,
+        cancel_purchase: `<span class="intent-badge" style="color:#94a3b8; border-color:rgba(148,163,184,0.3);">❌ Cancelación</span>`,
+        other: `<span class="intent-badge">⚖️ Reclamo</span>`,
+      };
+      const typeBadge = typeLabels[c.type] || `<span class="intent-badge">${escapeHtml(c.type)}</span>`;
+
+      const urgencyLabels = {
+        critical: `<span class="urgency-chip critical">🔴 Crítico (&lt; 12hs)</span>`,
+        high: `<span class="urgency-chip high">🟠 Alta Prioridad</span>`,
+        normal: `<span class="urgency-chip normal">🟢 En Plazo</span>`,
+        closed: `<span class="urgency-chip closed">⚪ Resuelto</span>`,
+      };
+      const urgencyChip = urgencyLabels[c.urgency] || urgencyLabels.normal;
+
+      // SLA Progress Bar Calculation (0 to 48 hours baseline)
+      const maxHours = 48;
+      const progressPercent = Math.min(100, Math.max(8, (c.remainingHours / maxHours) * 100));
+
+      const actionsHtml = (c.actions || []).map((a) => {
+        return `<span style="font-size:0.68rem; color:#94a3b8; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">⚡ ${escapeHtml(a.action)}</span>`;
+      }).join(" ");
+
+      return `
+        <tr data-claim-id="${c.id}">
+          <td>
+            <div class="q-id-origin">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="q-id-code">#${escapeHtml(c.id)}</span>
+                <span class="q-badge-origin real">Orden #${escapeHtml(c.orderId)}</span>
+              </div>
+              <span class="q-date-text">Iniciado: ${dateStr}</span>
+              <div class="q-item-sub" style="margin-top:4px;">Comprador ID: <strong>${escapeHtml(c.buyerId || "3677130936")}</strong></div>
+            </div>
+          </td>
+          <td>
+            <div class="q-item-wrap">
+              ${typeBadge}
+              <div class="q-question-bubble" style="font-size:0.78rem; font-weight:600; color:#e2e8f0; margin-top:4px;">
+                "${escapeHtml(c.reason)}"
+              </div>
+              <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">
+                ${actionsHtml}
+              </div>
+            </div>
+          </td>
+          <td>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                ${urgencyChip}
+                <strong style="font-size:0.8rem; font-family:'JetBrains Mono',monospace; color:${c.urgency === 'critical' ? '#ef4444' : c.urgency === 'high' ? '#f97316' : '#10b981'};">
+                  ${c.remainingHours} hs restantes
+                </strong>
+              </div>
+              <div class="sla-progress-wrap">
+                <div class="sla-progress-bar">
+                  <div class="sla-progress-fill ${c.urgency}" style="width: ${progressPercent}%;"></div>
+                </div>
+              </div>
+              <span class="q-date-text" style="margin-top:2px;">Vence: ${new Date(c.dueDate).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+          </td>
+          <td>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <button class="btn-claim-ack" onclick="acknowledgeClaim('${c.id}')" title="Marcar como visto / notificado">
+                  ✓ Enterado
+                </button>
+                <a href="https://www.mercadolibre.com.ar" target="_blank" class="btn-claim-view" title="Abrir en Mercado Libre">
+                  🔗 Ver Caso
+                </a>
+              </div>
+              <div class="q-date-text" style="font-size:0.65rem; color:#64748b;">
+                ${c.notifiedAt ? `📲 Notificado por WhatsApp` : `⏳ Notificación en cola`}
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+window.acknowledgeClaim = async function(claimId) {
+  try {
+    await fetch(`/api/claims/${claimId}/ack`, { method: "POST" });
+    await loadClaims();
+  } catch (err) {
+    console.error("Error confirmando reclamo:", err);
+  }
+};
+
+// ── Questions & Table Rendering (Pre-Venta) ────────────────────────────
 
 async function loadQuestions() {
   try {
@@ -483,7 +749,8 @@ async function loadQuestions() {
     // Sort by received_at desc
     all.sort((a, b) => parseSqliteDate(b.received_at).getTime() - parseSqliteDate(a.received_at).getTime());
     state.rawQuestions = all;
-    el.badgeTotalQuestions.textContent = `${all.length} preguntas`;
+    if (el.badgeTotalQuestions) el.badgeTotalQuestions.textContent = `${all.length} preguntas`;
+    if (el.badgeTotalQuestionsPill) el.badgeTotalQuestionsPill.textContent = all.length;
     applyFilters();
 
     // Auto-populate WA chat if there's a pending_review question and the chat is idle
@@ -707,6 +974,20 @@ function connectSSE() {
 
   source.addEventListener("question_updated", () => {
     loadQuestions();
+  });
+
+  source.addEventListener("claim_received", (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      loadClaims();
+      renderWhatsAppClaimAlert(data);
+    } catch (err) {
+      console.error("Error processing claim_received SSE:", err);
+    }
+  });
+
+  source.addEventListener("claim_updated", () => {
+    loadClaims();
   });
 
   source.addEventListener("whatsapp_notification", (e) => {
@@ -1021,6 +1302,111 @@ async function sendSimulation() {
     alert("Error al enviar la pregunta simulada.");
   }
 }
+
+// ── Claim Simulator & Presets ──────────────────────────────────────────
+
+const CLAIM_PRESETS = {
+  pdd_critical: {
+    type: "med_pdd",
+    reason: "El auricular izquierdo no funciona ni carga en el estuche",
+    hours: 8,
+  },
+  pnr_high: {
+    type: "med_pnr",
+    reason: "El paquete figura entregado pero nunca llegó al domicilio",
+    hours: 24,
+  },
+  return_normal: {
+    type: "return",
+    reason: "El comprador se arrepintió de la compra y solicita devolución express",
+    hours: 48,
+  },
+};
+
+function applyClaimPreset(presetKey) {
+  const preset = CLAIM_PRESETS[presetKey];
+  if (!preset) return;
+  if (el.simClaimType) el.simClaimType.value = preset.type;
+  if (el.simClaimReason) el.simClaimReason.value = preset.reason;
+  if (el.simClaimHours) el.simClaimHours.value = preset.hours;
+}
+
+async function sendClaimSimulation() {
+  const type = el.simClaimType?.value || "med_pdd";
+  const reason = el.simClaimReason?.value || "Producto con fallas";
+  const hoursUntilDue = Number(el.simClaimHours?.value) || 8;
+
+  if (el.claimSimulatorBackdrop) el.claimSimulatorBackdrop.hidden = true;
+
+  try {
+    const res = await fetch("/api/claims/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, reason, hoursUntilDue }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      await loadClaims();
+      switchManagementSection("postsale");
+    }
+  } catch (err) {
+    alert("Error al simular reclamo post-venta.");
+  }
+}
+
+function renderWhatsAppClaimAlert(data) {
+  playNotificationChime();
+  const timeStr = new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+
+  const urgencyEmoji = data.urgency === "critical" ? "🔴" : data.urgency === "high" ? "🟠" : "🟡";
+  const typeLabel = data.type === "med_pnr" ? "Paquete no recibido (PNR)" : data.type === "med_pdd" ? "Producto defectuoso (PDD)" : "Reclamo / Devolución";
+
+  const msgDiv = document.createElement("div");
+  msgDiv.className = "wp-msg wp-msg-in";
+  msgDiv.innerHTML = `
+    <div class="wp-bubble wp-bubble-claim">
+      <div class="wp-card-notification">
+        <div class="wp-card-header-badge" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5); color: #fca5a5;">
+          <span>${urgencyEmoji} ALERTA RECLAMO POST-VENTA</span>
+          <span style="color:#ef4444; font-weight:800;">SLA: ${data.remaining_hours || "8"}hs</span>
+        </div>
+        <div class="wp-card-item">📦 Orden: #${escapeHtml(data.order_id || "2000000000")}</div>
+        <div class="wp-card-q" style="color:#fecaca;">🔖 <strong>${typeLabel}</strong>: "${escapeHtml(data.reason || "Reclamo abierto por el comprador")}"</div>
+      </div>
+      <p style="margin-top: 6px; font-size: 0.76rem; color: #cbd5e1;">
+        ⏳ Respondé a tiempo antes del vencimiento para proteger tu reputación en Mercado Libre.
+      </p>
+      <div style="margin-top: 8px; display: flex; gap: 6px;">
+        <button class="btn-inline-approve" onclick="acknowledgeClaimFromWhatsApp('${data.claim_id}')" style="font-size: 0.76rem; padding: 6px 12px; background: #10b981; border: none; border-radius: 6px; cursor: pointer; color: #fff; font-weight: 700;">
+          ✅ Enterado
+        </button>
+      </div>
+      <span class="wp-time">${timeStr}</span>
+    </div>
+  `;
+
+  if (el.waChatBody) {
+    el.waChatBody.appendChild(msgDiv);
+    el.waChatBody.scrollTop = el.waChatBody.scrollHeight;
+  }
+}
+
+window.acknowledgeClaimFromWhatsApp = async function(claimId) {
+  await window.acknowledgeClaim(claimId);
+  const timeStr = new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+  const ackDiv = document.createElement("div");
+  ackDiv.className = "wp-msg wp-msg-out";
+  ackDiv.innerHTML = `
+    <div class="wp-bubble">
+      <p>✅ Enterado del reclamo #${claimId}. Gestionando con el equipo.</p>
+      <span class="wp-time">${timeStr} <span class="wp-ticks">✓✓</span></span>
+    </div>
+  `;
+  if (el.waChatBody) {
+    el.waChatBody.appendChild(ackDiv);
+    el.waChatBody.scrollTop = el.waChatBody.scrollHeight;
+  }
+};
 
 function escapeHtml(str) {
   if (!str) return "";

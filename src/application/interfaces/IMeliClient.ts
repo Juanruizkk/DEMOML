@@ -38,9 +38,11 @@ export interface MeliClaimDTO {
 export interface IMeliClient {
   getQuestion(sellerId: string, questionId: string): Promise<MeliQuestionDTO>;
   getItem(sellerId: string, itemId: string): Promise<Item>;
+  getSellerItemIds(sellerId: string, status?: string): Promise<string[]>;
   postAnswer(sellerId: string, questionId: string, text: string): Promise<void>;
   getReceivedQuestions(sellerId: string): Promise<MeliQuestionDTO[]>;
   getClaim(sellerId: string, claimId: string): Promise<MeliClaimDTO>;
+  searchClaims(sellerId: string, status?: string): Promise<MeliClaimDTO[]>;
   getSellerProfile(sellerId: string, accessToken?: string): Promise<{
     id: number;
     nickname: string;

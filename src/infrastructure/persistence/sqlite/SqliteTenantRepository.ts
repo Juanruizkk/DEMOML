@@ -25,6 +25,17 @@ export class SqliteTenantRepository implements ITenantRepository {
     return this.mapToDomain(row);
   }
 
+  public async findByTelegramChatId(chatId: string): Promise<Tenant | null> {
+    try {
+      const row = this.db.prepare("SELECT * FROM tenants WHERE json_extract(settings_json, '$.telegramAlertChatId') = ?").get(chatId) as any;
+      if (row) return this.mapToDomain(row);
+    } catch {
+      // Fallback
+    }
+    const all = await this.getAll();
+    return all.find((t) => t.settings.telegramAlertChatId === chatId) || null;
+  }
+
   public async save(tenant: Tenant): Promise<void> {
     const stmt = this.db.prepare(`
       INSERT INTO tenants (id, seller_id, nickname, email, access_token, refresh_token, expires_at, settings_json, updated_at)

@@ -22,6 +22,8 @@ import { InMemoryQueueBroker } from "./infrastructure/queue/InMemoryQueueBroker.
 import { FastifySseNotifier } from "./infrastructure/realtime/FastifySseNotifier.js";
 import { MetaWhatsAppClient } from "./infrastructure/whatsapp/MetaWhatsAppClient.js";
 import { TelegramBotClient } from "./infrastructure/telegram/TelegramBotClient.js";
+import { TelegramAssistantService } from "./infrastructure/telegram/TelegramAssistantService.js";
+import { ResendEmailClient } from "./infrastructure/email/ResendEmailClient.js";
 
 import { IngestWebhookUseCase } from "./application/use-cases/IngestWebhookUseCase.js";
 import { IngestClaimWebhookUseCase } from "./application/use-cases/IngestClaimWebhookUseCase.js";
@@ -96,6 +98,7 @@ export function buildApp(): FastifyInstance {
   const sseNotifier = new FastifySseNotifier();
   const whatsAppClient = new MetaWhatsAppClient();
   const telegramClient = new TelegramBotClient();
+  const emailClient = new ResendEmailClient();
 
   // 4. Casos de Uso Auth
   const registerUserUseCase = new RegisterUserUseCase(userRepo, passwordHasher, tokenService);
@@ -121,12 +124,12 @@ export function buildApp(): FastifyInstance {
   const ingestWebhookUseCase = new IngestWebhookUseCase(queueBroker, eventRepo);
 
   const processClaimUseCase = new ProcessClaimUseCase(
-    claimRepo, tenantRepo, eventRepo, meliClient, whatsAppClient, sseNotifier, telegramClient
+    claimRepo, tenantRepo, eventRepo, meliClient, whatsAppClient, sseNotifier, telegramClient, emailClient
   );
   const ingestClaimUseCase = new IngestClaimWebhookUseCase(processClaimUseCase, eventRepo);
 
   const processQuestionUseCase = new ProcessQuestionUseCase(
-    questionRepo, itemCacheRepo, tenantRepo, eventRepo, meliClient, llmService, sseNotifier, whatsAppClient, telegramClient, itemKnowledgeRepo
+    questionRepo, itemCacheRepo, tenantRepo, eventRepo, meliClient, llmService, sseNotifier, whatsAppClient, telegramClient, itemKnowledgeRepo, emailClient
   );
 
   const getSellerProductsUseCase = new GetSellerProductsUseCase(meliClient, itemKnowledgeRepo);
@@ -140,8 +143,19 @@ export function buildApp(): FastifyInstance {
     approveAnswerUseCase, rejectAnswerUseCase, eventRepo, whatsAppClient
   );
 
+  const telegramAssistantService = new TelegramAssistantService(
+    questionRepo,
+    claimRepo,
+    eventRepo
+  );
+
   const handleTelegramWebhookUseCase = new HandleTelegramWebhookUseCase(
-    telegramClient, tenantRepo, eventRepo, approveAnswerUseCase, rejectAnswerUseCase
+    telegramClient,
+    tenantRepo,
+    eventRepo,
+    approveAnswerUseCase,
+    rejectAnswerUseCase,
+    telegramAssistantService
   );
 
   // 6. Casos de Uso Admin
@@ -215,7 +229,7 @@ export function buildApp(): FastifyInstance {
     activateTenantUseCase
   );
   const simulatorCtrl = new SimulatorController(simulateQuestionUseCase);
-  const tenantCtrl = new TenantController(tenantRepo, eventRepo, llmService);
+  const tenantCtrl = new TenantController(tenantRepo, eventRepo, llmService, emailClient);
   const adminCtrl = new AdminController(
     getGlobalMetricsUseCase, listTenantsOverviewUseCase, getTenantDetailUseCase,
     toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase, updateTenantPermissionsUseCase,
@@ -268,9 +282,10 @@ export function buildApp(): FastifyInstance {
   app.get("/oauth/login", { preHandler: optionalAuthenticate }, authCtrl.meliOAuthLogin);
   app.get("/oauth/callback", authCtrl.meliOAuthCallback);
 
-  // Rutas — Telegram Tenant Integration
+  // Rutas — Telegram & Email Tenant Integration
   app.get("/api/tenant/telegram/info", { preHandler: optionalAuthenticate }, telegramCtrl.getInfo);
   app.post("/api/tenant/telegram/test", { preHandler: optionalAuthenticate }, telegramCtrl.sendTest);
+  app.post("/api/tenant/channels/email/test", { preHandler: optionalAuthenticate }, tenantCtrl.sendTestEmail);
 
   // Rutas — SSE
   app.get("/api/events/stream", (request, reply) => {

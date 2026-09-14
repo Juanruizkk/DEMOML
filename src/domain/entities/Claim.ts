@@ -71,4 +71,22 @@ export class Claim {
     this.notifiedAt = new Date();
     this.updatedAt = new Date();
   }
+
+  public resetNotified(): void {
+    this.notifiedAt = undefined;
+    this.updatedAt = new Date();
+  }
+
+  public close(): void {
+    this.status = "closed";
+    this.stage = "closed";
+    this.updatedAt = new Date();
+  }
+
+  public reopen(): void {
+    this.status = "opened";
+    this.stage = "claim";
+    this.updatedAt = new Date();
+  }
 }
+

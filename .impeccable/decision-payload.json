@@ -1,0 +1,198 @@
+{
+  "title": "Elegí el mundo visual",
+  "question": "El roll asignó el candidato #7. Elegí una dirección o re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Observatorio",
+      "kicker": "THE ROLL",
+      "lineage": "Salas de control de telescopios y observatorios astronómicos",
+      "thesis": "Una cúpula oscura donde cada instrumento muestra el estado del AI, y el único movimiento es la urgencia llegando al meridiano.",
+      "palette": ["#08090f", "#0f1625", "#1a2540", "#f5a623", "#10b981", "#3b82f6", "#e2e8f0"],
+      "materials": ["frosted glass panels", "deep-space black", "amber + emerald dials", "electric blue controls", "soft diffused backlight"],
+      "viewport": "Sidebar izquierdo como riel de enfoque de telescopio con íconos como marcas de retículo. Panel principal: zona oscura de cúpula con paneles de vidrio esmerilado flotando a distintas profundidades — preguntas en elevación baja, reclamos a elevación alta con mayor urgencia. Timers SLA como diales circulares con glow ámbar cuando son críticos. Feed de eventos como pulsos de luz en el margen derecho.",
+      "risk": "Puede sentirse frío si no se calibra bien la temperatura de color; el ámbar del SLA crítico es lo que da calor.",
+      "raised": [
+        { "from": "zoo-map", "raise": "Separadores orgánicos curvos entre zonas de urgencia (crítico / advertencia / seguro), no grillas rígidas." },
+        { "from": "vertical-video", "raise": "Panel expandible a full-width cuando un reclamo necesita atención profunda (claim detail drawer)." },
+        { "from": "crt-arcade", "raise": "Phosphor glow sutil en contadores SLA críticos — el tipo parece encendido desde adentro." },
+        { "from": "cloud-quarry", "raise": "Cards con peso escultórico real: sombra interna leve + elevación física, no superficies aéreas." },
+        { "from": "silk-cape", "raise": "Un solo color de acento (electric blue #3b82f6) posee TODOS los controles interactivos — botones, toggles, checkmarks." }
+      ],
+      "wireframe": {
+        "cols": 12,
+        "rows": 10,
+        "regions": [
+          { "label": "nav rail", "x": 0, "y": 0, "w": 2, "h": 10, "accent": true },
+          { "label": "topbar + AI dial", "x": 2, "y": 0, "w": 10, "h": 1 },
+          { "label": "questions panel (glass)", "x": 2, "y": 1, "w": 7, "h": 4 },
+          { "label": "claims panel (urgent glass)", "x": 2, "y": 5, "w": 7, "h": 5 },
+          { "label": "live events feed", "x": 9, "y": 1, "w": 3, "h": 9 }
+        ]
+      }
+    },
+    {
+      "id": "model-pick",
+      "label": "Control de Misión",
+      "kicker": "IMPECCABLE'S PICK",
+      "lineage": "Salas de operaciones de vuelo / centros de control espacial (NASA, ESA)",
+      "thesis": "El panel de operador: instrumentos planos sobre vidrio oscuro, alertas ámbar, streams que solo se mueven cuando llegan datos.",
+      "palette": ["#05070d", "#111827", "#1e293b", "#f59e0b", "#10b981", "#60a5fa", "#f8fafc"],
+      "materials": ["matte dark glass surfaces", "amber warning lights", "hairline instrument borders", "frosted card elevation"],
+      "viewport": "Sidebar vertical de íconos sobre dark matte. Header con métricas globales en chips. Grid de cards de preguntas con badge de confianza IA. Reclamos en columna derecha con timer ámbar para urgentes. Feed SSE como ticker en la base.",
+      "risk": "Es la dirección en la que la mayoría de los modelos termina para este tipo de producto — efectiva y reconocible, pero no sorpresiva.",
+      "wireframe": {
+        "cols": 12,
+        "rows": 10,
+        "regions": [
+          { "label": "nav sidebar", "x": 0, "y": 0, "w": 2, "h": 10, "accent": true },
+          { "label": "metrics header", "x": 2, "y": 0, "w": 10, "h": 1 },
+          { "label": "questions list", "x": 2, "y": 1, "w": 5, "h": 9 },
+          { "label": "claims column", "x": 7, "y": 1, "w": 3, "h": 9 },
+          { "label": "sse ticker / events", "x": 10, "y": 1, "w": 2, "h": 9 }
+        ]
+      }
+    },
+    {
+      "id": "challenger-film-bench",
+      "label": "Mesa de Montaje",
+      "verdict": "competitive",
+      "lineage": "Mesa de corte de película / editing bench con riel perforado",
+      "thesis": "Preguntas y reclamos cuelgan en un riel continuo como fotogramas — una bandera doblada marca dónde paraste, los resueltos cuelgan abajo en el bin.",
+      "palette": ["#0a0a0a", "#1a1a1a", "#f97316", "#f5f5f4", "#78716c"],
+      "materials": ["grain-orange on true black", "perforated film strip rail", "grease-pencil marks for state", "condensed grotesk one size"],
+      "viewport": "Riel horizontal perforado fijo en la parte superior de cada sección. Preguntas/reclamos como fotogramas colgando del riel con ancho proporcional al SLA restante. Una bandera naranja doblada marca el último ítem atendido. Items resueltos se deslizan hacia el 'bin' inferior con animación de gravedad.",
+      "case": "El mecanismo de riel/flagging mapea perfectamente a la cola de pendientes — productividad clarity muy alta. Pierde en audience identification: los vendedores de ML no se identifican con la edición de cine.",
+      "risk": "Si el naranja es demasiado dominante se siente industrial/pesado para uso frecuente.",
+      "wireframe": {
+        "cols": 12,
+        "rows": 10,
+        "regions": [
+          { "label": "nav left", "x": 0, "y": 0, "w": 2, "h": 10, "accent": true },
+          { "label": "perforated rail", "x": 2, "y": 0, "w": 10, "h": 1 },
+          { "label": "questions as frames", "x": 2, "y": 1, "w": 10, "h": 4 },
+          { "label": "claims rail", "x": 2, "y": 5, "w": 10, "h": 2 },
+          { "label": "resolved bin", "x": 2, "y": 7, "w": 10, "h": 3 }
+        ]
+      }
+    },
+    {
+      "id": "challenger-zoo-map",
+      "label": "Mapa de Zoológico",
+      "verdict": "declined",
+      "lineage": "Guías de jardines botánicos y zoológicos de verano",
+      "palette": ["#F5F1E4", "#8ED462", "#FF705D"],
+      "materials": ["flat unmodulated colour lobes", "cream ground", "capsule controls"],
+      "case": "La identidad del vendedor de ML no conecta con mapas de zoológico; el esquema claro contradice el brief de deep/dark del usuario.",
+      "kept": "Separadores orgánicos curvos — donados como raise a la dirección asignada.",
+      "wireframe": {
+        "cols": 12,
+        "rows": 6,
+        "regions": [
+          { "label": "lobe nav", "x": 0, "y": 0, "w": 3, "h": 6 },
+          { "label": "main lobe (questions)", "x": 3, "y": 0, "w": 9, "h": 6 }
+        ]
+      }
+    },
+    {
+      "id": "challenger-vertical-feed",
+      "label": "Feed Vertical",
+      "verdict": "declined",
+      "lineage": "Superficie de video vertical / TikTok / Reels",
+      "palette": ["#000000", "#ffffff"],
+      "materials": ["full-bleed snap", "scrim text", "rail glyphs"],
+      "case": "Snap por ítem individual imposibilita el scanning de volumen — el valor del producto es manejar 50+ preguntas a la vez, no una a la vez.",
+      "kept": "Expansión a full-width para foco profundo — donado como raise a la dirección asignada.",
+      "wireframe": {
+        "cols": 12,
+        "rows": 10,
+        "regions": [
+          { "label": "full-viewport item", "x": 0, "y": 0, "w": 12, "h": 9 },
+          { "label": "action rail", "x": 11, "y": 0, "w": 1, "h": 9 },
+          { "label": "snap indicator", "x": 0, "y": 9, "w": 12, "h": 1 }
+        ]
+      }
+    },
+    {
+      "id": "challenger-crt",
+      "label": "CRT Arcade",
+      "verdict": "declined",
+      "lineage": "Pantalla de arcade con scanlines y phosphor bloom",
+      "palette": ["#000000", "#00ff41", "#f5d64c", "#ffffff"],
+      "materials": ["phosphor black", "scanline gaps", "pixel caps", "luminous glow"],
+      "case": "Estética de juego señala 'toy' en lugar de herramienta profesional; pierde en product clarity como sistema completo.",
+      "kept": "Phosphor glow en alertas críticas — donado como raise a la dirección asignada.",
+      "wireframe": {
+        "cols": 12,
+        "rows": 10,
+        "regions": [
+          { "label": "screen bezel", "x": 0, "y": 0, "w": 12, "h": 10 },
+          { "label": "scanline content", "x": 1, "y": 1, "w": 10, "h": 8 }
+        ]
+      }
+    },
+    {
+      "id": "challenger-cloud-quarry",
+      "label": "Cantera de Nubes",
+      "verdict": "declined",
+      "lineage": "Mundo surrealista imposible — cantera de bloques de clima",
+      "palette": ["#e8f4f8", "#87b5cf", "#708090"],
+      "materials": ["cumulus white mass", "cut-face blue voids", "quarry stencil caps"],
+      "case": "Metáfora surrealista incompatible con una herramienta transaccional de alta frecuencia.",
+      "kept": "Peso escultórico de bloque — donado como raise a la dirección asignada.",
+      "wireframe": {
+        "cols": 12,
+        "rows": 8,
+        "regions": [
+          { "label": "cloud block A", "x": 0, "y": 0, "w": 6, "h": 4 },
+          { "label": "cloud block B", "x": 6, "y": 0, "w": 6, "h": 4 },
+          { "label": "void gap", "x": 0, "y": 4, "w": 12, "h": 4 }
+        ]
+      }
+    },
+    {
+      "id": "challenger-cape",
+      "label": "Capa de Seda",
+      "verdict": "declined",
+      "lineage": "Capa con canales de drawcord que transforma su silueta",
+      "palette": ["#0a0a0a", "#d4a017", "#4a4a4a"],
+      "materials": ["matte black silk", "gold drawcord", "channel stitching"],
+      "case": "La metáfora de moda no conecta con el mundo transaccional del vendedor; la transformación de silueta no mapea a resolución de tareas.",
+      "kept": "Un solo acento controla todos los affordances interactivos — donado como raise a la dirección asignada.",
+      "wireframe": {
+        "cols": 12,
+        "rows": 8,
+        "regions": [
+          { "label": "cape flat", "x": 2, "y": 0, "w": 8, "h": 8 },
+          { "label": "cord accent", "x": 0, "y": 3, "w": 12, "h": 1, "accent": true }
+        ]
+      }
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "code",
+    "toggle": false
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "Dashboard estándar",
+    "thesis": "Lo que cualquier SaaS B2B de este tipo envía — ejecutado impecablemente.",
+    "palette": ["#111827", "#1f2937", "#6366f1", "#f8fafc"],
+    "materials": ["clean dark card grid", "indigo accent", "system sans"],
+    "viewport": "Sidebar con íconos, header con métricas, cards de items pendientes en grid.",
+    "risk": "Indistinguible de la competencia por diseño.",
+    "wireframe": {
+      "cols": 12,
+      "rows": 10,
+      "regions": [
+        { "label": "sidebar", "x": 0, "y": 0, "w": 2, "h": 10, "accent": true },
+        { "label": "header metrics", "x": 2, "y": 0, "w": 10, "h": 1 },
+        { "label": "item grid", "x": 2, "y": 1, "w": 10, "h": 9 }
+      ]
+    }
+  },
+  "steer": true
+}
