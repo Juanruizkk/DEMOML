@@ -1,4 +1,5 @@
-// Cost per million tokens in USD
+// Cost per million tokens in USD. Update when providers change pricing.
+// Returns 0 for unknown models — cost logging silently skips unmapped models by design.
 const PRICING: Record<string, { input: number; output: number }> = {
   "groq/llama-3.3-70b-versatile": { input: 0.59, output: 0.79 },
   "groq/llama-3.1-8b-instant": { input: 0.05, output: 0.08 },

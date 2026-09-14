@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateCost, resolveModelKey } from "../../src/domain/value-objects/LLMPricing.js";
+import { calculateCost, resolveModelKey } from "../domain/value-objects/LLMPricing.js";
 
 describe("calculateCost", () => {
   it("calculates cost for a known groq model", () => {
@@ -24,8 +24,7 @@ describe("calculateCost", () => {
 });
 
 describe("resolveModelKey", () => {
-  it("strips provider prefix from groq model name", () => {
-    // groq model names sometimes come with 'openai/' prefix from env
+  it("handles model names that contain a slash (e.g. openai/gpt-oss-120b from env)", () => {
     expect(resolveModelKey("groq", "openai/gpt-oss-120b")).toBe("groq/openai/gpt-oss-120b");
   });
 
