@@ -15,7 +15,14 @@ import {
   ArrowRight,
   Store,
   CheckCircle2,
-  Clock
+  Clock,
+  Users,
+  MessageSquare,
+  Send,
+  ShieldAlert,
+  KeyRound,
+  Layers,
+  Radio
 } from 'lucide-react'
 import './AdminPage.css'
 
@@ -47,14 +54,62 @@ interface CreateTenantResult {
   activationUrl: string
 }
 
-const PERMISSION_LABELS: Record<string, string> = {
-  whatsappEnabled:  'WhatsApp',
-  telegramEnabled:  'Telegram',
-  emailEnabled:     'Email',
-  preSaleEnabled:   'Pre-venta',
-  postSaleEnabled:  'Post-venta',
-  multiUserEnabled: 'Equipo / Multi-Usuario',
+interface PermissionMeta {
+  key: string
+  label: string
+  desc: string
+  icon: React.ReactNode
+  soon?: boolean
 }
+
+interface TenantIntegrations {
+  whatsappMode: 'platform_shared' | 'custom_byo'
+  customPhoneNumberId: string
+  customAccessToken: string
+  llmProvider: 'groq' | 'openai' | 'anthropic'
+  llmApiKey: string
+  hasLlmApiKey: boolean
+  hasCustomAccessToken: boolean
+}
+
+const PERMISSION_CONFIG: PermissionMeta[] = [
+  {
+    key: 'whatsappEnabled',
+    label: 'Canal WhatsApp',
+    desc: 'Alertas y aprobación de preguntas directamente vía WhatsApp',
+    icon: <MessageSquare size={16} />,
+  },
+  {
+    key: 'telegramEnabled',
+    label: 'Bot Telegram',
+    desc: 'Bot interactivo para el equipo de ventas en Telegram',
+    icon: <Send size={16} />,
+  },
+  {
+    key: 'emailEnabled',
+    label: 'Alertas por Email',
+    desc: 'Notificaciones de urgencias y vencimiento SLA vía Resend',
+    icon: <Mail size={16} />,
+  },
+  {
+    key: 'preSaleEnabled',
+    label: 'Respuestas Pre-venta',
+    desc: 'Automatización con IA para preguntas antes de la compra',
+    icon: <Sparkles size={16} />,
+  },
+  {
+    key: 'postSaleEnabled',
+    label: 'Gestión Post-venta',
+    desc: 'Monitoreo de reclamos, mediaciones y tiempos de SLA',
+    icon: <ShieldAlert size={16} />,
+  },
+  {
+    key: 'multiUserEnabled',
+    label: 'Equipo / Multi-Usuario',
+    desc: 'Múltiples vendedores y colaboradores con accesos propios',
+    icon: <Users size={16} />,
+  },
+]
 
 export default function AdminPage() {
   const [metrics, setMetrics]           = useState<Metrics | null>(null)
@@ -63,7 +118,22 @@ export default function AdminPage() {
   const [loading, setLoading]           = useState(true)
   const [selected, setSelected]         = useState<string | null>(null)
   const [saving, setSaving]             = useState(false)
+  const [savedSuccess, setSavedSuccess] = useState(false)
+  const [copiedId, setCopiedId]         = useState(false)
   const [localPerms, setLocalPerms]     = useState<Record<string, boolean>>({})
+  const [localIntegrations, setLocalIntegrations] = useState<TenantIntegrations>({
+    whatsappMode: 'platform_shared',
+    customPhoneNumberId: '',
+    customAccessToken: '',
+    llmProvider: 'groq',
+    llmApiKey: '',
+    hasLlmApiKey: false,
+    hasCustomAccessToken: false,
+  })
+  const [savingIntegrations, setSavingIntegrations] = useState(false)
+  const [savedIntegrations, setSavedIntegrations]   = useState(false)
+  const [clearLlmKey, setClearLlmKey]               = useState(false)
+  const [clearWaToken, setClearWaToken]             = useState(false)
 
   // Modal state
   const [showModal, setShowModal]       = useState(false)
@@ -85,20 +155,37 @@ export default function AdminPage() {
       setMetrics(m)
       setTenants(t)
       setPending(p)
+      // Auto-select first tenant if available
+      if (t.length > 0 && !selected) {
+        selectTenant(t[0])
+      }
     }).catch(console.error).finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
     setResetSent(null)
+    setSavedSuccess(false)
   }, [selected])
 
   const selectTenant = async (t: TenantOverview) => {
     setSelected(t.sellerId)
+    setClearLlmKey(false)
+    setClearWaToken(false)
     try {
-      const detail = await api.get<{ settings: { permissions?: Record<string, boolean> } }>(`/admin/tenants/${t.sellerId}`)
-      setLocalPerms(detail.settings?.permissions || {
+      const detail = await api.get<{ settings: Record<string, any> }>(`/admin/tenants/${t.sellerId}`)
+      const s = detail.settings || {}
+      setLocalPerms(s.permissions || {
         whatsappEnabled: true, telegramEnabled: true, emailEnabled: false,
         preSaleEnabled: true, postSaleEnabled: true, multiUserEnabled: false,
+      })
+      setLocalIntegrations({
+        whatsappMode: s.whatsappMode || 'platform_shared',
+        customPhoneNumberId: s.customPhoneNumberId || '',
+        customAccessToken: '',
+        llmProvider: s.llmProvider || 'groq',
+        llmApiKey: '',
+        hasLlmApiKey: s.llmApiKey === '***',
+        hasCustomAccessToken: s.customAccessToken === '***',
       })
     } catch {
       setLocalPerms({ whatsappEnabled: true, telegramEnabled: true, emailEnabled: false, preSaleEnabled: true, postSaleEnabled: true, multiUserEnabled: false })
@@ -108,16 +195,59 @@ export default function AdminPage() {
   const savePermissions = async () => {
     if (!selected) return
     setSaving(true)
+    setSavedSuccess(false)
     try {
       await api.put(`/admin/tenants/${selected}/permissions`, { permissions: localPerms })
       setTenants(ts => ts.map(t =>
         t.sellerId === selected ? { ...t, permissions: { ...localPerms } } : t
       ))
+      setSavedSuccess(true)
+      setTimeout(() => setSavedSuccess(false), 3000)
     } catch (e) {
       console.error(e)
     } finally {
       setSaving(false)
     }
+  }
+
+  const saveIntegrations = async () => {
+    if (!selected) return
+    setSavingIntegrations(true)
+    setSavedIntegrations(false)
+    try {
+      const payload: Record<string, string> = {
+        whatsappMode: localIntegrations.whatsappMode,
+        llmProvider: localIntegrations.llmProvider,
+      }
+      if (localIntegrations.customPhoneNumberId) payload.customPhoneNumberId = localIntegrations.customPhoneNumberId
+      if (localIntegrations.customAccessToken)   payload.customAccessToken = localIntegrations.customAccessToken
+      else if (clearWaToken)                     payload.customAccessToken = ""
+      if (localIntegrations.llmApiKey)           payload.llmApiKey = localIntegrations.llmApiKey
+      else if (clearLlmKey)                      payload.llmApiKey = ""
+
+      await api.patch(`/admin/tenants/${selected}/integrations`, { integrations: payload })
+      setSavedIntegrations(true)
+      setClearLlmKey(false)
+      setClearWaToken(false)
+      setLocalIntegrations(prev => ({
+        ...prev,
+        customAccessToken: '',
+        llmApiKey: '',
+        hasLlmApiKey: Boolean(prev.llmApiKey) || (prev.hasLlmApiKey && !clearLlmKey),
+        hasCustomAccessToken: Boolean(prev.customAccessToken) || (prev.hasCustomAccessToken && !clearWaToken),
+      }))
+      setTimeout(() => setSavedIntegrations(false), 3000)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingIntegrations(false)
+    }
+  }
+
+  const handleCopySellerId = (id: string) => {
+    navigator.clipboard.writeText(id)
+    setCopiedId(true)
+    setTimeout(() => setCopiedId(false), 2000)
   }
 
   const openModal = () => {
@@ -203,7 +333,11 @@ export default function AdminPage() {
           {/* Tenant list */}
           <div className="tenant-list">
             <div className="tenant-list-header">
-              <span className="tenant-list-title">Organizaciones</span>
+              <div className="tenant-list-header-left">
+                <Store size={16} className="text-blue" />
+                <span className="tenant-list-title">Organizaciones</span>
+                <span className="tenant-count-pill">{tenants.length}</span>
+              </div>
               <button className="btn-new-tenant" onClick={openModal}>
                 <UserPlus size={13} />
                 <span>Nuevo Tenant</span>
@@ -214,8 +348,8 @@ export default function AdminPage() {
             {pending.length > 0 && (
               <div className="pending-section">
                 <div className="pending-section-title">
-                  <Clock size={12} />
-                  <span>Invitaciones pendientes</span>
+                  <Clock size={13} />
+                  <span>Invitaciones pendientes ({pending.length})</span>
                 </div>
                 {pending.map(inv => (
                   <div key={inv.id} className="tenant-row tenant-row--pending">
@@ -226,10 +360,7 @@ export default function AdminPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span className="badge-pending">Pendiente</span>
                       <button
-                        style={{
-                          background: 'none', border: '1px solid #334155', borderRadius: '6px',
-                          color: '#94a3b8', fontSize: '11px', padding: '3px 8px', cursor: 'pointer'
-                        }}
+                        className="btn-resend-invite"
                         disabled={resetting === inv.id}
                         onClick={() => handleResetPassword(inv.id, inv.email)}
                         title="Reenviar link de activación"
@@ -245,89 +376,286 @@ export default function AdminPage() {
             {tenants.length === 0 && pending.length === 0 && (
               <p className="list-empty" style={{ padding: '24px 16px' }}>Sin tenants registrados</p>
             )}
-            {tenants.map(t => (
-              <button
-                key={t.sellerId}
-                className={`tenant-row${selected === t.sellerId ? ' tenant-row--active' : ''}`}
-                onClick={() => selectTenant(t)}
-              >
-                <div className="tenant-row-info">
-                  <span className="tenant-row-name">{t.nickname || t.sellerId}</span>
-                  {t.email && <span className="tenant-row-email">{t.email}</span>}
-                </div>
-                <div className="tenant-row-stats">
-                  {t.totalQuestions !== undefined && (
-                    <span className="tenant-row-badge">{t.totalQuestions} Q</span>
-                  )}
-                  {t.autoAnswerEnabled && (
-                    <span className="tenant-row-badge tenant-row-badge--green">IA ✓</span>
-                  )}
-                </div>
-              </button>
-            ))}
+
+            <div className="tenant-items-wrapper">
+              {tenants.map(t => {
+                const isSelected = selected === t.sellerId
+                const initial = (t.nickname || t.sellerId).charAt(0).toUpperCase()
+                return (
+                  <button
+                    key={t.sellerId}
+                    className={`tenant-row${isSelected ? ' tenant-row--active' : ''}`}
+                    onClick={() => selectTenant(t)}
+                  >
+                    <div className="tenant-row-avatar">
+                      {initial}
+                    </div>
+                    <div className="tenant-row-info">
+                      <span className="tenant-row-name">{t.nickname || t.sellerId}</span>
+                      {t.email && <span className="tenant-row-email">{t.email}</span>}
+                    </div>
+                    <div className="tenant-row-stats">
+                      {t.totalQuestions !== undefined && (
+                        <span className="tenant-row-badge">{t.totalQuestions} Q</span>
+                      )}
+                      {t.autoAnswerEnabled && (
+                        <span className="tenant-row-badge tenant-row-badge--green">IA ✓</span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Tenant detail */}
           {selectedTenant ? (
             <div className="tenant-detail glass">
               <div className="tenant-detail-header">
-                <div>
-                  <p className="tenant-detail-name">{selectedTenant.nickname || selectedTenant.sellerId}</p>
-                  <p className="tenant-detail-id tabular">ID: {selectedTenant.sellerId}</p>
+                <div className="tenant-detail-header-left">
+                  <div className="tenant-detail-avatar">
+                    <Store size={24} />
+                  </div>
+                  <div className="tenant-detail-titles">
+                    <div className="tenant-name-row">
+                      <h3 className="tenant-detail-name">{selectedTenant.nickname || selectedTenant.sellerId}</h3>
+                      {selectedTenant.autoAnswerEnabled ? (
+                        <span className="tenant-status-pill tenant-status-pill--active">
+                          <CheckCircle2 size={13} />
+                          IA Activa
+                        </span>
+                      ) : (
+                        <span className="tenant-status-pill tenant-status-pill--paused">
+                          <Clock size={13} />
+                          Pausado
+                        </span>
+                      )}
+                    </div>
+                    <div className="tenant-meta-pills">
+                      <button
+                        type="button"
+                        className="meta-pill meta-pill--copy"
+                        onClick={() => handleCopySellerId(selectedTenant.sellerId)}
+                        title="Copiar Seller ID"
+                      >
+                        <span className="meta-pill-label">Seller ID:</span>
+                        <span className="meta-pill-val">{selectedTenant.sellerId}</span>
+                        {copiedId ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
+                      </button>
+                      {selectedTenant.email && (
+                        <span className="meta-pill">
+                          <Mail size={12} />
+                          <span>{selectedTenant.email}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="permissions-section">
-                <p className="permissions-title">Permisos granulares</p>
-                <p className="permissions-hint">Controlá qué funcionalidades tiene disponibles este tenant.</p>
-
-                <div className="permissions-grid">
-                  {Object.entries(PERMISSION_LABELS).map(([key, label]) => (
-                    <div key={key} className="permission-item">
-                      <div className="permission-info">
-                        <span className="permission-label">{label}</span>
-                        {key === 'emailEnabled' && (
-                          <span className="permission-soon">próximamente</span>
-                        )}
-                      </div>
-                      <button
-                        className={`toggle${localPerms[key] ? ' toggle--on' : ''}${key === 'emailEnabled' ? ' toggle--disabled' : ''}`}
-                        disabled={key === 'emailEnabled'}
-                        onClick={() => setLocalPerms(p => ({ ...p, [key]: !p[key] }))}
-                      >
-                        <span className="toggle-thumb" />
-                      </button>
-                    </div>
-                  ))}
+                <div className="permissions-header">
+                  <div className="header-icon-box blue">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div>
+                    <h4 className="permissions-title">Permisos & Módulos Habilitados</h4>
+                    <p className="permissions-hint">Configurá las capacidades y canales activos para este cliente.</p>
+                  </div>
                 </div>
 
-                <button className="btn-save" onClick={savePermissions} disabled={saving}>
-                  {saving ? 'Guardando…' : 'Guardar permisos'}
-                </button>
-                {selectedTenant.email && (
-                  <button
-                    style={{
-                      marginTop: '8px', width: '100%', background: 'none',
-                      border: '1px solid #334155', borderRadius: '8px', color: '#94a3b8',
-                      fontSize: '13px', padding: '8px', cursor: 'pointer'
-                    }}
-                    disabled={resetting === selectedTenant.email}
-                    onClick={() => handleResetForTenant(selectedTenant.email!)}
-                  >
-                    {resetting === selectedTenant.email ? 'Enviando…' : '🔑 Resetear contraseña'}
+                <div className="permissions-grid">
+                  {PERMISSION_CONFIG.map((item) => {
+                    const isChecked = Boolean(localPerms[item.key])
+                    return (
+                      <div
+                        key={item.key}
+                        className={`permission-item${isChecked ? ' permission-item--active' : ''}`}
+                        onClick={() => setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] }))}
+                      >
+                        <div className="permission-item-icon">
+                          {item.icon}
+                        </div>
+                        <div className="permission-info">
+                          <div className="permission-label-row">
+                            <span className="permission-label">{item.label}</span>
+                            {item.soon && (
+                              <span className="permission-soon">próximamente</span>
+                            )}
+                          </div>
+                          <span className="permission-desc">{item.desc}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className={`toggle${isChecked ? ' toggle--on' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] }))
+                          }}
+                        >
+                          <span className="toggle-thumb" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="admin-actions-bar">
+                  <button className="btn-save" onClick={savePermissions} disabled={saving}>
+                    {saving ? 'Guardando cambios…' : savedSuccess ? '✓ Permisos Guardados' : 'Guardar Configuración'}
                   </button>
-                )}
+                  {selectedTenant.email && (
+                    <button
+                      type="button"
+                      className="btn-admin-reset"
+                      disabled={resetting === selectedTenant.email}
+                      onClick={() => handleResetForTenant(selectedTenant.email!)}
+                    >
+                      <KeyRound size={14} />
+                      {resetting === selectedTenant.email ? 'Enviando email…' : 'Enviar Reset de Contraseña'}
+                    </button>
+                  )}
+                </div>
+
                 {resetSent && (
-                  <p style={{ fontSize: '12px', color: '#10b981', marginTop: '8px', textAlign: 'center' }}>
-                    ✓ Email de reset enviado a {resetSent}
-                  </p>
+                  <div className="admin-alert admin-alert--success">
+                    <CheckCircle2 size={16} />
+                    <span>Se envió el correo de restablecimiento a <strong>{resetSent}</strong></span>
+                  </div>
                 )}
+              </div>
+
+              {/* Integrations section */}
+              <div className="permissions-section" style={{ marginTop: '24px' }}>
+                <div className="permissions-header">
+                  <div className="header-icon-box blue">
+                    <Layers size={18} />
+                  </div>
+                  <div>
+                    <h4 className="permissions-title">Integraciones del Cliente</h4>
+                    <p className="permissions-hint">Credenciales propias del cliente para WhatsApp y LLM.</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+                  {/* WhatsApp */}
+                  <fieldset style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
+                    <legend style={{ padding: '0 8px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>WhatsApp</legend>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Modo</label>
+                      <select
+                        className="input-field"
+                        value={localIntegrations.whatsappMode}
+                        onChange={e => setLocalIntegrations(p => ({ ...p, whatsappMode: e.target.value as 'platform_shared' | 'custom_byo' }))}
+                      >
+                        <option value="platform_shared">Compartido (número de la plataforma)</option>
+                        <option value="custom_byo">Propio del cliente (custom WABA)</option>
+                      </select>
+
+                      {localIntegrations.whatsappMode === 'custom_byo' && (
+                        <>
+                          <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Phone Number ID</label>
+                          <input
+                            className="input-field"
+                            type="text"
+                            placeholder="Ej: 123456789012345"
+                            value={localIntegrations.customPhoneNumberId}
+                            onChange={e => setLocalIntegrations(p => ({ ...p, customPhoneNumberId: e.target.value }))}
+                          />
+                          <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                            Access Token {localIntegrations.hasCustomAccessToken && <span style={{ color: 'var(--green)', fontSize: '11px' }}>✓ configurado</span>}
+                          </label>
+                          <input
+                            className="input-field"
+                            type="password"
+                            placeholder={localIntegrations.hasCustomAccessToken ? 'Dejar vacío para mantener el actual' : 'Pegar token de acceso'}
+                            value={localIntegrations.customAccessToken}
+                            onChange={e => { setLocalIntegrations(p => ({ ...p, customAccessToken: e.target.value })); setClearWaToken(false) }}
+                          />
+                          {localIntegrations.hasCustomAccessToken && !localIntegrations.customAccessToken && (
+                            <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={clearWaToken} onChange={e => setClearWaToken(e.target.checked)} />
+                              Limpiar token (volver a número de plataforma)
+                            </label>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </fieldset>
+
+                  {/* LLM */}
+                  <fieldset style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
+                    <legend style={{ padding: '0 8px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Modelo de IA (LLM)</legend>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Proveedor</label>
+                      <select
+                        className="input-field"
+                        value={localIntegrations.llmProvider}
+                        onChange={e => setLocalIntegrations(p => ({ ...p, llmProvider: e.target.value as 'groq' | 'openai' | 'anthropic' }))}
+                      >
+                        <option value="groq">Groq (recomendado — gratis)</option>
+                        <option value="openai">OpenAI (GPT-4o mini)</option>
+                        <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
+                      </select>
+                      <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        API Key {localIntegrations.hasLlmApiKey && <span style={{ color: 'var(--green)', fontSize: '11px' }}>✓ configurada</span>}
+                      </label>
+                      <input
+                        className="input-field"
+                        type="password"
+                        placeholder={localIntegrations.hasLlmApiKey ? 'Dejar vacío para mantener la actual' : 'Pegar API key del cliente'}
+                        value={localIntegrations.llmApiKey}
+                        onChange={e => { setLocalIntegrations(p => ({ ...p, llmApiKey: e.target.value })); setClearLlmKey(false) }}
+                      />
+                      {localIntegrations.hasLlmApiKey && !localIntegrations.llmApiKey && (
+                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={clearLlmKey} onChange={e => setClearLlmKey(e.target.checked)} />
+                          Limpiar clave (usar credenciales de plataforma)
+                        </label>
+                      )}
+                    </div>
+                  </fieldset>
+                </div>
+
+                <div className="admin-actions-bar" style={{ marginTop: '16px' }}>
+                  <button className="btn-save" onClick={saveIntegrations} disabled={savingIntegrations}>
+                    {savingIntegrations ? 'Guardando…' : savedIntegrations ? '✓ Integraciones Guardadas' : 'Guardar Integraciones'}
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="tenant-detail-empty">
-              <span className="list-empty-icon">◈</span>
-              <p>Seleccioná un tenant para ver y editar sus permisos</p>
+            <div className="tenant-empty-hero glass">
+              <div className="empty-hero-icon-box">
+                <Store size={44} />
+              </div>
+              <h3>Centro de Control Multi-Tenant</h3>
+              <p className="empty-hero-desc">
+                Seleccioná una organización del listado lateral para inspeccionar sus métricas, 
+                configurar canales de alerta o habilitar el módulo de Equipo Multi-Usuario.
+              </p>
+              <div className="empty-hero-stats">
+                <div className="empty-stat-item">
+                  <span className="empty-stat-val">{tenants.length}</span>
+                  <span className="empty-stat-lbl">Organizaciones</span>
+                </div>
+                <div className="empty-stat-item">
+                  <span className="empty-stat-val" style={{ color: '#10b981' }}>
+                    {tenants.filter(t => t.autoAnswerEnabled).length}
+                  </span>
+                  <span className="empty-stat-lbl">IA Activa</span>
+                </div>
+                <div className="empty-stat-item">
+                  <span className="empty-stat-val" style={{ color: '#f59e0b' }}>
+                    {pending.length}
+                  </span>
+                  <span className="empty-stat-lbl">Invitaciones</span>
+                </div>
+              </div>
+              <button className="btn-primary" onClick={openModal} style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UserPlus size={16} />
+                Registrar Nuevo Tenant
+              </button>
             </div>
           )}
         </div>

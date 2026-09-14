@@ -1,7 +1,10 @@
 const BASE = '/api'
 
 function getToken(): string | null {
-  return localStorage.getItem('token')
+  // meli_jwt is written by onboarding.html after OAuth and contains sellerId.
+  // token is written by the React login/activate flow.
+  // Prefer meli_jwt when it exists because it's the most recent and complete JWT.
+  return localStorage.getItem('meli_jwt') || localStorage.getItem('token')
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -32,6 +35,15 @@ export const api = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, {
       method: 'PUT',
+      body: body !== undefined ? JSON.stringify(body) : JSON.stringify({}),
+    }),
+  delete: <T>(path: string) =>
+    request<T>(path, {
+      method: 'DELETE',
+    }),
+  patch: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: 'PATCH',
       body: body !== undefined ? JSON.stringify(body) : JSON.stringify({}),
     }),
 }
