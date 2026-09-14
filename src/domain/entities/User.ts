@@ -67,6 +67,11 @@ export class User {
     this.updatedAt = new Date();
   }
 
+  public setResetToken(token: string): void {
+    this.activationToken = token;
+    this.updatedAt = new Date();
+  }
+
   public isSuperAdmin(): boolean {
     return this.role === "super_admin";
   }
