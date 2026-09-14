@@ -118,8 +118,21 @@ export class SqliteDatabase {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS item_knowledge (
+        id TEXT PRIMARY KEY,
+        seller_id TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        custom_instructions TEXT DEFAULT '',
+        faqs_json TEXT DEFAULT '[]',
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(seller_id, item_id)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_claims_seller ON claims(seller_id);
       CREATE INDEX IF NOT EXISTS idx_claims_due_date ON claims(due_date);
+      CREATE INDEX IF NOT EXISTS idx_item_knowledge_seller_item ON item_knowledge(seller_id, item_id);
     `);
 
     // Migraciones automáticas seguras si las tablas existían de versiones anteriores
@@ -131,6 +144,8 @@ export class SqliteDatabase {
     addColumnIfNotExists("events", "question_id", "TEXT");
     addColumnIfNotExists("events", "duration_ms", "INTEGER");
     addColumnIfNotExists("users", "seller_id", "TEXT");
+    addColumnIfNotExists("users", "status", "TEXT NOT NULL DEFAULT 'active'");
+    addColumnIfNotExists("users", "activation_token", "TEXT");
 
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_questions_seller ON questions(seller_id);
@@ -138,6 +153,7 @@ export class SqliteDatabase {
       CREATE INDEX IF NOT EXISTS idx_events_seller ON events(seller_id);
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
       CREATE INDEX IF NOT EXISTS idx_users_seller ON users(seller_id);
+      CREATE INDEX IF NOT EXISTS idx_item_knowledge_seller ON item_knowledge(seller_id);
     `);
   }
 }
