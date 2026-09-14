@@ -112,6 +112,7 @@ export class ProcessOrderMessageUseCase {
         settings: tenant?.settings,
         orderContext: `Orden #${orderId} - Pack #${packId}`,
         llmCredentials: tenant?.getLLMCredentials() ?? null,
+        usageContext: { sellerId: params.sellerId, channel: "order_messages" },
       });
 
       const intentLabels: Record<OrderMessageIntent, string> = {

@@ -32,6 +32,7 @@ export interface ILLMService {
     settings?: Partial<TenantSettings>;
     itemKnowledge?: ItemKnowledge | null;
     llmCredentials?: LLMCredentials | null;
+    usageContext?: { sellerId: string; channel: string } | null;
   }): Promise<LLMClassificationResult>;
 
   classifyOrderMessage(params: {
@@ -41,6 +42,7 @@ export interface ILLMService {
     settings?: Partial<TenantSettings>;
     orderContext?: string;
     llmCredentials?: LLMCredentials | null;
+    usageContext?: { sellerId: string; channel: string } | null;
   }): Promise<LLMOrderMessageResult>;
 
   getProviderLabel(): string;

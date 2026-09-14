@@ -95,6 +95,7 @@ export class SimulateQuestionUseCase {
         item: fakeItem,
         settings,
         llmCredentials: tenant?.getLLMCredentials() ?? null,
+        usageContext: { sellerId, channel: "questions" },
       });
       const classifyMs = Date.now() - t0;
 

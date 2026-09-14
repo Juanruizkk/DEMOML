@@ -181,6 +181,7 @@ export class ProductsController {
         settings: tenant?.settings,
         itemKnowledge: effectiveKnowledge,
         llmCredentials: tenant?.getLLMCredentials() ?? null,
+        usageContext: { sellerId, channel: "questions" },
       });
 
       return reply.send({

@@ -128,6 +128,7 @@ export class ProcessQuestionUseCase {
         settings,
         itemKnowledge,
         llmCredentials: tenant?.getLLMCredentials() ?? null,
+        usageContext: { sellerId, channel: "questions" },
       });
       const classifyMs = Date.now() - t0;
 

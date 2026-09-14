@@ -3,6 +3,8 @@ import { ILLMService, LLMClassificationResult, LLMOrderMessageResult } from "../
 import { Item } from "../../domain/entities/Item.js";
 import { ItemKnowledge } from "../../domain/entities/ItemKnowledge.js";
 import { TenantSettings } from "../../domain/entities/Tenant.js";
+import { ILLMUsageRepository } from "../../application/interfaces/ILLMUsageRepository.js";
+import { calculateCost } from "../../domain/value-objects/LLMPricing.js";
 
 const questionSchema = z.object({
   intent: z
@@ -47,6 +49,83 @@ export class LangChainLLMService implements ILLMService {
   private cachedProvider: string | null = null;
   private cachedOrderModel: any = null;
   private cachedOrderProvider: string | null = null;
+
+  constructor(
+    private readonly usageRepo?: ILLMUsageRepository | null,
+    private readonly onLimitExceeded?: ((sellerId: string) => void) | null,
+  ) {}
+
+  private resolveProviderModel(override?: { provider: string; apiKey: string } | null): { provider: string; model: string } {
+    const defaultProvider = process.env.LLM_PROVIDER ?? "groq";
+    const provider = override?.provider ?? defaultProvider;
+    const isOverride = Boolean(override?.provider && override.provider !== defaultProvider);
+    const defaults: Record<string, string> = {
+      groq: "openai/gpt-oss-120b",
+      openai: "gpt-4o-mini",
+      anthropic: "claude-3-5-sonnet-latest",
+    };
+    const model = (!isOverride && process.env.LLM_MODEL) || defaults[provider] || provider;
+    return { provider, model };
+  }
+
+  private captureUsageCallbacks(): { callbacks: any[]; getTokens: () => { tokensIn: number; tokensOut: number; estimated: boolean } } {
+    let tokensIn = 0;
+    let tokensOut = 0;
+    const callbacks = [{
+      handleLLMEnd(output: any): void {
+        const gen = output.generations?.[0]?.[0];
+        const msgUsage = gen?.message?.usage_metadata;
+        const llmUsage = output.llmOutput?.tokenUsage ?? output.llmOutput?.usage;
+        if (msgUsage?.input_tokens) {
+          tokensIn = msgUsage.input_tokens;
+          tokensOut = msgUsage.output_tokens ?? 0;
+        } else if (llmUsage?.promptTokens) {
+          tokensIn = llmUsage.promptTokens;
+          tokensOut = llmUsage.completionTokens ?? 0;
+        } else if (llmUsage?.input_tokens) {
+          tokensIn = llmUsage.input_tokens;
+          tokensOut = llmUsage.output_tokens ?? 0;
+        }
+      },
+    }];
+    const getTokens = () => ({ tokensIn, tokensOut, estimated: !tokensIn });
+    return { callbacks, getTokens };
+  }
+
+  private recordUsage(params: {
+    usageContext: { sellerId: string; channel: string } | null | undefined;
+    llmCredentials: { provider: string; apiKey: string } | null | undefined;
+    tokensIn: number;
+    tokensOut: number;
+    estimated: boolean;
+    promptText: string;
+    resultText: string;
+    latencyMs: number;
+  }): void {
+    if (!this.usageRepo || !params.usageContext) return;
+    const { provider, model } = this.resolveProviderModel(params.llmCredentials);
+    let { tokensIn, tokensOut, estimated } = params;
+    if (!tokensIn) {
+      tokensIn = Math.ceil(params.promptText.length / 4);
+      tokensOut = Math.ceil(params.resultText.length / 4);
+      estimated = true;
+    }
+    const costUsd = calculateCost(provider, model, tokensIn, tokensOut);
+    const exceeded = this.usageRepo.log({
+      sellerId: params.usageContext.sellerId,
+      channel: params.usageContext.channel,
+      provider,
+      model,
+      tokensIn,
+      tokensOut,
+      tokensEstimated: estimated,
+      costUsd,
+      latencyMs: params.latencyMs,
+    });
+    if (exceeded && this.onLimitExceeded) {
+      this.onLimitExceeded(params.usageContext.sellerId);
+    }
+  }
 
   private async buildBaseModel(override?: { provider: string; apiKey: string }): Promise<any> {
     const defaultProvider = process.env.LLM_PROVIDER ?? "groq";
@@ -240,19 +319,29 @@ Clasificá la pregunta y generá la respuesta siguiendo las reglas del sistema.`
     settings?: Partial<TenantSettings>;
     itemKnowledge?: ItemKnowledge | null;
     llmCredentials?: { provider: string; apiKey: string } | null;
+    usageContext?: { sellerId: string; channel: string } | null;
   }): Promise<LLMClassificationResult> {
     const model = await this.getStructuredModel(params.llmCredentials);
     const systemPrompt = this.buildSystemPrompt(params.settings);
-    const userPrompt = this.buildUserPrompt(
-      params.questionText,
-      params.item,
-      params.itemKnowledge
-    );
+    const userPrompt = this.buildUserPrompt(params.questionText, params.item, params.itemKnowledge);
 
-    const result = await model.invoke([
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ]);
+    const { callbacks, getTokens } = this.captureUsageCallbacks();
+    const start = Date.now();
+    const result = await model.invoke(
+      [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+      { callbacks }
+    );
+    const latencyMs = Date.now() - start;
+
+    const { tokensIn, tokensOut, estimated } = getTokens();
+    this.recordUsage({
+      usageContext: params.usageContext,
+      llmCredentials: params.llmCredentials,
+      tokensIn, tokensOut, estimated,
+      promptText: systemPrompt + userPrompt,
+      resultText: JSON.stringify(result),
+      latencyMs,
+    });
 
     return result as LLMClassificationResult;
   }
@@ -264,10 +353,10 @@ Clasificá la pregunta y generá la respuesta siguiendo las reglas del sistema.`
     settings?: Partial<TenantSettings>;
     orderContext?: string;
     llmCredentials?: { provider: string; apiKey: string } | null;
+    usageContext?: { sellerId: string; channel: string } | null;
   }): Promise<LLMOrderMessageResult> {
     const model = await this.getStructuredOrderModel(params.llmCredentials);
     const systemPrompt = this.buildOrderMessageSystemPrompt(params.settings);
-
     const userPrompt = `Contexto del Pedido Post-Venta:
 Producto comprado: ${params.itemTitle || "Producto comprado en la tienda"}
 Comprador: ${params.buyerNickname || "Comprador"}
@@ -277,10 +366,23 @@ Mensaje recibido del comprador:
 
 Clasificá el mensaje post-venta y redactá la mejor respuesta según las políticas.`;
 
-    const result = await model.invoke([
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ]);
+    const { callbacks, getTokens } = this.captureUsageCallbacks();
+    const start = Date.now();
+    const result = await model.invoke(
+      [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+      { callbacks }
+    );
+    const latencyMs = Date.now() - start;
+
+    const { tokensIn, tokensOut, estimated } = getTokens();
+    this.recordUsage({
+      usageContext: params.usageContext,
+      llmCredentials: params.llmCredentials,
+      tokensIn, tokensOut, estimated,
+      promptText: systemPrompt + userPrompt,
+      resultText: JSON.stringify(result),
+      latencyMs,
+    });
 
     return result as LLMOrderMessageResult;
   }
