@@ -1,5 +1,7 @@
 import { UserRoleType } from "../value-objects/UserRole.js";
 
+export type UserStatus = "pending" | "active";
+
 export interface UserProps {
   id: string;
   email: string;
@@ -7,6 +9,8 @@ export interface UserProps {
   name: string;
   role: UserRoleType;
   sellerId?: string | null;
+  status?: UserStatus;
+  activationToken?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -18,6 +22,8 @@ export class User {
   public name: string;
   public role: UserRoleType;
   public sellerId?: string | null;
+  public status: UserStatus;
+  public activationToken?: string | null;
   public readonly createdAt: Date;
   public updatedAt: Date;
 
@@ -28,6 +34,8 @@ export class User {
     this.name = props.name.trim();
     this.role = props.role;
     this.sellerId = props.sellerId || null;
+    this.status = props.status ?? "active";
+    this.activationToken = props.activationToken ?? null;
     this.createdAt = props.createdAt || new Date();
     this.updatedAt = props.updatedAt || new Date();
 
@@ -43,14 +51,20 @@ export class User {
     if (!emailRegex.test(this.email)) {
       throw new Error(`Email inválido: ${this.email}`);
     }
-
     if (!this.name || this.name.length < 2) {
       throw new Error("El nombre debe tener al menos 2 caracteres.");
     }
+  }
 
-    if (this.role === "tenant" && !this.sellerId) {
-      // Un tenant puede crearse inicialmente sin sellerId hasta que vincula su cuenta con OAuth
-    }
+  public isPending(): boolean {
+    return this.status === "pending";
+  }
+
+  public activate(passwordHash: string): void {
+    this.passwordHash = passwordHash;
+    this.status = "active";
+    this.activationToken = null;
+    this.updatedAt = new Date();
   }
 
   public isSuperAdmin(): boolean {
@@ -78,6 +92,7 @@ export class User {
       name: this.name,
       role: this.role,
       sellerId: this.sellerId,
+      status: this.status,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };

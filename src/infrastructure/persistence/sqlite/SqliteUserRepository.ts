@@ -25,16 +25,31 @@ export class SqliteUserRepository implements IUserRepository {
     return this.mapToDomain(row);
   }
 
+  public async findByActivationToken(token: string): Promise<User | null> {
+    const row = this.db.prepare("SELECT * FROM users WHERE activation_token = ?").get(token) as any;
+    if (!row) return null;
+    return this.mapToDomain(row);
+  }
+
+  public async findPendingTenants(): Promise<User[]> {
+    const rows = this.db
+      .prepare("SELECT * FROM users WHERE role = 'tenant' AND status = 'pending' ORDER BY created_at DESC")
+      .all() as any[];
+    return rows.map((r) => this.mapToDomain(r));
+  }
+
   public async save(user: User): Promise<void> {
     const stmt = this.db.prepare(`
-      INSERT INTO users (id, email, password_hash, name, role, seller_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, password_hash, name, role, seller_id, status, activation_token, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         email = excluded.email,
         password_hash = excluded.password_hash,
         name = excluded.name,
         role = excluded.role,
         seller_id = excluded.seller_id,
+        status = excluded.status,
+        activation_token = excluded.activation_token,
         updated_at = excluded.updated_at
     `);
 
@@ -45,6 +60,8 @@ export class SqliteUserRepository implements IUserRepository {
       user.name,
       user.role,
       user.sellerId || null,
+      user.status,
+      user.activationToken || null,
       user.createdAt.toISOString(),
       user.updatedAt.toISOString()
     );
@@ -68,6 +85,8 @@ export class SqliteUserRepository implements IUserRepository {
       name: row.name,
       role: row.role as UserRoleType,
       sellerId: row.seller_id || null,
+      status: row.status ?? "active",
+      activationToken: row.activation_token ?? null,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     });
