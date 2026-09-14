@@ -71,6 +71,14 @@ describe("SqliteLLMUsageRepository", () => {
     expect(exceeded).toBe(true);
   });
 
+  it("log() returns false on second limit-exceeding call the same day (dedup)", () => {
+    repo.setSpendingLimit("s1", 0.001);
+    const first = repo.log({ sellerId: "s1", channel: "questions", provider: "groq", model: "llama", tokensIn: 100, tokensOut: 50, tokensEstimated: false, costUsd: 0.002, latencyMs: 200 });
+    const second = repo.log({ sellerId: "s1", channel: "questions", provider: "groq", model: "llama", tokensIn: 100, tokensOut: 50, tokensEstimated: false, costUsd: 0.002, latencyMs: 200 });
+    expect(first).toBe(true);
+    expect(second).toBe(false);
+  });
+
   it("getMonthlyStats() returns null for unknown seller/month", () => {
     expect(repo.getMonthlyStats("nobody", "2020-01")).toBeNull();
   });

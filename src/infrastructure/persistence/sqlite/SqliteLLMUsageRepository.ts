@@ -80,10 +80,11 @@ export class SqliteLLMUsageRepository implements ILLMUsageRepository {
   }
 
   public getRecentLogs(sellerId: string, limit: number): (LLMUsageLogEntry & { createdAt: string })[] {
+    const safeLimit = Math.min(Math.max(1, limit), 200);
     const rows = this.db.prepare(
       `SELECT seller_id, channel, provider, model, tokens_in, tokens_out, tokens_estimated, cost_usd, latency_ms, created_at
        FROM llm_usage_logs WHERE seller_id = ? ORDER BY created_at DESC LIMIT ?`
-    ).all(sellerId, limit) as any[];
+    ).all(sellerId, safeLimit) as any[];
     return rows.map((r) => ({
       sellerId: r.seller_id,
       channel: r.channel,
