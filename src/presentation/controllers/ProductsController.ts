@@ -19,12 +19,10 @@ export class ProductsController {
 
   private extractSellerId(request: FastifyRequest): string {
     const user = (request as any).user;
-    return (
-      user?.sellerId ||
-      (request.query as any)?.seller_id ||
-      process.env.ML_SELLER_ID ||
-      ""
-    );
+    if (user?.role === "tenant") {
+      return user.sellerId || "";
+    }
+    return (request.query as any)?.seller_id || process.env.ML_SELLER_ID || "";
   }
 
   public list = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -182,6 +180,7 @@ export class ProductsController {
         item,
         settings: tenant?.settings,
         itemKnowledge: effectiveKnowledge,
+        llmCredentials: tenant?.getLLMCredentials() ?? null,
       });
 
       return reply.send({

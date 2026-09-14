@@ -127,6 +127,7 @@ export class ProcessQuestionUseCase {
         item,
         settings,
         itemKnowledge,
+        llmCredentials: tenant?.getLLMCredentials() ?? null,
       });
       const classifyMs = Date.now() - t0;
 

@@ -94,6 +94,7 @@ export class SimulateQuestionUseCase {
         questionText: params.text,
         item: fakeItem,
         settings,
+        llmCredentials: tenant?.getLLMCredentials() ?? null,
       });
       const classifyMs = Date.now() - t0;
 
