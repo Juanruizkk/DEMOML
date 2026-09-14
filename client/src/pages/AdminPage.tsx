@@ -1,6 +1,22 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import PageHeader from '../components/PageHeader'
+import {
+  Building2,
+  Mail,
+  UserPlus,
+  Sparkles,
+  Copy,
+  Check,
+  X,
+  ExternalLink,
+  ShieldCheck,
+  AlertCircle,
+  ArrowRight,
+  Store,
+  CheckCircle2,
+  Clock
+} from 'lucide-react'
 import './AdminPage.css'
 
 interface Metrics {
@@ -56,6 +72,8 @@ export default function AdminPage() {
   const [createError, setCreateError]   = useState<string | null>(null)
   const [createdLink, setCreatedLink]   = useState<string | null>(null)
   const [copied, setCopied]             = useState(false)
+  const [resetSent, setResetSent]       = useState<string | null>(null)
+  const [resetting, setResetting]       = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -130,7 +148,37 @@ export default function AdminPage() {
     if (!createdLink) return
     navigator.clipboard.writeText(createdLink)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  const handleResetPassword = async (userId: string, email: string) => {
+    setResetting(userId)
+    try {
+      await api.post(`/admin/users/${userId}/reset-password`, {})
+      setResetSent(email)
+      setTimeout(() => setResetSent(null), 4000)
+    } catch (err: any) {
+      console.error('Error al enviar reset:', err)
+    } finally {
+      setResetting(null)
+    }
+  }
+
+  const handleResetForTenant = async (email: string) => {
+    setResetting(email)
+    try {
+      await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      setResetSent(email)
+      setTimeout(() => setResetSent(null), 4000)
+    } catch (err: any) {
+      console.error('Error al enviar reset:', err)
+    } finally {
+      setResetting(null)
+    }
   }
 
   const selectedTenant = tenants.find(t => t.sellerId === selected)
@@ -139,7 +187,7 @@ export default function AdminPage() {
     <div className="page">
       <PageHeader
         title="Super Admin"
-        subtitle="Panel de operaciones"
+        subtitle="Panel de operaciones y gestión de tenants"
         stats={[
           { label: 'Tenants',    value: metrics?.totalTenants    ?? '—', color: 'blue' },
           { label: 'Preguntas',  value: metrics?.totalQuestions  ?? '—', color: 'dim' },
@@ -154,20 +202,40 @@ export default function AdminPage() {
           {/* Tenant list */}
           <div className="tenant-list">
             <div className="tenant-list-header">
-              <p className="tenant-list-title">Tenants</p>
-              <button className="btn-new-tenant" onClick={openModal}>+ Nuevo</button>
+              <span className="tenant-list-title">Organizaciones</span>
+              <button className="btn-new-tenant" onClick={openModal}>
+                <UserPlus size={13} />
+                <span>Nuevo Tenant</span>
+              </button>
             </div>
 
             {/* Pending invitations */}
             {pending.length > 0 && (
               <div className="pending-section">
+                <div className="pending-section-title">
+                  <Clock size={12} />
+                  <span>Invitaciones pendientes</span>
+                </div>
                 {pending.map(inv => (
                   <div key={inv.id} className="tenant-row tenant-row--pending">
                     <div className="tenant-row-info">
                       <span className="tenant-row-name">{inv.name}</span>
                       <span className="tenant-row-email">{inv.email}</span>
                     </div>
-                    <span className="badge-pending">Pendiente</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="badge-pending">Pendiente</span>
+                      <button
+                        style={{
+                          background: 'none', border: '1px solid #334155', borderRadius: '6px',
+                          color: '#94a3b8', fontSize: '11px', padding: '3px 8px', cursor: 'pointer'
+                        }}
+                        disabled={resetting === inv.id}
+                        onClick={() => handleResetPassword(inv.id, inv.email)}
+                        title="Reenviar link de activación"
+                      >
+                        {resetting === inv.id ? '…' : '↺ Reenviar'}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -235,6 +303,24 @@ export default function AdminPage() {
                 <button className="btn-save" onClick={savePermissions} disabled={saving}>
                   {saving ? 'Guardando…' : 'Guardar permisos'}
                 </button>
+                {selectedTenant.email && (
+                  <button
+                    style={{
+                      marginTop: '8px', width: '100%', background: 'none',
+                      border: '1px solid #334155', borderRadius: '8px', color: '#94a3b8',
+                      fontSize: '13px', padding: '8px', cursor: 'pointer'
+                    }}
+                    disabled={resetting === selectedTenant.email}
+                    onClick={() => handleResetForTenant(selectedTenant.email!)}
+                  >
+                    {resetting === selectedTenant.email ? 'Enviando…' : '🔑 Resetear contraseña'}
+                  </button>
+                )}
+                {resetSent && (
+                  <p style={{ fontSize: '12px', color: '#10b981', marginTop: '8px', textAlign: 'center' }}>
+                    ✓ Email de reset enviado a {resetSent}
+                  </p>
+                )}
               </div>
             </div>
           ) : (
@@ -249,56 +335,158 @@ export default function AdminPage() {
       {/* Create Tenant Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-card glass" onClick={e => e.stopPropagation()}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            {/* Modal Glow Accents */}
+            <div className="modal-ambient-glow" aria-hidden="true" />
+
+            {/* Modal Header */}
             <div className="modal-header">
-              <h3 className="modal-title">Nuevo tenant</h3>
-              <button className="modal-close" onClick={closeModal}>✕</button>
+              <div className="modal-header-left">
+                <div className="modal-icon-badge">
+                  <Store size={22} />
+                </div>
+                <div className="modal-title-group">
+                  <h3 className="modal-title">
+                    {createdLink ? '¡Tenant Creado!' : 'Registrar Nuevo Tenant'}
+                  </h3>
+                  <p className="modal-subtitle">
+                    {createdLink
+                      ? 'Cuenta de vendedor generada correctamente'
+                      : 'Crea una organización y genera la invitación de acceso'}
+                  </p>
+                </div>
+              </div>
+              <button className="modal-close-btn" onClick={closeModal} title="Cerrar modal">
+                <X size={18} />
+              </button>
             </div>
 
+            {/* Modal Body */}
             {createdLink ? (
-              <div className="modal-success">
-                <p className="modal-success-text">
-                  Cuenta creada. Enviá este link al tenant para que active su cuenta:
-                </p>
-                <div className="activation-link-box">
-                  <span className="activation-link-text">{createdLink}</span>
+              <div className="modal-success-content">
+                <div className="modal-success-banner">
+                  <div className="success-icon-wrap">
+                    <CheckCircle2 size={24} className="text-emerald" />
+                  </div>
+                  <div>
+                    <h4 className="success-banner-title">Invitación lista para enviar</h4>
+                    <p className="success-banner-desc">
+                      Compartí este enlace de activación con el vendedor para que configure su clave e inicie sesión.
+                    </p>
+                  </div>
                 </div>
-                <button className="btn-copy" onClick={copyLink}>
-                  {copied ? '✓ Copiado' : 'Copiar link'}
-                </button>
-                <button className="btn-save" style={{ marginTop: 12 }} onClick={closeModal}>
-                  Cerrar
-                </button>
+
+                <div className="activation-link-container">
+                  <div className="activation-link-header">
+                    <span className="activation-link-tag">Enlace de Activación (24 horas)</span>
+                    <span className="activation-link-hint">Un solo uso</span>
+                  </div>
+                  <div className="activation-link-box">
+                    <span className="activation-link-text">{createdLink}</span>
+                  </div>
+                </div>
+
+                <div className="modal-success-actions">
+                  <button
+                    className={`btn-modal-copy ${copied ? 'btn-modal-copy--copied' : ''}`}
+                    onClick={copyLink}
+                  >
+                    {copied ? (
+                      <>
+                        <Check size={16} /> ¡Enlace Copiado al Portapapeles!
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={16} /> Copiar Enlace de Activación
+                      </>
+                    )}
+                  </button>
+
+                  <button className="btn-modal-done" onClick={closeModal}>
+                    Finalizar
+                  </button>
+                </div>
               </div>
             ) : (
-              <form onSubmit={handleCreate}>
+              <form className="modal-form" onSubmit={handleCreate}>
+                {/* Field 1: Nombre */}
                 <div className="modal-field">
-                  <label className="modal-label">Nombre</label>
-                  <input
-                    type="text"
-                    className="tenant-input"
-                    value={newName}
-                    onChange={e => setNewName(e.target.value)}
-                    placeholder="Acme Corp"
-                    required
-                    autoFocus
-                  />
+                  <label className="modal-label" htmlFor="tenant-name">
+                    Nombre del Comercio / Empresa
+                  </label>
+                  <div className="modal-input-wrap">
+                    <Building2 size={18} className="modal-input-icon" />
+                    <input
+                      id="tenant-name"
+                      type="text"
+                      className="tenant-modal-input"
+                      value={newName}
+                      onChange={e => setNewName(e.target.value)}
+                      placeholder="ej. Tienda Oficial Samsung"
+                      required
+                      autoFocus
+                    />
+                  </div>
                 </div>
+
+                {/* Field 2: Email */}
                 <div className="modal-field">
-                  <label className="modal-label">Email</label>
-                  <input
-                    type="email"
-                    className="tenant-input"
-                    value={newEmail}
-                    onChange={e => setNewEmail(e.target.value)}
-                    placeholder="admin@acme.com"
-                    required
-                  />
+                  <label className="modal-label" htmlFor="tenant-email">
+                    Correo Electrónico del Administrador
+                  </label>
+                  <div className="modal-input-wrap">
+                    <Mail size={18} className="modal-input-icon" />
+                    <input
+                      id="tenant-email"
+                      type="email"
+                      className="tenant-modal-input"
+                      value={newEmail}
+                      onChange={e => setNewEmail(e.target.value)}
+                      placeholder="ej. admin@tiendaoficial.com"
+                      required
+                    />
+                  </div>
                 </div>
-                {createError && <p className="modal-error">{createError}</p>}
-                <button type="submit" className="btn-save" disabled={creating}>
-                  {creating ? 'Creando…' : 'Crear tenant'}
-                </button>
+
+                {/* Info Callout */}
+                <div className="modal-info-callout">
+                  <ShieldCheck size={16} className="callout-icon" />
+                  <p className="callout-text">
+                    Se generará un usuario vendedor en estado pendiente. Podrá activar su cuenta y conectar Mercado Libre al ingresar.
+                  </p>
+                </div>
+
+                {/* Error Banner */}
+                {createError && (
+                  <div className="modal-error-banner" role="alert">
+                    <AlertCircle size={17} />
+                    <span>{createError}</span>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="modal-form-actions">
+                  <button
+                    type="button"
+                    className="btn-modal-cancel"
+                    onClick={closeModal}
+                    disabled={creating}
+                  >
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn-modal-submit" disabled={creating}>
+                    {creating ? (
+                      <span className="btn-loading-row">
+                        <span className="pulse-dot" /> Registrando...
+                      </span>
+                    ) : (
+                      <>
+                        <span>Crear Tenant</span>
+                        <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
+                </div>
               </form>
             )}
           </div>
@@ -307,3 +495,4 @@ export default function AdminPage() {
     </div>
   )
 }
+
