@@ -11,6 +11,7 @@ import { SqliteItemCacheRepository } from "./infrastructure/persistence/sqlite/S
 import { SqliteEventRepository } from "./infrastructure/persistence/sqlite/SqliteEventRepository.js";
 import { SqliteUserRepository } from "./infrastructure/persistence/sqlite/SqliteUserRepository.js";
 import { SqliteClaimRepository } from "./infrastructure/persistence/sqlite/SqliteClaimRepository.js";
+import { SqliteItemKnowledgeRepository } from "./infrastructure/persistence/sqlite/SqliteItemKnowledgeRepository.js";
 
 import { CryptoPasswordHasher } from "./infrastructure/security/CryptoPasswordHasher.js";
 import { JwtTokenService } from "./infrastructure/security/JwtTokenService.js";
@@ -31,6 +32,8 @@ import { RejectAnswerUseCase } from "./application/use-cases/RejectAnswerUseCase
 import { SimulateQuestionUseCase } from "./application/use-cases/SimulateQuestionUseCase.js";
 import { HandleWhatsAppReplyUseCase } from "./application/use-cases/HandleWhatsAppReplyUseCase.js";
 import { HandleTelegramWebhookUseCase } from "./application/use-cases/HandleTelegramWebhookUseCase.js";
+import { GetSellerProductsUseCase } from "./application/use-cases/products/GetSellerProductsUseCase.js";
+import { SaveItemKnowledgeUseCase } from "./application/use-cases/products/SaveItemKnowledgeUseCase.js";
 
 import { RegisterUserUseCase } from "./application/use-cases/auth/RegisterUserUseCase.js";
 import { LoginUserUseCase } from "./application/use-cases/auth/LoginUserUseCase.js";
@@ -46,6 +49,8 @@ import { GetTenantDetailUseCase } from "./application/use-cases/admin/GetTenantD
 import { ToggleTenantAutoAnswerUseCase } from "./application/use-cases/admin/ToggleTenantAutoAnswerUseCase.js";
 import { ForceTokenRefreshUseCase } from "./application/use-cases/admin/ForceTokenRefreshUseCase.js";
 import { UpdateTenantPermissionsUseCase } from "./application/use-cases/admin/UpdateTenantPermissionsUseCase.js";
+import { CreateTenantUseCase } from "./application/use-cases/admin/CreateTenantUseCase.js";
+import { ActivateTenantUseCase } from "./application/use-cases/auth/ActivateTenantUseCase.js";
 
 import { WebhookController } from "./presentation/controllers/WebhookController.js";
 import { QuestionsController } from "./presentation/controllers/QuestionsController.js";
@@ -57,6 +62,7 @@ import { WhatsAppWebhookController } from "./presentation/controllers/WhatsAppWe
 import { TelegramWebhookController } from "./presentation/controllers/TelegramWebhookController.js";
 import { ClaimsController } from "./presentation/controllers/ClaimsController.js";
 import { DemoController } from "./presentation/controllers/DemoController.js";
+import { ProductsController } from "./presentation/controllers/ProductsController.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -78,6 +84,7 @@ export function buildApp(): FastifyInstance {
   const eventRepo = new SqliteEventRepository(db);
   const userRepo = new SqliteUserRepository(db);
   const claimRepo = new SqliteClaimRepository(db);
+  const itemKnowledgeRepo = new SqliteItemKnowledgeRepository(db);
 
   const passwordHasher = new CryptoPasswordHasher();
   const tokenService = new JwtTokenService();
@@ -119,8 +126,11 @@ export function buildApp(): FastifyInstance {
   const ingestClaimUseCase = new IngestClaimWebhookUseCase(processClaimUseCase, eventRepo);
 
   const processQuestionUseCase = new ProcessQuestionUseCase(
-    questionRepo, itemCacheRepo, tenantRepo, eventRepo, meliClient, llmService, sseNotifier, whatsAppClient, telegramClient
+    questionRepo, itemCacheRepo, tenantRepo, eventRepo, meliClient, llmService, sseNotifier, whatsAppClient, telegramClient, itemKnowledgeRepo
   );
+
+  const getSellerProductsUseCase = new GetSellerProductsUseCase(meliClient, itemKnowledgeRepo);
+  const saveItemKnowledgeUseCase = new SaveItemKnowledgeUseCase(itemKnowledgeRepo);
 
   const simulateQuestionUseCase = new SimulateQuestionUseCase(
     questionRepo, tenantRepo, eventRepo, llmService, sseNotifier
@@ -141,6 +151,8 @@ export function buildApp(): FastifyInstance {
   const toggleTenantAutoAnswerUseCase = new ToggleTenantAutoAnswerUseCase(tenantRepo, eventRepo);
   const forceTokenRefreshUseCase = new ForceTokenRefreshUseCase(tenantRepo, meliClient, eventRepo);
   const updateTenantPermissionsUseCase = new UpdateTenantPermissionsUseCase(tenantRepo);
+  const createTenantUseCase = new CreateTenantUseCase(userRepo);
+  const activateTenantUseCase = new ActivateTenantUseCase(userRepo, passwordHasher, tokenService);
 
   // 7. Workers de Cola
   queueBroker.registerProcessor(async (job) => {
@@ -196,16 +208,18 @@ export function buildApp(): FastifyInstance {
 
   // 9. Controladores
   const webhookCtrl = new WebhookController(ingestWebhookUseCase, ingestClaimUseCase);
-  const questionsCtrl = new QuestionsController(questionRepo, approveAnswerUseCase, rejectAnswerUseCase);
+  const questionsCtrl = new QuestionsController(questionRepo, approveAnswerUseCase, rejectAnswerUseCase, itemCacheRepo);
   const authCtrl = new AuthController(
     registerUserUseCase, loginUserUseCase, getCurrentUserUseCase,
-    connectMeliAccountUseCase, getOnboardingStatusUseCase, tokenService
+    connectMeliAccountUseCase, getOnboardingStatusUseCase, tokenService,
+    activateTenantUseCase
   );
   const simulatorCtrl = new SimulatorController(simulateQuestionUseCase);
   const tenantCtrl = new TenantController(tenantRepo, eventRepo, llmService);
   const adminCtrl = new AdminController(
     getGlobalMetricsUseCase, listTenantsOverviewUseCase, getTenantDetailUseCase,
-    toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase, updateTenantPermissionsUseCase
+    toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase, updateTenantPermissionsUseCase,
+    createTenantUseCase, userRepo
   );
   const waWebhookCtrl = new WhatsAppWebhookController(handleWhatsAppReplyUseCase);
   const telegramCtrl = new TelegramWebhookController(handleTelegramWebhookUseCase, telegramClient, tenantRepo);
@@ -219,6 +233,14 @@ export function buildApp(): FastifyInstance {
     sseNotifier,
     sellerId: process.env.DEMO_SELLER_ID ?? "3680586616",
   });
+  const productsCtrl = new ProductsController(
+    getSellerProductsUseCase,
+    saveItemKnowledgeUseCase,
+    itemKnowledgeRepo,
+    meliClient,
+    llmService,
+    tenantRepo
+  );
 
   // 10. Rutas — Auth
   app.post("/api/auth/register", authCtrl.register);
@@ -226,6 +248,7 @@ export function buildApp(): FastifyInstance {
   app.get("/api/auth/me", { preHandler: authenticate }, authCtrl.getMe);
   app.get("/api/auth/onboarding-status", { preHandler: authenticate }, authCtrl.getOnboardingStatus);
   app.get("/api/auth/meli-auth-url", { preHandler: optionalAuthenticate }, authCtrl.getMeliAuthUrl);
+  app.post("/api/auth/activate/:token", authCtrl.activateTenant);
 
   // Rutas — Super Admin
   app.get("/api/admin/metrics", { preHandler: requireSuperAdmin }, adminCtrl.getMetrics);
@@ -234,6 +257,8 @@ export function buildApp(): FastifyInstance {
   app.post("/api/admin/tenants/:sellerId/toggle", { preHandler: requireSuperAdmin }, adminCtrl.toggleAutoAnswer);
   app.post("/api/admin/tenants/:sellerId/refresh-token", { preHandler: requireSuperAdmin }, adminCtrl.refreshToken);
   app.put("/api/admin/tenants/:sellerId/permissions", { preHandler: requireSuperAdmin }, adminCtrl.updatePermissions);
+  app.post("/api/admin/tenants", { preHandler: requireSuperAdmin }, adminCtrl.createTenant);
+  app.get("/api/admin/invitations", { preHandler: requireSuperAdmin }, adminCtrl.getPendingInvitations);
 
   // Rutas — Webhooks & OAuth
   app.post("/webhook/ml", webhookCtrl.handle);
@@ -263,9 +288,19 @@ export function buildApp(): FastifyInstance {
   app.get("/api/claims", { preHandler: optionalAuthenticate }, claimsCtrl.getClaims);
   app.post("/api/claims/simulate", claimsCtrl.simulate);
   app.post("/api/claims/:id/ack", { preHandler: optionalAuthenticate }, claimsCtrl.acknowledge);
+  app.post("/api/claims/:id/unack", { preHandler: optionalAuthenticate }, claimsCtrl.unacknowledge);
+  app.post("/api/claims/:id/close", { preHandler: optionalAuthenticate }, claimsCtrl.closeClaim);
+  app.post("/api/claims/:id/reopen", { preHandler: optionalAuthenticate }, claimsCtrl.reopenClaim);
 
   // Rutas — Demo
   app.post("/api/demo/seed", { preHandler: requireDemo }, demoCtrl.seed);
+
+  // Rutas — Catálogo & Reglas de Conocimiento por Producto
+  app.get("/api/tenant/products", { preHandler: optionalAuthenticate }, productsCtrl.list);
+  app.get("/api/tenant/products/:itemId/knowledge", { preHandler: optionalAuthenticate }, productsCtrl.getKnowledge);
+  app.put("/api/tenant/products/:itemId/knowledge", { preHandler: optionalAuthenticate }, productsCtrl.saveKnowledge);
+  app.delete("/api/tenant/products/:itemId/knowledge", { preHandler: optionalAuthenticate }, productsCtrl.deleteKnowledge);
+  app.post("/api/tenant/products/:itemId/simulate", { preHandler: optionalAuthenticate }, productsCtrl.simulate);
 
   // Rutas — Simulator, Health, Tenant
   app.post("/api/simulate-question", simulatorCtrl.simulate);

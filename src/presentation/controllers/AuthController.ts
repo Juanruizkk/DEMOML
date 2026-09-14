@@ -4,6 +4,7 @@ import { LoginUserUseCase, LoginUserDTO } from "../../application/use-cases/auth
 import { GetCurrentUserUseCase } from "../../application/use-cases/auth/GetCurrentUserUseCase.js";
 import { ConnectMeliAccountUseCase } from "../../application/use-cases/auth/ConnectMeliAccountUseCase.js";
 import { GetOnboardingStatusUseCase } from "../../application/use-cases/auth/GetOnboardingStatusUseCase.js";
+import { ActivateTenantUseCase } from "../../application/use-cases/auth/ActivateTenantUseCase.js";
 import { ITokenService } from "../../application/interfaces/ITokenService.js";
 
 export class AuthController {
@@ -13,7 +14,8 @@ export class AuthController {
     private readonly getCurrentUserUseCase: GetCurrentUserUseCase,
     private readonly connectMeliUseCase: ConnectMeliAccountUseCase,
     private readonly getOnboardingStatusUseCase: GetOnboardingStatusUseCase,
-    private readonly tokenService: ITokenService
+    private readonly tokenService: ITokenService,
+    private readonly activateTenantUseCase: ActivateTenantUseCase
   ) {}
 
   public register = async (
@@ -45,7 +47,6 @@ export class AuthController {
     if (!user || !user.userId) {
       return reply.status(401).send({ error: "No autenticado." });
     }
-
     try {
       const profile = await this.getCurrentUserUseCase.execute(user.userId);
       return reply.send(profile);
@@ -59,7 +60,6 @@ export class AuthController {
     if (!user || !user.userId) {
       return reply.status(401).send({ error: "No autenticado." });
     }
-
     try {
       const status = await this.getOnboardingStatusUseCase.execute(user.userId);
       return reply.send(status);
@@ -73,24 +73,20 @@ export class AuthController {
     const userId = user?.userId;
     const stateParam = userId ? `&state=${encodeURIComponent(userId)}` : "";
     const url = `https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id=${process.env.ML_CLIENT_ID || ""}&redirect_uri=${encodeURIComponent(process.env.ML_REDIRECT_URI || "")}${stateParam}`;
-
     return reply.send({ url });
   };
 
   public meliOAuthLogin = async (request: FastifyRequest, reply: FastifyReply) => {
     const query = (request.query as { token?: string; userId?: string }) || {};
     let userId = (request as any).user?.userId || query.userId;
-
-    // Si viene un token JWT en la query string, verificarlo
     if (!userId && query.token) {
       try {
         const payload = this.tokenService.verifyToken(query.token);
         userId = payload.userId;
       } catch (e) {
-        // Ignorar token inválido
+        // ignore invalid token
       }
     }
-
     const stateParam = userId ? `&state=${encodeURIComponent(userId)}` : "";
     const url = `https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id=${process.env.ML_CLIENT_ID || ""}&redirect_uri=${encodeURIComponent(process.env.ML_REDIRECT_URI || "")}${stateParam}`;
     return reply.redirect(url);
@@ -102,22 +98,25 @@ export class AuthController {
     if (!code) {
       return reply.status(400).send("Falta el parámetro code.");
     }
-
     try {
-      const result = await this.connectMeliUseCase.execute({
-        code,
-        userId: state,
-      });
-
-      // Redirigir al onboarding con los datos del seller conectado y el nuevo token
+      const result = await this.connectMeliUseCase.execute({ code, userId: state });
       const tokenParam = result.token ? `&token=${encodeURIComponent(result.token)}` : "";
       const nicknameParam = `&nickname=${encodeURIComponent(result.nickname)}`;
       const sellerIdParam = `&sellerId=${encodeURIComponent(result.sellerId)}`;
-
       return reply.redirect(`/onboarding.html?status=connected${sellerIdParam}${nicknameParam}${tokenParam}`);
     } catch (err: any) {
       return reply.redirect(`/onboarding.html?status=error&error=${encodeURIComponent(err.message)}`);
     }
   };
-}
 
+  public activateTenant = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { token } = request.params as { token: string };
+    const { password } = request.body as { password: string };
+    try {
+      const result = await this.activateTenantUseCase.execute({ token, password });
+      return reply.send(result);
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  };
+}
