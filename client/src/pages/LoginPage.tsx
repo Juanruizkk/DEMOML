@@ -121,6 +121,14 @@ export default function LoginPage() {
                 <label className="login-label" htmlFor="password">
                   Contraseña
                 </label>
+                <a
+                  href="/forgot-password"
+                  style={{ fontSize: '12px', color: '#64748b', textDecoration: 'none' }}
+                  onMouseOver={e => (e.currentTarget.style.color = '#94a3b8')}
+                  onMouseOut={e => (e.currentTarget.style.color = '#64748b')}
+                >
+                  ¿Olvidaste tu contraseña?
+                </a>
               </div>
               <div className="login-input-wrap">
                 <Lock size={17} className="input-icon-left" />

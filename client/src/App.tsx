@@ -13,6 +13,8 @@ const TenantPage      = lazy(() => import('./pages/TenantPage'))
 const OnboardingPage  = lazy(() => import('./pages/OnboardingPage'))
 const DemoPage        = lazy(() => import('./pages/DemoPage'))
 const ActivatePage    = lazy(() => import('./pages/ActivatePage'))
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
+const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'))
 
 function PrivateRoute({ children, roles }: { children: ReactElement; roles: string[] }) {
   const { user, loading } = useAuth()
@@ -54,6 +56,8 @@ export default function App() {
           path="/login"
           element={user ? <Navigate to={defaultRoute(user.role)} replace /> : <LoginPage />}
         />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
         {/* Tenant + demo */}
         <Route path="/questions" element={
