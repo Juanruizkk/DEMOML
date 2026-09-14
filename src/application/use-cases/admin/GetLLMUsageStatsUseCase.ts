@@ -20,8 +20,8 @@ export class GetLLMUsageStatsUseCase {
 
   public async execute(yearMonth: string): Promise<GlobalLLMUsageStats> {
     const [tenantStats, byProvider, allTenants] = await Promise.all([
-      Promise.resolve(this.usageRepo.getAllTenantsMonthlyStats(yearMonth)),
-      Promise.resolve(this.usageRepo.getGlobalProviderStats(yearMonth)),
+      this.usageRepo.getAllTenantsMonthlyStats(yearMonth),
+      this.usageRepo.getGlobalProviderStats(yearMonth),
       this.tenantRepo.getAll(),
     ]);
 
