@@ -5,7 +5,9 @@ import { NotificationProvider } from './context/NotificationContext'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 
+const DashboardPage   = lazy(() => import('./pages/DashboardPage'))
 const QuestionsPage   = lazy(() => import('./pages/QuestionsPage'))
+const OrderMessagesPage = lazy(() => import('./pages/OrderMessagesPage'))
 const ClaimsPage      = lazy(() => import('./pages/ClaimsPage'))
 const ProductsPage    = lazy(() => import('./pages/ProductsPage'))
 const AdminPage       = lazy(() => import('./pages/AdminPage'))
@@ -60,9 +62,19 @@ export default function App() {
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
         {/* Tenant + demo */}
+        <Route path="/dashboard" element={
+          <PrivateRoute roles={['tenant', 'demo']}>
+            <Layout><DashboardPage /></Layout>
+          </PrivateRoute>
+        } />
         <Route path="/questions" element={
           <PrivateRoute roles={['tenant', 'demo']}>
             <Layout><QuestionsPage /></Layout>
+          </PrivateRoute>
+        } />
+        <Route path="/order-messages" element={
+          <PrivateRoute roles={['tenant', 'demo']}>
+            <Layout><OrderMessagesPage /></Layout>
           </PrivateRoute>
         } />
         <Route path="/claims" element={
@@ -70,26 +82,21 @@ export default function App() {
             <Layout><ClaimsPage /></Layout>
           </PrivateRoute>
         } />
+
         <Route path="/products" element={
           <PrivateRoute roles={['tenant', 'demo']}>
             <Layout><ProductsPage /></Layout>
           </PrivateRoute>
         } />
-        <Route path="/settings" element={
+        <Route path="/config" element={
           <PrivateRoute roles={['tenant']}>
-            <Layout><TenantPage tab="settings" /></Layout>
+            <Layout><TenantPage /></Layout>
           </PrivateRoute>
         } />
-        <Route path="/channels" element={
-          <PrivateRoute roles={['tenant']}>
-            <Layout><TenantPage tab="channels" /></Layout>
-          </PrivateRoute>
-        } />
-        <Route path="/connection" element={
-          <PrivateRoute roles={['tenant']}>
-            <Layout><TenantPage tab="connection" /></Layout>
-          </PrivateRoute>
-        } />
+        <Route path="/settings"   element={<Navigate to="/config?tab=settings"   replace />} />
+        <Route path="/team"       element={<Navigate to="/config?tab=team"       replace />} />
+        <Route path="/channels"   element={<Navigate to="/config?tab=channels"   replace />} />
+        <Route path="/connection" element={<Navigate to="/config?tab=connection" replace />} />
         <Route path="/onboarding" element={
           <PrivateRoute roles={['tenant']}>
             <Layout><OnboardingPage /></Layout>
@@ -126,5 +133,5 @@ export default function App() {
 function defaultRoute(role: string): string {
   if (role === 'super_admin') return '/admin'
   if (role === 'demo')        return '/demo'
-  return '/questions'
+  return '/dashboard'
 }

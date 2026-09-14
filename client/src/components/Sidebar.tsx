@@ -2,7 +2,9 @@ import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
+  LayoutDashboard,
   MessageSquare,
+  MessageCircle,
   AlertTriangle,
   Package,
   Sliders,
@@ -13,7 +15,8 @@ import {
   LogOut,
   Bot,
   Sun,
-  Moon
+  Moon,
+  Users
 } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 import './Sidebar.css'
@@ -29,9 +32,21 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   // Módulos del Vendedor / Tenant
   {
+    to: '/dashboard',
+    icon: <LayoutDashboard size={18} />,
+    label: 'Centro de Control',
+    roles: ['tenant', 'demo'],
+  },
+  {
     to: '/questions',
     icon: <MessageSquare size={18} />,
     label: 'Preguntas',
+    roles: ['tenant', 'demo'],
+  },
+  {
+    to: '/order-messages',
+    icon: <MessageCircle size={18} />,
+    label: 'Mensajes Post-Venta',
     roles: ['tenant', 'demo'],
   },
   {
@@ -44,25 +59,13 @@ const NAV_ITEMS: NavItem[] = [
     to: '/products',
     icon: <Package size={18} />,
     label: 'Catálogo & Reglas',
-    badge: 'Nuevo',
     roles: ['tenant', 'demo'],
   },
+
   {
-    to: '/settings',
+    to: '/config',
     icon: <Sliders size={18} />,
-    label: 'Configuración IA',
-    roles: ['tenant'],
-  },
-  {
-    to: '/channels',
-    icon: <Radio size={18} />,
-    label: 'Canales & Alertas',
-    roles: ['tenant'],
-  },
-  {
-    to: '/connection',
-    icon: <RefreshCw size={18} />,
-    label: 'Conexión MELI',
+    label: 'Configuración',
     roles: ['tenant'],
   },
 

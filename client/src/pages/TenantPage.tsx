@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { useNotifications, WebNotificationsSettings } from '../context/NotificationContext'
 import PageHeader from '../components/PageHeader'
@@ -23,7 +24,10 @@ import {
   Sparkles,
   Building2,
   UserCheck,
-  ArrowRight
+  ArrowRight,
+  Sliders,
+  Radio,
+  RefreshCw
 } from 'lucide-react'
 import './TenantPage.css'
 
@@ -101,8 +105,16 @@ interface TenantPermissionsState {
   multiUserEnabled?: boolean
 }
 
-export default function TenantPage({ tab }: { tab?: string }) {
-  const activeTab = tab || 'settings'
+const TABS = [
+  { id: 'settings',   label: 'Configuración IA',    icon: <Sliders size={15} /> },
+  { id: 'channels',   label: 'Canales & Alertas',   icon: <Radio size={15} /> },
+  { id: 'team',       label: 'Equipo & Vendedores',  icon: <Users size={15} /> },
+  { id: 'connection', label: 'Conexión MELI',        icon: <RefreshCw size={15} /> },
+]
+
+export default function TenantPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'settings'
   const [settings, setSettings] = useState<TenantSettings | null>(null)
   const [permissions, setPermissions] = useState<TenantPermissionsState>({
     whatsappEnabled: true,
@@ -293,16 +305,23 @@ export default function TenantPage({ tab }: { tab?: string }) {
     }
   }
 
-  const titles: Record<string, string> = {
-    settings:   'Configuración IA',
-    team:       'Equipo & Vendedores',
-    channels:   'Canales de Alerta & Notificaciones',
-    connection: 'Conexión MELI',
-  }
-
   return (
     <div className="page">
-      <PageHeader title={titles[activeTab] || 'Configuración'} subtitle="Portal del vendedor" />
+      <PageHeader title="Configuración" subtitle="Ajustes de tu tienda y cuenta" />
+
+      <div className="config-tab-bar">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            className={`config-tab${activeTab === t.id ? ' config-tab--active' : ''}`}
+            onClick={() => setSearchParams({ tab: t.id })}
+          >
+            {t.icon}
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="tenant-content">
         {loading && <div className="list-empty"><span className="pulse-dot" /> Cargando…</div>}
 
