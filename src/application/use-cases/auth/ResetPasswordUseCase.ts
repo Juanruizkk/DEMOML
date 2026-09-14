@@ -34,7 +34,11 @@ export class ResetPasswordUseCase {
     }
 
     const parts = dto.token.split("|");
-    const expiresAt = parts.length === 2 ? Number(parts[1]) : 0;
+    const expiresAt = parts.length === 2 ? Number(parts[1]) : NaN;
+
+    if (isNaN(expiresAt)) {
+      throw new Error("Token inválido o expirado.");
+    }
 
     if (Date.now() > expiresAt) {
       user.activationToken = null;
