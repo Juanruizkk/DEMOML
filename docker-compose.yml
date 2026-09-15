@@ -6,6 +6,7 @@ services:
       POSTGRES_USER: meli
       POSTGRES_PASSWORD: meli
       POSTGRES_DB: meli_bot
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5432:5432"
     volumes:
