@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { useNotifications, WebNotificationsSettings } from '../context/NotificationContext'
 import PageHeader from '../components/PageHeader'
+import LLMUsageCard from '../components/LLMUsageCard'
 import {
   Bell,
   ShieldAlert,
@@ -110,6 +111,7 @@ const TABS = [
   { id: 'channels',   label: 'Canales & Alertas',   icon: <Radio size={15} /> },
   { id: 'team',       label: 'Equipo & Vendedores',  icon: <Users size={15} /> },
   { id: 'connection', label: 'Conexión MELI',        icon: <RefreshCw size={15} /> },
+  { id: 'ia_usage',   label: 'Consumo IA',           icon: <Sparkles size={15} /> },
 ]
 
 export default function TenantPage() {
@@ -1143,6 +1145,13 @@ export default function TenantPage() {
                 <p className="connection-hint">Tu token está sincronizado. Se renueva automáticamente.</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── IA USAGE TAB ───────────────────────────────────────────────── */}
+        {activeTab === 'ia_usage' && (
+          <div className="config-section">
+            <LLMUsageCard />
           </div>
         )}
       </div>
