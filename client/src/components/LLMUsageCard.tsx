@@ -29,7 +29,11 @@ interface UsageData {
 }
 
 export default function LLMUsageCard() {
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7))
+  // Use local date so the default month matches the user's timezone, not UTC
+  const [month, setMonth] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
   const [data, setData] = useState<UsageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [limitInput, setLimitInput] = useState('')
@@ -146,7 +150,7 @@ export default function LLMUsageCard() {
             </thead>
             <tbody>
               {data.recentLogs.map((log, i) => (
-                <tr key={i}>
+                <tr key={`${log.createdAt}-${i}`}>
                   <td>{log.channel}</td>
                   <td>{log.model}{log.tokensEstimated && <span className="llm-est" title="estimado">~</span>}</td>
                   <td>{log.tokensIn + log.tokensOut}</td>
