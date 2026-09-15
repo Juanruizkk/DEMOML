@@ -92,7 +92,7 @@ export class LangChainLLMService implements ILLMService {
     return { callbacks, getTokens };
   }
 
-  private recordUsage(params: {
+  private async recordUsage(params: {
     usageContext: { sellerId: string; channel: string } | null | undefined;
     llmCredentials: { provider: string; apiKey: string } | null | undefined;
     tokensIn: number;
@@ -101,7 +101,7 @@ export class LangChainLLMService implements ILLMService {
     promptText: string;
     resultText: string;
     latencyMs: number;
-  }): void {
+  }): Promise<void> {
     if (!this.usageRepo || !params.usageContext) return;
     const { provider, model } = this.resolveProviderModel(params.llmCredentials);
     let { tokensIn, tokensOut, estimated } = params;
@@ -111,7 +111,7 @@ export class LangChainLLMService implements ILLMService {
       estimated = true;
     }
     const costUsd = calculateCost(provider, model, tokensIn, tokensOut);
-    const exceeded = this.usageRepo.log({
+    const exceeded = await this.usageRepo.log({
       sellerId: params.usageContext.sellerId,
       channel: params.usageContext.channel,
       provider,
@@ -320,7 +320,7 @@ Clasificá la pregunta y generá la respuesta siguiendo las reglas del sistema.`
     const latencyMs = Date.now() - start;
 
     const { tokensIn, tokensOut, estimated } = getTokens();
-    this.recordUsage({
+    await this.recordUsage({
       usageContext: params.usageContext,
       llmCredentials: params.llmCredentials,
       tokensIn, tokensOut, estimated,
@@ -361,7 +361,7 @@ Clasificá el mensaje post-venta y redactá la mejor respuesta según las polít
     const latencyMs = Date.now() - start;
 
     const { tokensIn, tokensOut, estimated } = getTokens();
-    this.recordUsage({
+    await this.recordUsage({
       usageContext: params.usageContext,
       llmCredentials: params.llmCredentials,
       tokensIn, tokensOut, estimated,

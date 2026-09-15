@@ -9,11 +9,11 @@ export interface TenantLLMUsageResult {
 export class GetTenantLLMUsageUseCase {
   constructor(private readonly usageRepo: ILLMUsageRepository) {}
 
-  public execute(sellerId: string, yearMonth: string, hasOwnKey: boolean): TenantLLMUsageResult {
-    return {
-      monthly: this.usageRepo.getMonthlyStats(sellerId, yearMonth),
-      recentLogs: this.usageRepo.getRecentLogs(sellerId, 20),
-      hasOwnKey,
-    };
+  public async execute(sellerId: string, yearMonth: string, hasOwnKey: boolean): Promise<TenantLLMUsageResult> {
+    const [monthly, recentLogs] = await Promise.all([
+      this.usageRepo.getMonthlyStats(sellerId, yearMonth),
+      this.usageRepo.getRecentLogs(sellerId, 20),
+    ]);
+    return { monthly, recentLogs, hasOwnKey };
   }
 }
