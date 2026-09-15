@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "start:legacy": "node server.js",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx src/scripts/migrate.ts",
     "client:dev": "cd client && npm run dev",
     "client:build": "cd client && npm run build",
     "dev:full": "concurrently \"npm run dev\" \"npm run client:dev\""
