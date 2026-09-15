@@ -24,11 +24,11 @@ export interface TenantMonthlyStats extends MonthlyStats {
 
 export interface ILLMUsageRepository {
   /** Inserts log entry and upserts monthly summary. Returns true if spending limit exceeded. */
-  log(entry: LLMUsageLogEntry): boolean;
-  getMonthlyStats(sellerId: string, yearMonth: string): MonthlyStats | null;
-  getAllTenantsMonthlyStats(yearMonth: string): TenantMonthlyStats[];
-  getRecentLogs(sellerId: string, limit: number): (LLMUsageLogEntry & { createdAt: string })[];
-  setSpendingLimit(sellerId: string, limitUsd: number | null): void;
-  markAlertSent(sellerId: string, yearMonth: string): void;
-  getGlobalProviderStats(yearMonth: string): Record<string, { calls: number; costUsd: number }>;
+  log(entry: LLMUsageLogEntry): Promise<boolean>;
+  getMonthlyStats(sellerId: string, yearMonth: string): Promise<MonthlyStats | null>;
+  getAllTenantsMonthlyStats(yearMonth: string): Promise<TenantMonthlyStats[]>;
+  getRecentLogs(sellerId: string, limit: number): Promise<(LLMUsageLogEntry & { createdAt: string })[]>;
+  setSpendingLimit(sellerId: string, limitUsd: number | null): Promise<void>;
+  markAlertSent(sellerId: string, yearMonth: string): Promise<void>;
+  getGlobalProviderStats(yearMonth: string): Promise<Record<string, { calls: number; costUsd: number }>>;
 }
