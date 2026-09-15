@@ -1,4 +1,4 @@
-import { eq, desc, sql } from 'drizzle-orm';
+import { and, eq, desc, sql } from 'drizzle-orm';
 import { DrizzleDB } from '../drizzle/db.js';
 import { llmUsageLogs, llmUsageMonthly } from '../drizzle/schema.js';
 import {
@@ -10,6 +10,9 @@ export class PostgresLLMUsageRepository implements ILLMUsageRepository {
 
   public async log(entry: LLMUsageLogEntry): Promise<boolean> {
     const yearMonth = new Date().toISOString().slice(0, 7);
+    const today = new Date().toISOString().slice(0, 10);
+
+    let shouldAlert = false;
 
     await this.db.transaction(async (tx) => {
       await tx.insert(llmUsageLogs).values({
@@ -38,29 +41,28 @@ export class PostgresLLMUsageRepository implements ILLMUsageRepository {
           totalCostUsd: sql`${llmUsageMonthly.totalCostUsd} + ${entry.costUsd}`,
         },
       });
+
+      // Atomic conditional update: set alert_sent_at only if limit exceeded and not yet alerted today
+      const result = await tx.update(llmUsageMonthly)
+        .set({ alertSentAt: new Date() })
+        .where(and(
+          eq(llmUsageMonthly.sellerId, entry.sellerId),
+          eq(llmUsageMonthly.yearMonth, yearMonth),
+          sql`spending_limit_usd IS NOT NULL`,
+          sql`total_cost_usd >= spending_limit_usd`,
+          sql`(alert_sent_at IS NULL OR alert_sent_at::date < ${today}::date)`,
+        ))
+        .returning({ id: llmUsageMonthly.sellerId });
+
+      shouldAlert = result.length > 0;
     });
 
-    const monthly = await this.getMonthlyStats(entry.sellerId, yearMonth);
-    if (!monthly || monthly.spendingLimitUsd === null) return false;
-
-    if (monthly.totalCostUsd >= monthly.spendingLimitUsd) {
-      const [row] = await this.db.select({ alertSentAt: llmUsageMonthly.alertSentAt })
-        .from(llmUsageMonthly)
-        .where(sql`${llmUsageMonthly.sellerId} = ${entry.sellerId} AND ${llmUsageMonthly.yearMonth} = ${yearMonth}`);
-
-      const today = new Date().toISOString().slice(0, 10);
-      const lastAlert = row?.alertSentAt?.toISOString().slice(0, 10);
-      if (lastAlert !== today) {
-        await this.markAlertSent(entry.sellerId, yearMonth);
-        return true;
-      }
-    }
-    return false;
+    return shouldAlert;
   }
 
   public async getMonthlyStats(sellerId: string, yearMonth: string): Promise<MonthlyStats | null> {
     const [row] = await this.db.select().from(llmUsageMonthly)
-      .where(sql`${llmUsageMonthly.sellerId} = ${sellerId} AND ${llmUsageMonthly.yearMonth} = ${yearMonth}`);
+      .where(and(eq(llmUsageMonthly.sellerId, sellerId), eq(llmUsageMonthly.yearMonth, yearMonth)));
     if (!row) return null;
     return {
       yearMonth: row.yearMonth,
@@ -120,7 +122,7 @@ export class PostgresLLMUsageRepository implements ILLMUsageRepository {
   public async markAlertSent(sellerId: string, yearMonth: string): Promise<void> {
     await this.db.update(llmUsageMonthly)
       .set({ alertSentAt: new Date() })
-      .where(sql`${llmUsageMonthly.sellerId} = ${sellerId} AND ${llmUsageMonthly.yearMonth} = ${yearMonth}`);
+      .where(and(eq(llmUsageMonthly.sellerId, sellerId), eq(llmUsageMonthly.yearMonth, yearMonth)));
   }
 
   public async getGlobalProviderStats(yearMonth: string): Promise<Record<string, { calls: number; costUsd: number }>> {
