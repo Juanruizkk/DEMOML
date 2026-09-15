@@ -3,6 +3,7 @@ import { DrizzleDB } from '../drizzle/db.js';
 import { questions } from '../drizzle/schema.js';
 import { IQuestionRepository, QuestionCountsByStatus } from '../../../application/interfaces/IQuestionRepository.js';
 import { Question, QuestionAppStatus } from '../../../domain/entities/Question.js';
+import { IntentType } from '../../../domain/value-objects/Intent.js';
 
 export class PostgresQuestionRepository implements IQuestionRepository {
   constructor(private readonly db: DrizzleDB) {}
@@ -140,7 +141,7 @@ export class PostgresQuestionRepository implements IQuestionRepository {
       buyerId: row.buyerId ?? undefined,
       text: row.text,
       mlStatus: row.mlStatus ?? undefined,
-      intent: row.intent ?? undefined,
+      intent: row.intent as IntentType | undefined ?? undefined,
       confidence: row.confidence ?? undefined,
       requiresHuman: row.requiresHuman ?? false,
       reason: row.reason ?? undefined,

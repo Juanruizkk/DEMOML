@@ -2,7 +2,7 @@ import { eq, desc, and } from 'drizzle-orm';
 import { DrizzleDB } from '../drizzle/db.js';
 import { orderMessages } from '../drizzle/schema.js';
 import { IOrderMessageRepository, OrderMessageFilters } from '../../../application/interfaces/IOrderMessageRepository.js';
-import { OrderMessage } from '../../../domain/entities/OrderMessage.js';
+import { OrderMessage, OrderMessageIntent } from '../../../domain/entities/OrderMessage.js';
 
 export class PostgresOrderMessageRepository implements IOrderMessageRepository {
   constructor(private readonly db: DrizzleDB) {}
@@ -155,7 +155,7 @@ export class PostgresOrderMessageRepository implements IOrderMessageRepository {
       itemTitle: row.itemTitle ?? undefined,
       messageText: row.messageText,
       senderRole: row.senderRole as any,
-      intent: row.intent ?? undefined,
+      intent: row.intent as OrderMessageIntent | undefined ?? undefined,
       confidence: row.confidence ?? undefined,
       requiresHuman: row.requiresHuman ?? false,
       reason: row.reason ?? undefined,

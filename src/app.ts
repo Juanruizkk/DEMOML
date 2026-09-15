@@ -4,16 +4,16 @@ import fastifyStatic from "@fastify/static";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { SqliteDatabase } from "./infrastructure/persistence/sqlite/SqliteDatabase.js";
-import { SqliteTenantRepository } from "./infrastructure/persistence/sqlite/SqliteTenantRepository.js";
-import { SqliteQuestionRepository } from "./infrastructure/persistence/sqlite/SqliteQuestionRepository.js";
-import { SqliteItemCacheRepository } from "./infrastructure/persistence/sqlite/SqliteItemCacheRepository.js";
-import { SqliteEventRepository } from "./infrastructure/persistence/sqlite/SqliteEventRepository.js";
-import { SqliteUserRepository } from "./infrastructure/persistence/sqlite/SqliteUserRepository.js";
-import { SqliteClaimRepository } from "./infrastructure/persistence/sqlite/SqliteClaimRepository.js";
-import { SqliteItemKnowledgeRepository } from "./infrastructure/persistence/sqlite/SqliteItemKnowledgeRepository.js";
-import { SqliteOrderMessageRepository } from "./infrastructure/persistence/sqlite/SqliteOrderMessageRepository.js";
-import { SqliteLLMUsageRepository } from "./infrastructure/persistence/sqlite/SqliteLLMUsageRepository.js";
+import { db } from "./infrastructure/persistence/drizzle/db.js";
+import { PostgresTenantRepository } from "./infrastructure/persistence/postgres/PostgresTenantRepository.js";
+import { PostgresQuestionRepository } from "./infrastructure/persistence/postgres/PostgresQuestionRepository.js";
+import { PostgresItemCacheRepository } from "./infrastructure/persistence/postgres/PostgresItemCacheRepository.js";
+import { PostgresEventRepository } from "./infrastructure/persistence/postgres/PostgresEventRepository.js";
+import { PostgresUserRepository } from "./infrastructure/persistence/postgres/PostgresUserRepository.js";
+import { PostgresClaimRepository } from "./infrastructure/persistence/postgres/PostgresClaimRepository.js";
+import { PostgresItemKnowledgeRepository } from "./infrastructure/persistence/postgres/PostgresItemKnowledgeRepository.js";
+import { PostgresOrderMessageRepository } from "./infrastructure/persistence/postgres/PostgresOrderMessageRepository.js";
+import { PostgresLLMUsageRepository } from "./infrastructure/persistence/postgres/PostgresLLMUsageRepository.js";
 
 import { CryptoPasswordHasher } from "./infrastructure/security/CryptoPasswordHasher.js";
 import { JwtTokenService } from "./infrastructure/security/JwtTokenService.js";
@@ -98,16 +98,15 @@ export function buildApp(): FastifyInstance {
   });
 
   // 2. Persistencia y Seguridad
-  const db = SqliteDatabase.getInstance();
-  const tenantRepo = new SqliteTenantRepository(db);
-  const questionRepo = new SqliteQuestionRepository(db);
-  const itemCacheRepo = new SqliteItemCacheRepository(db);
-  const eventRepo = new SqliteEventRepository(db);
-  const userRepo = new SqliteUserRepository(db);
-  const claimRepo = new SqliteClaimRepository(db);
-  const itemKnowledgeRepo = new SqliteItemKnowledgeRepository(db);
-  const orderMessageRepo = new SqliteOrderMessageRepository(db);
-  const llmUsageRepo = new SqliteLLMUsageRepository(db);
+  const tenantRepo = new PostgresTenantRepository(db);
+  const questionRepo = new PostgresQuestionRepository(db);
+  const itemCacheRepo = new PostgresItemCacheRepository(db);
+  const eventRepo = new PostgresEventRepository(db);
+  const userRepo = new PostgresUserRepository(db);
+  const claimRepo = new PostgresClaimRepository(db);
+  const itemKnowledgeRepo = new PostgresItemKnowledgeRepository(db);
+  const orderMessageRepo = new PostgresOrderMessageRepository(db);
+  const llmUsageRepo = new PostgresLLMUsageRepository(db);
 
   const passwordHasher = new CryptoPasswordHasher();
   const tokenService = new JwtTokenService();
@@ -417,6 +416,7 @@ export function buildApp(): FastifyInstance {
   app.put("/api/tenant/products/:itemId/knowledge", { preHandler: optionalAuthenticate }, productsCtrl.saveKnowledge);
   app.delete("/api/tenant/products/:itemId/knowledge", { preHandler: optionalAuthenticate }, productsCtrl.deleteKnowledge);
   app.post("/api/tenant/products/:itemId/simulate", { preHandler: optionalAuthenticate }, productsCtrl.simulate);
+  app.post("/api/tenant/products/:itemId/suggest-faqs", { preHandler: optionalAuthenticate }, productsCtrl.suggestFaqs);
 
   // Rutas — Simulator, Health, Tenant
   app.post("/api/simulate-question", simulatorCtrl.simulate);
