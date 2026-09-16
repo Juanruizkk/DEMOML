@@ -176,3 +176,24 @@ export const llmUsageMonthly = pgTable('llm_usage_monthly', {
   uniqueIndex('llm_usage_monthly_seller_month_key').on(table.sellerId, table.yearMonth),
   index('idx_llm_usage_monthly_seller').on(table.sellerId, table.yearMonth),
 ]);
+
+export const goldenDataset = pgTable('golden_dataset', {
+  id: text('id').primaryKey(),
+  sellerId: text('seller_id').notNull(),
+  sourceQuestionId: text('source_question_id').notNull(),
+  questionText: text('question_text').notNull(),
+  itemSnapshot: text('item_snapshot').notNull(), // JSON.stringify del ítem completo
+  llmIntent: text('llm_intent').notNull(),
+  humanIntent: text('human_intent').notNull(),
+  llmAnswer: text('llm_answer').notNull(),
+  finalAnswer: text('final_answer').notNull(),
+  decision: text('decision').notNull(), // 'approved' | 'edited' | 'edited_from_scratch'
+  qualityRating: integer('quality_rating'), // 1-5, nullable
+  reviewerId: text('reviewer_id'),
+  reasoningNote: text('reasoning_note'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => [
+  index('idx_golden_seller').on(table.sellerId),
+  index('idx_golden_intent').on(table.humanIntent),
+  index('idx_golden_decision').on(table.decision),
+]);
