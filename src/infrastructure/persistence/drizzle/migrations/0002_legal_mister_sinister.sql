@@ -1,0 +1,1 @@
+CREATE INDEX "idx_golden_source_question" ON "golden_dataset" USING btree ("source_question_id");

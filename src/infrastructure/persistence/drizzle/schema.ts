@@ -196,4 +196,5 @@ export const goldenDataset = pgTable('golden_dataset', {
   index('idx_golden_seller').on(table.sellerId),
   index('idx_golden_intent').on(table.humanIntent),
   index('idx_golden_decision').on(table.decision),
+  index('idx_golden_source_question').on(table.sourceQuestionId),
 ]);
