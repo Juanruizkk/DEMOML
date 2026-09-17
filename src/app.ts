@@ -1,5 +1,6 @@
 import fastify, { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +15,8 @@ import { PostgresClaimRepository } from "./infrastructure/persistence/postgres/P
 import { PostgresItemKnowledgeRepository } from "./infrastructure/persistence/postgres/PostgresItemKnowledgeRepository.js";
 import { PostgresOrderMessageRepository } from "./infrastructure/persistence/postgres/PostgresOrderMessageRepository.js";
 import { PostgresLLMUsageRepository } from "./infrastructure/persistence/postgres/PostgresLLMUsageRepository.js";
+import { PostgresGoldenDatasetRepository } from "./infrastructure/persistence/postgres/PostgresGoldenDatasetRepository.js";
+import { SaveHumanDecisionUseCase } from "./application/use-cases/SaveHumanDecisionUseCase.js";
 
 import { CryptoPasswordHasher } from "./infrastructure/security/CryptoPasswordHasher.js";
 import { JwtTokenService } from "./infrastructure/security/JwtTokenService.js";
@@ -90,8 +93,25 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export function buildApp(): FastifyInstance {
   const app = fastify({ logger: true });
 
+  // Global error handler — evita que errores de infraestructura (DB, etc.) lleguen al cliente
+  app.setErrorHandler((error: { statusCode?: number; message?: string }, request, reply) => {
+    request.log.error({ err: error }, "Error no capturado");
+    if (reply.sent) return;
+    const statusCode = error.statusCode ?? 500;
+    if (statusCode >= 500) {
+      return reply.status(500).send({ error: "Ha ocurrido un error inesperado. Intente nuevamente." });
+    }
+    return reply.status(statusCode).send({ error: error.message ?? "Error desconocido." });
+  });
+
   // 1. Plugins
   app.register(cors, { origin: "*" });
+  app.register(rateLimit, {
+    global: false, // aplicamos rate limit por ruta, no globalmente
+    keyGenerator: (request) =>
+      (request.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ??
+      request.ip,
+  });
   app.register(fastifyStatic, {
     root: path.join(__dirname, "../public"),
     prefix: "/",
@@ -107,6 +127,7 @@ export function buildApp(): FastifyInstance {
   const itemKnowledgeRepo = new PostgresItemKnowledgeRepository(db);
   const orderMessageRepo = new PostgresOrderMessageRepository(db);
   const llmUsageRepo = new PostgresLLMUsageRepository(db);
+  const goldenDatasetRepo = new PostgresGoldenDatasetRepository(db);
 
   const passwordHasher = new CryptoPasswordHasher();
   const tokenService = new JwtTokenService();
@@ -157,6 +178,13 @@ export function buildApp(): FastifyInstance {
   // 5. Casos de Uso Core
   const approveAnswerUseCase = new ApproveAnswerUseCase(questionRepo, meliClient, eventRepo, sseNotifier);
   const rejectAnswerUseCase = new RejectAnswerUseCase(questionRepo, eventRepo, sseNotifier);
+  const saveHumanDecisionUseCase = new SaveHumanDecisionUseCase(
+    questionRepo,
+    goldenDatasetRepo,
+    approveAnswerUseCase,
+    rejectAnswerUseCase,
+    itemCacheRepo,
+  );
 
   const ingestWebhookUseCase = new IngestWebhookUseCase(queueBroker, eventRepo);
 
@@ -288,7 +316,14 @@ export function buildApp(): FastifyInstance {
 
   // 9. Controladores
   const webhookCtrl = new WebhookController(ingestWebhookUseCase, ingestClaimUseCase, ingestOrderMessageUseCase);
-  const questionsCtrl = new QuestionsController(questionRepo, approveAnswerUseCase, rejectAnswerUseCase, itemCacheRepo);
+  const questionsCtrl = new QuestionsController(
+    questionRepo,
+    approveAnswerUseCase,
+    rejectAnswerUseCase,
+    itemCacheRepo,
+    saveHumanDecisionUseCase,
+    goldenDatasetRepo,
+  );
   const orderMessagesCtrl = new OrderMessagesController(
     listOrderMessagesUseCase,
     replyOrderMessageUseCase,
@@ -338,15 +373,20 @@ export function buildApp(): FastifyInstance {
     tenantRepo,
   );
 
-  // 10. Rutas — Auth
-  app.post("/api/auth/register", authCtrl.register);
-  app.post("/api/auth/login", authCtrl.login);
+  const AUTH_RATE = { max: 10, timeWindow: "1 minute" };
+  const RESET_RATE = { max: 3, timeWindow: "1 hour" };
+
+  // 10. Rutas — Auth (públicas con rate limit)
+  app.post("/api/auth/register", { config: { rateLimit: AUTH_RATE } }, authCtrl.register);
+  app.post("/api/auth/login", { config: { rateLimit: AUTH_RATE } }, authCtrl.login);
+  app.post("/api/auth/forgot-password", { config: { rateLimit: RESET_RATE } }, authCtrl.forgotPassword);
+  app.post("/api/auth/reset-password/:token", { config: { rateLimit: RESET_RATE } }, authCtrl.resetPassword);
+  app.post("/api/auth/activate/:token", { config: { rateLimit: AUTH_RATE } }, authCtrl.activateTenant);
+
+  // Auth — requiere token
   app.get("/api/auth/me", { preHandler: authenticate }, authCtrl.getMe);
   app.get("/api/auth/onboarding-status", { preHandler: authenticate }, authCtrl.getOnboardingStatus);
-  app.get("/api/auth/meli-auth-url", { preHandler: optionalAuthenticate }, authCtrl.getMeliAuthUrl);
-  app.post("/api/auth/activate/:token", authCtrl.activateTenant);
-  app.post("/api/auth/forgot-password", authCtrl.forgotPassword);
-  app.post("/api/auth/reset-password/:token", authCtrl.resetPassword);
+  app.get("/api/auth/meli-auth-url", { preHandler: authenticate }, authCtrl.getMeliAuthUrl);
 
   // Rutas — Super Admin
   app.get("/api/admin/metrics", { preHandler: requireSuperAdmin }, adminCtrl.getMetrics);
@@ -363,68 +403,70 @@ export function buildApp(): FastifyInstance {
   app.post("/api/admin/reset-password", { preHandler: requireSuperAdmin }, async (request, reply) => {
     const { email } = (request.body as { email?: string }) || {};
     if (!email) return reply.status(400).send({ error: "El campo email es requerido." });
-    const origin = (request.headers.origin as string) || process.env.APP_BASE_URL || "http://localhost:5173";
-    await requestPasswordResetUseCase.execute({ email, baseUrl: origin }).catch(() => {});
+    const baseUrl = process.env.APP_BASE_URL || "http://localhost:5173";
+    await requestPasswordResetUseCase.execute({ email, baseUrl }).catch(() => {});
     return reply.send({ ok: true });
   });
 
-  // Rutas — Webhooks & OAuth
+  // Rutas — Webhooks & OAuth (públicas — llamadas por servicios externos)
   app.post("/webhook/ml", webhookCtrl.handle);
   app.get("/webhook/whatsapp", waWebhookCtrl.verify);
   app.post("/webhook/whatsapp", waWebhookCtrl.receive);
   app.post("/webhook/telegram", telegramCtrl.receive);
-  app.get("/oauth/login", { preHandler: optionalAuthenticate }, authCtrl.meliOAuthLogin);
+  app.get("/oauth/login", { preHandler: authenticate }, authCtrl.meliOAuthLogin);
   app.get("/oauth/callback", authCtrl.meliOAuthCallback);
 
   // Rutas — Telegram & Email Tenant Integration
-  app.get("/api/tenant/telegram/info", { preHandler: optionalAuthenticate }, telegramCtrl.getInfo);
-  app.post("/api/tenant/telegram/test", { preHandler: optionalAuthenticate }, telegramCtrl.sendTest);
-  app.post("/api/tenant/channels/email/test", { preHandler: optionalAuthenticate }, tenantCtrl.sendTestEmail);
+  app.get("/api/tenant/telegram/info", { preHandler: authenticate }, telegramCtrl.getInfo);
+  app.post("/api/tenant/telegram/test", { preHandler: authenticate }, telegramCtrl.sendTest);
+  app.post("/api/tenant/channels/email/test", { preHandler: authenticate }, tenantCtrl.sendTestEmail);
 
-  // Rutas — SSE
-  app.get("/api/events/stream", (request, reply) => {
-    const sellerId = (request.query as any)?.seller_id;
-    sseNotifier.registerClient(reply, sellerId);
+  // Rutas — SSE (requiere token)
+  app.get("/api/events/stream", { preHandler: authenticate }, (request, reply) => {
+    const user = (request as any).user;
+    sseNotifier.registerClient(reply, user?.sellerId);
   });
 
   // Rutas — Questions & Actions
-  app.get("/api/questions", { preHandler: optionalAuthenticate }, questionsCtrl.getQuestions);
-  app.post("/api/questions/:id/approve", { preHandler: optionalAuthenticate }, questionsCtrl.approve);
-  app.post("/api/questions/:id/reject", { preHandler: optionalAuthenticate }, questionsCtrl.reject);
+  app.get("/api/questions", { preHandler: authenticate }, questionsCtrl.getQuestions);
+  app.post("/api/questions/:id/approve", { preHandler: authenticate }, questionsCtrl.approve);
+  app.post("/api/questions/:id/reject", { preHandler: authenticate }, questionsCtrl.reject);
   app.post("/api/whatsapp/reply", questionsCtrl.replyViaWhatsapp);
+  app.post("/api/questions/:id/human-decision", { preHandler: authenticate }, questionsCtrl.humanDecision);
+  app.get("/api/admin/tenants/:sellerId/golden-dataset", { preHandler: requireSuperAdmin }, questionsCtrl.getGoldenDataset);
+  app.get("/api/admin/tenants/:sellerId/golden-dataset/metrics", { preHandler: requireSuperAdmin }, questionsCtrl.getGoldenDatasetMetrics);
 
   // Rutas — Mensajería Post-Venta (Packs / Orders)
-  app.get("/api/order-messages", { preHandler: optionalAuthenticate }, orderMessagesCtrl.getMessages);
-  app.post("/api/order-messages/:id/reply", { preHandler: optionalAuthenticate }, orderMessagesCtrl.replyMessage);
-  app.post("/api/order-messages/simulate", { preHandler: optionalAuthenticate }, orderMessagesCtrl.simulate);
+  app.get("/api/order-messages", { preHandler: authenticate }, orderMessagesCtrl.getMessages);
+  app.post("/api/order-messages/:id/reply", { preHandler: authenticate }, orderMessagesCtrl.replyMessage);
+  app.post("/api/order-messages/simulate", { preHandler: authenticate }, orderMessagesCtrl.simulate);
 
   // Rutas — Reclamos & Post-Venta
-  app.get("/api/claims", { preHandler: optionalAuthenticate }, claimsCtrl.getClaims);
-  app.post("/api/claims/simulate", claimsCtrl.simulate);
-  app.post("/api/claims/:id/ack", { preHandler: optionalAuthenticate }, claimsCtrl.acknowledge);
-  app.post("/api/claims/:id/unack", { preHandler: optionalAuthenticate }, claimsCtrl.unacknowledge);
-  app.post("/api/claims/:id/close", { preHandler: optionalAuthenticate }, claimsCtrl.closeClaim);
-  app.post("/api/claims/:id/reopen", { preHandler: optionalAuthenticate }, claimsCtrl.reopenClaim);
-
+  app.get("/api/claims", { preHandler: authenticate }, claimsCtrl.getClaims);
+  app.post("/api/claims/simulate", { preHandler: authenticate }, claimsCtrl.simulate as any);
+  app.post("/api/claims/:id/ack", { preHandler: authenticate }, claimsCtrl.acknowledge);
+  app.post("/api/claims/:id/unack", { preHandler: authenticate }, claimsCtrl.unacknowledge);
+  app.post("/api/claims/:id/close", { preHandler: authenticate }, claimsCtrl.closeClaim);
+  app.post("/api/claims/:id/reopen", { preHandler: authenticate }, claimsCtrl.reopenClaim);
 
   // Rutas — Demo
   app.post("/api/demo/seed", { preHandler: requireDemo }, demoCtrl.seed);
 
   // Rutas — Catálogo & Reglas de Conocimiento por Producto
-  app.get("/api/tenant/products", { preHandler: optionalAuthenticate }, productsCtrl.list);
-  app.get("/api/tenant/products/:itemId/knowledge", { preHandler: optionalAuthenticate }, productsCtrl.getKnowledge);
-  app.put("/api/tenant/products/:itemId/knowledge", { preHandler: optionalAuthenticate }, productsCtrl.saveKnowledge);
-  app.delete("/api/tenant/products/:itemId/knowledge", { preHandler: optionalAuthenticate }, productsCtrl.deleteKnowledge);
-  app.post("/api/tenant/products/:itemId/simulate", { preHandler: optionalAuthenticate }, productsCtrl.simulate);
-  app.post("/api/tenant/products/:itemId/suggest-faqs", { preHandler: optionalAuthenticate }, productsCtrl.suggestFaqs);
+  app.get("/api/tenant/products", { preHandler: authenticate }, productsCtrl.list);
+  app.get("/api/tenant/products/:itemId/knowledge", { preHandler: authenticate }, productsCtrl.getKnowledge);
+  app.put("/api/tenant/products/:itemId/knowledge", { preHandler: authenticate }, productsCtrl.saveKnowledge);
+  app.delete("/api/tenant/products/:itemId/knowledge", { preHandler: authenticate }, productsCtrl.deleteKnowledge);
+  app.post("/api/tenant/products/:itemId/simulate", { preHandler: authenticate }, productsCtrl.simulate);
+  app.post("/api/tenant/products/:itemId/suggest-faqs", { preHandler: authenticate }, productsCtrl.suggestFaqs);
 
   // Rutas — Simulator, Health, Tenant
-  app.post("/api/simulate-question", simulatorCtrl.simulate);
+  app.post("/api/simulate-question", { preHandler: authenticate }, simulatorCtrl.simulate as any);
   app.get("/api/health", tenantCtrl.getHealth);
-  app.get("/api/events", { preHandler: optionalAuthenticate }, tenantCtrl.getEvents);
-  app.post("/api/config/auto-answer", { preHandler: optionalAuthenticate }, tenantCtrl.updateSettings);
-  app.get("/api/tenant/settings", { preHandler: optionalAuthenticate }, tenantCtrl.getSettings);
-  app.put("/api/tenant/settings", { preHandler: optionalAuthenticate }, tenantCtrl.updateSettings);
+  app.get("/api/events", { preHandler: authenticate }, tenantCtrl.getEvents);
+  app.post("/api/config/auto-answer", { preHandler: authenticate }, tenantCtrl.updateSettings);
+  app.get("/api/tenant/settings", { preHandler: authenticate }, tenantCtrl.getSettings);
+  app.put("/api/tenant/settings", { preHandler: authenticate }, tenantCtrl.updateSettings);
 
   // Rutas — LLM Usage
   app.get("/api/tenant/llm-usage", { preHandler: authenticate }, llmUsageCtrl.getTenantUsage);
