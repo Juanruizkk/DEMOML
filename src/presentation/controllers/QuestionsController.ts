@@ -6,6 +6,7 @@ import { RejectAnswerUseCase } from "../../application/use-cases/RejectAnswerUse
 import { paginateArray } from "../../domain/value-objects/Pagination.js";
 import { SaveHumanDecisionUseCase } from "../../application/use-cases/SaveHumanDecisionUseCase.js";
 import { IGoldenDatasetRepository } from "../../application/interfaces/IGoldenDatasetRepository.js";
+import { IntentType } from "../../domain/value-objects/Intent.js";
 
 export class QuestionsController {
   constructor(
@@ -198,6 +199,18 @@ export class QuestionsController {
       return reply.status(400).send({ error: `'decision' debe ser uno de: ${validDecisions.join(", ")}` });
     }
 
+    if (body.qualityRating !== undefined) {
+      const r = Number(body.qualityRating);
+      if (!Number.isInteger(r) || r < 1 || r > 5) {
+        return reply.status(400).send({ error: "'qualityRating' debe ser un entero entre 1 y 5." });
+      }
+    }
+
+    const VALID_INTENTS: IntentType[] = ["stock", "envio", "caracteristicas", "garantia", "facturacion", "precio_negociacion", "reclamo", "contacto_externo", "otro"];
+    if (body.humanIntent !== undefined && !VALID_INTENTS.includes(body.humanIntent as IntentType)) {
+      return reply.status(400).send({ error: `'humanIntent' debe ser uno de: ${VALID_INTENTS.join(", ")}` });
+    }
+
     const question = await this.questionRepo.findById(id);
     if (!question) {
       return reply.status(404).send({ error: "Pregunta no encontrada." });
@@ -216,7 +229,7 @@ export class QuestionsController {
         questionId: id,
         decision: body.decision,
         customAnswer: body.customAnswer,
-        humanIntent: body.humanIntent as any,
+        humanIntent: body.humanIntent as IntentType | undefined,
         qualityRating: body.qualityRating,
         reviewerId: user?.id ?? "unknown",
         reasoningNote: body.reasoningNote ?? null,
@@ -243,8 +256,8 @@ export class QuestionsController {
     const entries = await this.goldenDatasetRepo.findBySellerId(sellerId, {
       intent: query.intent,
       decision: query.decision,
-      limit: Number(query.limit) || 100,
-      offset: Number(query.offset) || 0,
+      limit: Math.min(Number(query.limit) || 100, 500),
+      offset: Math.max(Number(query.offset) || 0, 0),
     });
 
     return reply.send({ ok: true, total: entries.length, entries });
