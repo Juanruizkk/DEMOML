@@ -34,6 +34,10 @@ export class PostgresTenantRepository implements ITenantRepository {
       expiresAt: tenant.expiresAt,
       settingsJson: JSON.stringify(settings),
       updatedAt: new Date(),
+      billingStatus: tenant.settings.billingStatus ?? "active",
+      nextBillingDate: tenant.settings.nextBillingDate
+        ? new Date(tenant.settings.nextBillingDate)
+        : null,
     }).onConflictDoUpdate({
       target: tenants.id,
       set: {
@@ -45,6 +49,10 @@ export class PostgresTenantRepository implements ITenantRepository {
         expiresAt: tenant.expiresAt,
         settingsJson: JSON.stringify(settings),
         updatedAt: new Date(),
+        billingStatus: tenant.settings.billingStatus ?? "active",
+        nextBillingDate: tenant.settings.nextBillingDate
+          ? new Date(tenant.settings.nextBillingDate)
+          : null,
       },
     });
   }

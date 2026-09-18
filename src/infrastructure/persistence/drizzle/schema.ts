@@ -10,10 +10,12 @@ export const tenants = pgTable('tenants', {
   email: text('email'),
   accessToken: text('access_token').notNull(),
   refreshToken: text('refresh_token').notNull(),
-  expiresAt: integer('expires_at').notNull(),
+  expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
   settingsJson: text('settings_json').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+  billingStatus: text('billing_status').default('active'),
+  nextBillingDate: timestamp('next_billing_date'),
 });
 
 export const questions = pgTable('questions', {
