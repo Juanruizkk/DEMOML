@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ProcessQuestionUseCase } from "../../src/application/use-cases/ProcessQuestionUseCase.js";
+import { ProcessQuestionUseCase } from "../../src/application/use-cases/questions/ProcessQuestionUseCase.js";
 import { Question } from "../../src/domain/entities/Question.js";
 import { Item } from "../../src/domain/entities/Item.js";
 import { Tenant } from "../../src/domain/entities/Tenant.js";
+import { TenantNotificationService } from "../../src/application/services/TenantNotificationService.js";
 
 describe("ProcessQuestionUseCase", () => {
   let mockQuestionRepo: any;
@@ -33,6 +34,7 @@ describe("ProcessQuestionUseCase", () => {
           expiresInSec: 21600,
         })
       ),
+      save: vi.fn().mockResolvedValue(undefined),
     };
     mockEventRepo = {
       log: vi.fn().mockResolvedValue(undefined),
@@ -82,7 +84,8 @@ describe("ProcessQuestionUseCase", () => {
       mockEventRepo,
       mockMeliClient,
       mockLlmService,
-      mockNotifier
+      mockNotifier,
+      new TenantNotificationService(mockTenantRepo, mockEventRepo)
     );
   });
 
@@ -126,5 +129,40 @@ describe("ProcessQuestionUseCase", () => {
     expect(result?.appStatus).toBe("pending_review");
     expect(mockMeliClient.postAnswer).not.toHaveBeenCalled();
     expect(result?.reason).toContain("teléfono");
+  });
+
+  describe("LLM quota enforcement", () => {
+    it("skips LLM call and marks requires_human when quota is exhausted and grace has expired", async () => {
+      const longAgo = new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString();
+      const exhaustedTenant = Tenant.createDefault({
+        id: "t-001", sellerId: "seller_123",
+        accessToken: "tok", refreshToken: "ref", expiresInSec: 3600,
+      });
+      exhaustedTenant.updateSettings({
+        llmResponsesThisMonth: 300,
+        monthlyLLMLimit: 300,
+        llmQuotaExhaustedAt: longAgo,
+        billingStatus: "active",
+        nextBillingDate: new Date().toISOString(),
+      });
+
+      mockTenantRepo.findBySellerId.mockResolvedValue(exhaustedTenant);
+
+      const result = await useCase.execute({ questionId: "q-1", sellerId: "seller_123" });
+
+      expect(mockLlmService.classifyAndAnswer).not.toHaveBeenCalled();
+      expect(result?.appStatus).toBe("pending_review");
+    });
+
+    it("increments llmResponsesThisMonth after a successful auto-answer", async () => {
+      const saveSpy = vi.fn().mockResolvedValue(undefined);
+      mockTenantRepo.save = saveSpy;
+
+      await useCase.execute({ questionId: "q-1", sellerId: "seller_123" });
+
+      expect(saveSpy).toHaveBeenCalled();
+      const savedTenant: Tenant = saveSpy.mock.calls[0][0];
+      expect(savedTenant.settings.llmResponsesThisMonth).toBe(1);
+    });
   });
 });

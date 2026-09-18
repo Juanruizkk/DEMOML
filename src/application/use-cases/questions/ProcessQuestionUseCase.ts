@@ -1,17 +1,15 @@
-import { IQuestionRepository } from "../interfaces/IQuestionRepository.js";
-import { IItemCacheRepository } from "../interfaces/IItemCacheRepository.js";
-import { ITenantRepository } from "../interfaces/ITenantRepository.js";
-import { IEventRepository } from "../interfaces/IEventRepository.js";
-import { IMeliClient } from "../interfaces/IMeliClient.js";
-import { ILLMService } from "../interfaces/ILLMService.js";
-import { IRealtimeNotifier } from "../interfaces/IRealtimeNotifier.js";
-import { IWhatsAppClient } from "../interfaces/IWhatsAppClient.js";
-import { ITelegramClient } from "../interfaces/ITelegramClient.js";
-import { IEmailClient } from "../interfaces/IEmailClient.js";
-import { IItemKnowledgeRepository } from "../interfaces/IItemKnowledgeRepository.js";
-import { ModerationService } from "../../domain/services/ModerationService.js";
-import { Question } from "../../domain/entities/Question.js";
-import { EventLog } from "../../domain/entities/EventLog.js";
+import { IQuestionRepository } from "../../interfaces/IQuestionRepository.js";
+import { IItemCacheRepository } from "../../interfaces/IItemCacheRepository.js";
+import { ITenantRepository } from "../../interfaces/ITenantRepository.js";
+import { IEventRepository } from "../../interfaces/IEventRepository.js";
+import { IMeliClient } from "../../interfaces/IMeliClient.js";
+import { ILLMService } from "../../interfaces/ILLMService.js";
+import { IRealtimeNotifier } from "../../interfaces/IRealtimeNotifier.js";
+import { IItemKnowledgeRepository } from "../../interfaces/IItemKnowledgeRepository.js";
+import { TenantNotificationService } from "../../services/TenantNotificationService.js";
+import { ModerationService } from "../../../domain/services/ModerationService.js";
+import { Question } from "../../../domain/entities/Question.js";
+import { EventLog } from "../../../domain/entities/EventLog.js";
 
 export class ProcessQuestionUseCase {
   constructor(
@@ -22,10 +20,8 @@ export class ProcessQuestionUseCase {
     private readonly meliClient: IMeliClient,
     private readonly llmService: ILLMService,
     private readonly realtimeNotifier: IRealtimeNotifier,
-    private readonly whatsAppClient: IWhatsAppClient,
-    private readonly telegramClient?: ITelegramClient,
-    private readonly itemKnowledgeRepo?: IItemKnowledgeRepository,
-    private readonly emailClient?: IEmailClient
+    private readonly notificationService: TenantNotificationService,
+    private readonly itemKnowledgeRepo?: IItemKnowledgeRepository
   ) {}
 
   public async execute(params: { questionId: string; sellerId: string }): Promise<Question | null> {
@@ -120,6 +116,22 @@ export class ProcessQuestionUseCase {
         tone: "casual_rioplatense",
       };
 
+      // 5a. Check LLM quota before calling
+      if (tenant && !tenant.canAutoAnswer()) {
+        question.markAsPendingReview("Cuota mensual de respuestas agotada");
+        await this.questionRepo.save(question);
+        await this.eventRepo.log(
+          new EventLog({
+            sellerId,
+            questionId,
+            type: "quota_exceeded",
+            message: `⛔ Cuota LLM agotada. Pregunta requiere revisión humana.`,
+          })
+        );
+        this.realtimeNotifier.broadcastToSeller(sellerId, "question_updated", question);
+        return question;
+      }
+
       // 5. Clasificación y generación LLM
       t0 = Date.now();
       const classification = await this.llmService.classifyAndAnswer({
@@ -141,6 +153,35 @@ export class ProcessQuestionUseCase {
           durationMs: classifyMs,
         })
       );
+
+      // Increment LLM usage counter
+      if (tenant) {
+        const wasAtWarning = tenant.isLLMQuotaAtWarning();
+        tenant.incrementLLMResponses();
+        await this.tenantRepo.save(tenant);
+
+        if (!wasAtWarning && tenant.isLLMQuotaAtWarning()) {
+          await this.eventRepo.log(
+            new EventLog({
+              sellerId,
+              questionId,
+              type: "quota_warning",
+              message: `⚠️ Usaste el 80% de tus respuestas mensuales (${tenant.settings.llmResponsesThisMonth}/${tenant.settings.monthlyLLMLimit}).`,
+            })
+          );
+        }
+
+        if (tenant.settings.llmQuotaExhaustedAt) {
+          await this.eventRepo.log(
+            new EventLog({
+              sellerId,
+              questionId,
+              type: "quota_exhausted",
+              message: `🚨 Límite mensual alcanzado (${tenant.settings.monthlyLLMLimit} respuestas). El bot pausará automáticamente en 12 horas.`,
+            })
+          );
+        }
+      }
 
       question.intent = classification.intent;
       question.confidence = classification.confidence;
@@ -235,83 +276,45 @@ export class ProcessQuestionUseCase {
           timestamp: new Date().toISOString(),
         });
 
-        // Send real WhatsApp notification if tenant has a phone configured
-        const tenantAlert = await this.tenantRepo.findBySellerId(sellerId);
-        const waPhone = tenantAlert?.settings?.whatsappAlertPhone;
-        const channelPref = tenantAlert?.settings?.preferredAlertChannel || "whatsapp";
-
-        if (waPhone && tenantAlert && (channelPref === "whatsapp" || channelPref === "both")) {
-          if (tenantAlert.canSendWhatsAppAlert()) {
-            const creds = tenantAlert.getWhatsAppCredentials();
-            await this.whatsAppClient.sendInteractiveButtons({
-              to: waPhone,
-              bodyText:
-                `🤔 *Pregunta requiere revisión*\n\n` +
-                `📦 Ítem: ${item.title}\n` +
-                `💬 "${question.text}"\n\n` +
-                `💡 Sugerencia: "${(classification.answer || "").slice(0, 100)}${(classification.answer || "").length > 100 ? "…" : ""}"\n\n` +
-                `Motivo: ${reviewReason}`,
-              buttons: [
-                { id: `approve_${questionId}`, title: "✅ Aprobar" },
-                { id: `reject_${questionId}`, title: "❌ Rechazar" },
+        // Alertas al vendedor por los canales configurados (WhatsApp / Telegram / Email)
+        await this.notificationService.notify({
+          sellerId,
+          logContext: { questionId },
+          whatsapp: {
+            bodyText:
+              `🤔 *Pregunta requiere revisión*\n\n` +
+              `📦 Ítem: ${item.title}\n` +
+              `💬 "${question.text}"\n\n` +
+              `💡 Sugerencia: "${(classification.answer || "").slice(0, 100)}${(classification.answer || "").length > 100 ? "…" : ""}"\n\n` +
+              `Motivo: ${reviewReason}`,
+            buttons: [
+              { id: `approve_${questionId}`, title: "✅ Aprobar" },
+              { id: `reject_${questionId}`, title: "❌ Rechazar" },
+            ],
+          },
+          telegram: {
+            text:
+              `🤔 *Pregunta requiere revisión humana*\n\n` +
+              `📦 *Ítem:* ${item.title}\n` +
+              `💬 *Pregunta:* "${question.text}"\n\n` +
+              `💡 *Sugerencia IA:* "${(classification.answer || "").slice(0, 150)}${(classification.answer || "").length > 150 ? "…" : ""}"\n\n` +
+              `🔍 *Motivo:* ${reviewReason}`,
+            buttons: [
+              [
+                { text: "✅ Aprobar", callbackData: `approve_${questionId}` },
+                { text: "❌ Rechazar", callbackData: `reject_${questionId}` },
               ],
-              credentials: creds ?? undefined,
-            }).catch((err) => console.error("[ProcessQuestionUseCase] Error WA:", err));
-
-            if (tenantAlert.settings.whatsappMode === "platform_shared") {
-              tenantAlert.incrementAlertsSent();
-              await this.tenantRepo.save(tenantAlert);
-            }
-          } else {
-            await this.eventRepo.log(
-              new EventLog({
-                sellerId,
-                type: "WHATSAPP_QUOTA_EXCEEDED",
-                message: `Límite mensual de alertas alcanzado (${tenantAlert.settings.alertsSentThisMonth}/${tenantAlert.settings.monthlyAlertsLimit}). Alerta omitida.`,
-              })
-            );
-          }
-        }
-
-        // Send Telegram notification if tenant has Telegram enabled & configured
-        if (this.telegramClient && tenantAlert?.canSendTelegramAlert() && (channelPref === "telegram" || channelPref === "both")) {
-          const creds = tenantAlert.getTelegramCredentials();
-          if (creds?.chatId) {
-            await this.telegramClient.sendMessage({
-              chatId: creds.chatId,
-              text:
-                `🤔 *Pregunta requiere revisión humana*\n\n` +
-                `📦 *Ítem:* ${item.title}\n` +
-                `💬 *Pregunta:* "${question.text}"\n\n` +
-                `💡 *Sugerencia IA:* "${(classification.answer || "").slice(0, 150)}${(classification.answer || "").length > 150 ? "…" : ""}"\n\n` +
-                `🔍 *Motivo:* ${reviewReason}`,
-              buttons: [
-                [
-                  { text: "✅ Aprobar", callbackData: `approve_${questionId}` },
-                  { text: "❌ Rechazar", callbackData: `reject_${questionId}` },
-                ],
-              ],
-              botToken: creds.botToken,
-            }).catch((err) => console.error("[ProcessQuestionUseCase] Error Telegram:", err));
-
-            await this.eventRepo.log(
-              new EventLog({
-                sellerId,
-                questionId,
-                type: "telegram_alert_sent",
-                message: `✈️ Alerta interactiva enviada a Telegram (Chat ID: ${creds.chatId})`,
-              })
-            );
-          }
-        }
-
-        // Send Email notification if tenant has Email enabled & configured
-        if (this.emailClient && tenantAlert?.canSendEmailAlert("question")) {
-          const emailTo = tenantAlert.getEmailAlertAddress();
-          if (emailTo) {
-            await this.emailClient
-              .sendQuestionReviewAlert({
-                to: emailTo,
+            ],
+            successLog: {
+              type: "telegram_alert_sent",
+              buildMessage: (chatId) => `✈️ Alerta interactiva enviada a Telegram (Chat ID: ${chatId})`,
+            },
+          },
+          email: {
+            kind: "question",
+            send: (client, to) =>
+              client.sendQuestionReviewAlert({
+                to,
                 sellerId,
                 questionId,
                 itemTitle: item.title,
@@ -319,22 +322,13 @@ export class ProcessQuestionUseCase {
                 questionText: question.text,
                 suggestedAnswer: classification.answer,
                 reason: reviewReason,
-              })
-              .then(async (res) => {
-                if (res.success) {
-                  await this.eventRepo.log(
-                    new EventLog({
-                      sellerId,
-                      questionId,
-                      type: "email_alert_sent",
-                      message: `📧 Alerta de revisión enviada por correo a ${emailTo}`,
-                    })
-                  );
-                }
-              })
-              .catch((err) => console.error("[ProcessQuestionUseCase] Error Email:", err));
-          }
-        }
+              }),
+            successLog: {
+              type: "email_alert_sent",
+              buildMessage: (to) => `📧 Alerta de revisión enviada por correo a ${to}`,
+            },
+          },
+        });
       }
 
       this.realtimeNotifier.broadcastToSeller(sellerId, "question_updated", question);
