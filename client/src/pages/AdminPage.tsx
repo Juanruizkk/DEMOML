@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import PageHeader from '../components/PageHeader'
+import MonthPicker from '../components/MonthPicker'
 import {
   Building2,
   Mail,
@@ -43,6 +44,13 @@ interface TenantOverview {
 }
 
 interface PendingInvitation {
+  id: string
+  name: string
+  email: string
+  createdAt: string
+}
+
+interface UnconnectedTenant {
   id: string
   name: string
   email: string
@@ -118,6 +126,7 @@ export default function AdminPage() {
   const [metrics, setMetrics]           = useState<Metrics | null>(null)
   const [tenants, setTenants]           = useState<TenantOverview[]>([])
   const [pending, setPending]           = useState<PendingInvitation[]>([])
+  const [unconnected, setUnconnected]   = useState<UnconnectedTenant[]>([])
   const [loading, setLoading]           = useState(true)
   const [selected, setSelected]         = useState<string | null>(null)
   const [saving, setSaving]             = useState(false)
@@ -137,6 +146,21 @@ export default function AdminPage() {
   const [savedIntegrations, setSavedIntegrations]   = useState(false)
   const [clearLlmKey, setClearLlmKey]               = useState(false)
   const [clearWaToken, setClearWaToken]             = useState(false)
+  const [localPlan, setLocalPlan] = useState<{
+    planId: string;
+    billingStatus: string;
+    nextBillingDate: string;
+    llmResponsesThisMonth: number;
+    monthlyLLMLimit: number;
+  }>({
+    planId: 'starter',
+    billingStatus: 'active',
+    nextBillingDate: '',
+    llmResponsesThisMonth: 0,
+    monthlyLLMLimit: 300,
+  })
+  const [savingPlan, setSavingPlan]     = useState(false)
+  const [savedPlan, setSavedPlan]       = useState(false)
 
   const [activeSection, setActiveSection] = useState<'tenants' | 'llm_usage'>('tenants')
   const [llmStats, setLlmStats] = useState<any | null>(null)
@@ -153,16 +177,20 @@ export default function AdminPage() {
   const [copied, setCopied]             = useState(false)
   const [resetSent, setResetSent]       = useState<string | null>(null)
   const [resetting, setResetting]       = useState<string | null>(null)
+  const [resentLink, setResentLink]     = useState<Record<string, string>>({})
+  const [copiedResent, setCopiedResent] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
       api.get<Metrics>('/admin/metrics'),
       api.get<TenantOverview[]>('/admin/tenants'),
       api.get<PendingInvitation[]>('/admin/invitations'),
-    ]).then(([m, t, p]) => {
+      api.get<UnconnectedTenant[]>('/admin/unconnected'),
+    ]).then(([m, t, p, u]) => {
       setMetrics(m)
       setTenants(t)
       setPending(p)
+      setUnconnected(u)
       // Auto-select first tenant if available
       if (t.length > 0 && !selected) {
         selectTenant(t[0])
@@ -194,6 +222,13 @@ export default function AdminPage() {
         llmApiKey: '',
         hasLlmApiKey: s.llmApiKey === '***',
         hasCustomAccessToken: s.customAccessToken === '***',
+      })
+      setLocalPlan({
+        planId: s.planId || 'starter',
+        billingStatus: s.billingStatus || 'active',
+        nextBillingDate: s.nextBillingDate ? s.nextBillingDate.slice(0, 10) : '',
+        llmResponsesThisMonth: s.llmResponsesThisMonth || 0,
+        monthlyLLMLimit: s.monthlyLLMLimit || 300,
       })
     } catch {
       setLocalPerms({ whatsappEnabled: true, telegramEnabled: true, emailEnabled: false, preSaleEnabled: true, postSaleEnabled: true, multiUserEnabled: false })
@@ -252,6 +287,35 @@ export default function AdminPage() {
     }
   }
 
+  const handleUpdatePlan = async () => {
+    if (!selected) return
+    setSavingPlan(true)
+    setSavedPlan(false)
+    try {
+      const payload = {
+        planId: localPlan.planId,
+        billingStatus: localPlan.billingStatus,
+        nextBillingDate: localPlan.nextBillingDate
+          ? new Date(localPlan.nextBillingDate).toISOString()
+          : new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+      }
+      const updated = await api.put<{ monthlyLLMLimit: number }>(
+        `/admin/tenants/${selected}/plan`,
+        payload
+      )
+      setLocalPlan(prev => ({
+        ...prev,
+        monthlyLLMLimit: updated.monthlyLLMLimit ?? prev.monthlyLLMLimit,
+      }))
+      setSavedPlan(true)
+      setTimeout(() => setSavedPlan(false), 3000)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingPlan(false)
+    }
+  }
+
   const handleCopySellerId = (id: string) => {
     navigator.clipboard.writeText(id)
     setCopiedId(true)
@@ -292,6 +356,26 @@ export default function AdminPage() {
     navigator.clipboard.writeText(createdLink)
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
+  }
+
+  const handleResendInvitation = async (userId: string) => {
+    setResetting(userId)
+    try {
+      const result = await api.post<{ activationUrl: string }>(`/admin/users/${userId}/resend-invitation`, {})
+      setResentLink(prev => ({ ...prev, [userId]: result.activationUrl }))
+    } catch (err: any) {
+      console.error('Error al reenviar invitación:', err)
+    } finally {
+      setResetting(null)
+    }
+  }
+
+  const copyResentLink = (userId: string) => {
+    const link = resentLink[userId]
+    if (!link) return
+    navigator.clipboard.writeText(link)
+    setCopiedResent(userId)
+    setTimeout(() => setCopiedResent(null), 2500)
   }
 
   const handleResetPassword = async (userId: string, email: string) => {
@@ -389,28 +473,64 @@ export default function AdminPage() {
                   <span>Invitaciones pendientes ({pending.length})</span>
                 </div>
                 {pending.map(inv => (
-                  <div key={inv.id} className="tenant-row tenant-row--pending">
-                    <div className="tenant-row-info">
-                      <span className="tenant-row-name">{inv.name}</span>
-                      <span className="tenant-row-email">{inv.email}</span>
+                  <div key={inv.id}>
+                    <div className="tenant-row tenant-row--pending">
+                      <div className="tenant-row-info">
+                        <span className="tenant-row-name">{inv.name}</span>
+                        <span className="tenant-row-email">{inv.email}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="badge-pending">Pendiente</span>
+                        <button
+                          className="btn-resend-invite"
+                          disabled={resetting === inv.id}
+                          onClick={() => handleResendInvitation(inv.id)}
+                          title="Reenviar link de activación"
+                        >
+                          {resetting === inv.id ? '…' : '↺ Reenviar'}
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="badge-pending">Pendiente</span>
-                      <button
-                        className="btn-resend-invite"
-                        disabled={resetting === inv.id}
-                        onClick={() => handleResetPassword(inv.id, inv.email)}
-                        title="Reenviar link de activación"
-                      >
-                        {resetting === inv.id ? '…' : '↺ Reenviar'}
-                      </button>
-                    </div>
+                    {resentLink[inv.id] && (
+                      <div className="resent-link-panel">
+                        <span className="resent-link-label">Enlace de activación</span>
+                        <div className="resent-link-row">
+                          <span className="resent-link-text">{resentLink[inv.id]}</span>
+                          <button
+                            className="btn-resend-copy"
+                            onClick={() => copyResentLink(inv.id)}
+                          >
+                            {copiedResent === inv.id ? <Check size={13} /> : <Copy size={13} />}
+                            {copiedResent === inv.id ? 'Copiado' : 'Copiar'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
 
-            {tenants.length === 0 && pending.length === 0 && (
+            {/* Activados pero sin ML conectado */}
+            {unconnected.length > 0 && (
+              <div className="pending-section">
+                <div className="pending-section-title">
+                  <AlertCircle size={13} />
+                  <span>Activados — sin Mercado Libre ({unconnected.length})</span>
+                </div>
+                {unconnected.map(u => (
+                  <div key={u.id} className="tenant-row tenant-row--pending">
+                    <div className="tenant-row-info">
+                      <span className="tenant-row-name">{u.name}</span>
+                      <span className="tenant-row-email">{u.email}</span>
+                    </div>
+                    <span className="badge-unconnected">Sin ML</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {tenants.length === 0 && pending.length === 0 && unconnected.length === 0 && (
               <p className="list-empty" style={{ padding: '24px 16px' }}>Sin tenants registrados</p>
             )}
 
@@ -685,6 +805,76 @@ export default function AdminPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Plan & Billing section */}
+              <div className="permissions-section" style={{ marginTop: '24px' }}>
+                <div className="permissions-header">
+                  <div className="header-icon-box blue">
+                    <Radio size={18} />
+                  </div>
+                  <div>
+                    <h4 className="permissions-title">Plan & Facturación</h4>
+                    <p className="permissions-hint">Gestioná el plan, estado de pago y cuota de respuestas IA.</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
+                  <div>
+                    <label style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Plan</label>
+                    <select
+                      className="input-field"
+                      value={localPlan.planId}
+                      onChange={e => setLocalPlan(p => ({ ...p, planId: e.target.value }))}
+                    >
+                      <option value="starter">Starter — 300 respuestas/mes</option>
+                      <option value="pro">Pro — 1.000 respuestas/mes</option>
+                      <option value="business">Business — 5.000 respuestas/mes</option>
+                      <option value="enterprise">Enterprise — Ilimitado</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Estado de facturación</label>
+                    <select
+                      className="input-field"
+                      value={localPlan.billingStatus}
+                      onChange={e => setLocalPlan(p => ({ ...p, billingStatus: e.target.value }))}
+                    >
+                      <option value="active">Activo</option>
+                      <option value="overdue">Vencido</option>
+                      <option value="cancelled">Cancelado</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Próximo vencimiento</label>
+                    <input
+                      className="input-field"
+                      type="date"
+                      value={localPlan.nextBillingDate}
+                      onChange={e => setLocalPlan(p => ({ ...p, nextBillingDate: e.target.value }))}
+                    />
+                  </div>
+
+                  <div style={{ background: 'var(--surface-2, rgba(255,255,255,0.04))', borderRadius: '8px', padding: '12px 14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    <span>Respuestas IA este mes: </span>
+                    <strong>{localPlan.llmResponsesThisMonth}</strong>
+                    <span> / </span>
+                    <strong>{localPlan.monthlyLLMLimit === 999_999_999 ? '∞' : localPlan.monthlyLLMLimit}</strong>
+                    {localPlan.monthlyLLMLimit > 0 && localPlan.monthlyLLMLimit < 999_999_999 && (
+                      <span style={{ marginLeft: '8px', color: localPlan.llmResponsesThisMonth / localPlan.monthlyLLMLimit >= 0.8 ? '#f59e0b' : 'var(--text-dim)' }}>
+                        ({Math.round((localPlan.llmResponsesThisMonth / localPlan.monthlyLLMLimit) * 100)}%)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="admin-actions-bar" style={{ marginTop: '16px' }}>
+                  <button className="btn-save" onClick={handleUpdatePlan} disabled={savingPlan}>
+                    {savingPlan ? 'Guardando…' : savedPlan ? '✓ Plan Guardado' : 'Guardar Plan'}
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="tenant-empty-hero glass">
@@ -727,12 +917,7 @@ export default function AdminPage() {
             <div className="llm-usage-panel">
               <div className="llm-usage-header">
                 <h3>Consumo de IA</h3>
-                <input
-                  type="month"
-                  value={llmMonth}
-                  onChange={(e) => setLlmMonth(e.target.value)}
-                  className="llm-month-picker"
-                />
+                <MonthPicker value={llmMonth} onChange={setLlmMonth} />
               </div>
 
               {loadingLlm && <p className="llm-loading">Cargando...</p>}
