@@ -1,12 +1,14 @@
-import { IEventRepository } from "../interfaces/IEventRepository.js";
-import { EventLog } from "../../domain/entities/EventLog.js";
+import { IEventRepository } from "../../interfaces/IEventRepository.js";
+import { ITenantRepository } from "../../interfaces/ITenantRepository.js";
+import { EventLog } from "../../../domain/entities/EventLog.js";
 import { ProcessClaimUseCase } from "./ProcessClaimUseCase.js";
-import { WebhookPayload } from "./IngestWebhookUseCase.js";
+import { WebhookPayload } from "../questions/IngestWebhookUseCase.js";
 
 export class IngestClaimWebhookUseCase {
   constructor(
     private readonly processClaimUseCase: ProcessClaimUseCase,
-    private readonly eventRepo: IEventRepository
+    private readonly eventRepo: IEventRepository,
+    private readonly tenantRepo: ITenantRepository,
   ) {}
 
   public async execute(payload: WebhookPayload): Promise<{ queued: boolean; claimId?: string }> {
@@ -28,6 +30,19 @@ export class IngestClaimWebhookUseCase {
 
     const claimId = match[1];
     const sellerId = String(user_id || process.env.ML_SELLER_ID || "");
+
+    // Plan gate: only Pro+ plans include claims management
+    const tenant = await this.tenantRepo.findBySellerId(sellerId);
+    if (tenant && !tenant.canAccessClaims()) {
+      await this.eventRepo.log(
+        new EventLog({
+          sellerId,
+          type: "claims_plan_blocked",
+          message: `⛔ Reclamo recibido pero el plan "${tenant.settings.planId}" no incluye gestión de reclamos.`,
+        })
+      );
+      return { queued: false };
+    }
 
     await this.eventRepo.log(
       new EventLog({
