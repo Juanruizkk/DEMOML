@@ -152,6 +152,9 @@ describe("ProcessQuestionUseCase", () => {
 
       expect(mockLlmService.classifyAndAnswer).not.toHaveBeenCalled();
       expect(result?.appStatus).toBe("pending_review");
+      expect(mockEventRepo.log).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "quota_exceeded" })
+      );
     });
 
     it("increments llmResponsesThisMonth after a successful auto-answer", async () => {

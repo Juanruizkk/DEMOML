@@ -157,6 +157,7 @@ export class ProcessQuestionUseCase {
       // Increment LLM usage counter
       if (tenant) {
         const wasAtWarning = tenant.isLLMQuotaAtWarning();
+        const wasExhausted = !!tenant.settings.llmQuotaExhaustedAt;
         tenant.incrementLLMResponses();
         await this.tenantRepo.save(tenant);
 
@@ -171,7 +172,7 @@ export class ProcessQuestionUseCase {
           );
         }
 
-        if (tenant.settings.llmQuotaExhaustedAt) {
+        if (!wasExhausted && tenant.settings.llmQuotaExhaustedAt) {
           await this.eventRepo.log(
             new EventLog({
               sellerId,
