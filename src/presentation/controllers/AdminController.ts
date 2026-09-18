@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { FastifyRequest, FastifyReply } from "fastify";
 import { GetGlobalMetricsUseCase } from "../../application/use-cases/admin/GetGlobalMetricsUseCase.js";
 import { ListTenantsOverviewUseCase } from "../../application/use-cases/admin/ListTenantsOverviewUseCase.js";
@@ -11,6 +12,7 @@ import { TenantPermissions } from "../../domain/entities/Tenant.js";
 import { RequestPasswordResetUseCase } from "../../application/use-cases/auth/RequestPasswordResetUseCase.js";
 import { IEmailClient } from "../../application/interfaces/IEmailClient.js";
 import { UpdateTenantIntegrationsUseCase } from "../../application/use-cases/admin/UpdateTenantIntegrationsUseCase.js";
+import { UpdateTenantPlanUseCase } from "../../application/use-cases/admin/UpdateTenantPlanUseCase.js";
 
 export class AdminController {
   constructor(
@@ -25,6 +27,7 @@ export class AdminController {
     private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase,
     private readonly emailClient?: IEmailClient,
     private readonly updateTenantIntegrationsUseCase?: UpdateTenantIntegrationsUseCase,
+    private readonly updateTenantPlanUseCase?: UpdateTenantPlanUseCase,
   ) {}
 
   public getMetrics = async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -40,6 +43,17 @@ export class AdminController {
     try {
       const tenants = await this.listTenantsOverviewUseCase.execute();
       return reply.send(tenants);
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
+  };
+
+  public getUnconnectedTenants = async (_request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const unconnected = await this.userRepo.findActiveUnconnectedTenants();
+      return reply.send(
+        unconnected.map(u => ({ id: u.id, name: u.name, email: u.email, createdAt: u.createdAt }))
+      );
     } catch (err: any) {
       return reply.status(500).send({ error: err.message });
     }
@@ -102,7 +116,7 @@ export class AdminController {
     const { name, email } = request.body as { name: string; email: string };
     try {
       const result = await this.createTenantUseCase.execute({ name, email });
-      const origin = `${request.protocol}://${request.hostname}`;
+      const origin = request.headers.origin || process.env.APP_BASE_URL || "http://localhost:5173";
       const activationUrl = `${origin}/activate/${result.activationToken}`;
 
       if (this.emailClient) {
@@ -114,6 +128,32 @@ export class AdminController {
       return reply.status(201).send({ userId: result.userId, activationUrl });
     } catch (err: any) {
       return reply.status(400).send({ error: err.message });
+    }
+  };
+
+  public resendInvitation = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { userId } = request.params as { userId: string };
+    const origin = request.headers.origin || process.env.APP_BASE_URL || "http://localhost:5173";
+    try {
+      const user = await this.userRepo.findById(userId);
+      if (!user) return reply.status(404).send({ error: "Usuario no encontrado." });
+      if (!user.isPending()) return reply.status(400).send({ error: "El usuario ya está activo." });
+
+      const activationToken = crypto.randomBytes(32).toString("hex");
+      user.setResetToken(activationToken);
+      await this.userRepo.save(user);
+
+      const activationUrl = `${origin}/activate/${activationToken}`;
+
+      if (this.emailClient) {
+        this.emailClient
+          .sendTenantInvitation({ to: user.email, name: user.name, activationUrl })
+          .catch((err) => console.error("❌ [AdminController] Error reenviando invitación:", err));
+      }
+
+      return reply.send({ activationUrl });
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
     }
   };
 
@@ -152,6 +192,30 @@ export class AdminController {
       return reply.send(result);
     } catch (err: any) {
       return reply.status(400).send({ error: err.message });
+    }
+  };
+
+  public updateTenantPlan = async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { sellerId } = request.params as { sellerId: string };
+      const { planId, billingStatus, nextBillingDate } = request.body as {
+        planId: "starter" | "pro" | "business" | "enterprise";
+        billingStatus: "active" | "overdue" | "cancelled";
+        nextBillingDate: string;
+      };
+      if (!this.updateTenantPlanUseCase) {
+        return reply.status(503).send({ error: "Plan management not configured" });
+      }
+      const result = await this.updateTenantPlanUseCase.execute({
+        sellerId,
+        planId,
+        billingStatus,
+        nextBillingDate,
+      });
+      return reply.send(result);
+    } catch (err: any) {
+      if (err.message.includes("not found")) return reply.status(404).send({ error: err.message });
+      return reply.status(500).send({ error: err.message });
     }
   };
 }

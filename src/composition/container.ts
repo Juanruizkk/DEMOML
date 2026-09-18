@@ -67,6 +67,7 @@ import { ToggleTenantAutoAnswerUseCase } from "../application/use-cases/admin/To
 import { ForceTokenRefreshUseCase } from "../application/use-cases/admin/ForceTokenRefreshUseCase.js";
 import { UpdateTenantPermissionsUseCase } from "../application/use-cases/admin/UpdateTenantPermissionsUseCase.js";
 import { UpdateTenantIntegrationsUseCase } from "../application/use-cases/admin/UpdateTenantIntegrationsUseCase.js";
+import { UpdateTenantPlanUseCase } from "../application/use-cases/admin/UpdateTenantPlanUseCase.js";
 import { CreateTenantUseCase } from "../application/use-cases/admin/CreateTenantUseCase.js";
 import { GetLLMUsageStatsUseCase } from "../application/use-cases/admin/GetLLMUsageStatsUseCase.js";
 import { ListTeamMembersUseCase } from "../application/use-cases/tenant/ListTeamMembersUseCase.js";
@@ -289,11 +290,12 @@ export function buildContainer() {
     getTenantSettingsUseCase, updateTenantSettingsUseCase, sendTestEmailUseCase,
     listTeamMembersUseCase, inviteTeamMemberUseCase, removeTeamMemberUseCase
   );
+  const updateTenantPlanUseCase = new UpdateTenantPlanUseCase(tenantRepo);
   const adminCtrl = new AdminController(
     getGlobalMetricsUseCase, listTenantsOverviewUseCase, getTenantDetailUseCase,
     toggleTenantAutoAnswerUseCase, forceTokenRefreshUseCase, updateTenantPermissionsUseCase,
     createTenantUseCase, userRepo, requestPasswordResetUseCase, emailClient,
-    updateTenantIntegrationsUseCase
+    updateTenantIntegrationsUseCase, updateTenantPlanUseCase
   );
   const waWebhookCtrl = new WhatsAppWebhookController(handleWhatsAppReplyUseCase);
   const telegramCtrl = new TelegramWebhookController(handleTelegramWebhookUseCase, telegramClient, tenantRepo);
