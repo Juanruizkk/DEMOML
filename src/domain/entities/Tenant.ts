@@ -1,5 +1,18 @@
 export type WhatsAppMode = "platform_shared" | "custom_byo";
 
+export interface PlanFeatures {
+  llmResponsesPerMonth: number;
+  claimsEnabled: boolean;
+  whatsappEnabled: boolean;
+}
+
+export const PLAN_LIMITS: Record<string, PlanFeatures> = {
+  starter:    { llmResponsesPerMonth: 300,      claimsEnabled: false, whatsappEnabled: false },
+  pro:        { llmResponsesPerMonth: 1_000,    claimsEnabled: true,  whatsappEnabled: false },
+  business:   { llmResponsesPerMonth: 5_000,    claimsEnabled: true,  whatsappEnabled: true  },
+  enterprise: { llmResponsesPerMonth: Infinity, claimsEnabled: true,  whatsappEnabled: true  },
+};
+
 export type AutomationMode = "always_auto" | "smart_hybrid" | "always_manual" | "schedule";
 
 export interface TenantPermissions {
@@ -76,10 +89,19 @@ export interface TenantSettings {
   webNotifications?: WebNotificationsSettings;
 
   // Quota and billing
-  planId: "starter" | "pro" | "enterprise";
+  planId: "starter" | "pro" | "business" | "enterprise";
   monthlyAlertsLimit: number;
   alertsSentThisMonth: number;
   cycleResetDate: string;
+
+  // LLM quota
+  monthlyLLMLimit: number;
+  llmResponsesThisMonth: number;
+  llmQuotaExhaustedAt: string | null;
+
+  // Billing
+  billingStatus: "active" | "overdue" | "cancelled";
+  nextBillingDate: string;
 
   permissions?: TenantPermissions;
 }
@@ -207,6 +229,46 @@ export class Tenant {
       alertsSentThisMonth: this.settings.alertsSentThisMonth + 1,
     };
     this.updatedAt = new Date();
+  }
+
+  public incrementLLMResponses(): void {
+    const newCount = this.settings.llmResponsesThisMonth + 1;
+    const justExhausted =
+      newCount >= this.settings.monthlyLLMLimit &&
+      !this.settings.llmQuotaExhaustedAt;
+
+    this.settings = {
+      ...this.settings,
+      llmResponsesThisMonth: newCount,
+      llmQuotaExhaustedAt: justExhausted
+        ? new Date().toISOString()
+        : this.settings.llmQuotaExhaustedAt,
+    };
+    this.updatedAt = new Date();
+  }
+
+  public isLLMQuotaAtWarning(): boolean {
+    if (this.settings.llmQuotaExhaustedAt) return false;
+    return (
+      this.settings.llmResponsesThisMonth / this.settings.monthlyLLMLimit >= 0.8
+    );
+  }
+
+  public canAutoAnswer(): boolean {
+    if (this.settings.billingStatus !== "active") return false;
+    if (!this.settings.llmQuotaExhaustedAt) return true;
+
+    const exhaustedAt = new Date(this.settings.llmQuotaExhaustedAt).getTime();
+    const twelveHoursMs = 12 * 60 * 60 * 1000;
+    return Date.now() - exhaustedAt < twelveHoursMs;
+  }
+
+  public canAccessClaims(): boolean {
+    return PLAN_LIMITS[this.settings.planId]?.claimsEnabled ?? false;
+  }
+
+  public canAccessWhatsApp(): boolean {
+    return PLAN_LIMITS[this.settings.planId]?.whatsappEnabled ?? false;
   }
 
   public getWhatsAppCredentials(): { phoneNumberId?: string; accessToken?: string } | null {
@@ -361,6 +423,11 @@ export class Tenant {
         monthlyAlertsLimit: 150,
         alertsSentThisMonth: 0,
         cycleResetDate: nextMonth.toISOString(),
+        monthlyLLMLimit: PLAN_LIMITS["starter"].llmResponsesPerMonth,
+        llmResponsesThisMonth: 0,
+        llmQuotaExhaustedAt: null,
+        billingStatus: "active",
+        nextBillingDate: nextMonth.toISOString(),
         permissions: {
           whatsappEnabled: true,
           telegramEnabled: true,
