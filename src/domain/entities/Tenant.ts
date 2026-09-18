@@ -10,8 +10,10 @@ export const PLAN_LIMITS: Record<string, PlanFeatures> = {
   starter:    { llmResponsesPerMonth: 300,      claimsEnabled: false, whatsappEnabled: false },
   pro:        { llmResponsesPerMonth: 1_000,    claimsEnabled: true,  whatsappEnabled: false },
   business:   { llmResponsesPerMonth: 5_000,    claimsEnabled: true,  whatsappEnabled: true  },
-  enterprise: { llmResponsesPerMonth: Infinity, claimsEnabled: true,  whatsappEnabled: true  },
+  enterprise: { llmResponsesPerMonth: 999_999_999, claimsEnabled: true,  whatsappEnabled: true  },
 };
+
+const QUOTA_GRACE_PERIOD_MS = 12 * 60 * 60 * 1000;
 
 export type AutomationMode = "always_auto" | "smart_hybrid" | "always_manual" | "schedule";
 
@@ -249,6 +251,7 @@ export class Tenant {
 
   public isLLMQuotaAtWarning(): boolean {
     if (this.settings.llmQuotaExhaustedAt) return false;
+    if (!this.settings.monthlyLLMLimit || !isFinite(this.settings.monthlyLLMLimit)) return false;
     return (
       this.settings.llmResponsesThisMonth / this.settings.monthlyLLMLimit >= 0.8
     );
@@ -259,8 +262,7 @@ export class Tenant {
     if (!this.settings.llmQuotaExhaustedAt) return true;
 
     const exhaustedAt = new Date(this.settings.llmQuotaExhaustedAt).getTime();
-    const twelveHoursMs = 12 * 60 * 60 * 1000;
-    return Date.now() - exhaustedAt < twelveHoursMs;
+    return Date.now() - exhaustedAt < QUOTA_GRACE_PERIOD_MS;
   }
 
   public canAccessClaims(): boolean {

@@ -174,6 +174,40 @@ describe("Tenant.canAccessWhatsApp", () => {
   });
 });
 
+describe("PLAN_LIMITS enterprise", () => {
+  it("enterprise has very high LLM limit and all features enabled", () => {
+    expect(PLAN_LIMITS.enterprise.llmResponsesPerMonth).toBe(999_999_999);
+    expect(PLAN_LIMITS.enterprise.claimsEnabled).toBe(true);
+    expect(PLAN_LIMITS.enterprise.whatsappEnabled).toBe(true);
+  });
+});
+
+describe("Tenant.isLLMQuotaAtWarning edge cases", () => {
+  it("returns false when monthlyLLMLimit is 0 (guard against division by zero)", () => {
+    const tenant = makeTenant({ llmResponsesThisMonth: 100, monthlyLLMLimit: 0 });
+    expect(tenant.isLLMQuotaAtWarning()).toBe(false);
+  });
+});
+
+describe("Tenant.canAutoAnswer 12h boundary", () => {
+  it("returns true at exactly 12h boundary (edge: within grace)", () => {
+    const exactlyAt = new Date(Date.now() - 12 * 60 * 60 * 1000 + 1000).toISOString();
+    const tenant = makeTenant({
+      llmResponsesThisMonth: 300,
+      monthlyLLMLimit: 300,
+      llmQuotaExhaustedAt: exactlyAt,
+    });
+    expect(tenant.canAutoAnswer()).toBe(true);
+  });
+});
+
+describe("Tenant.canAccessClaims unknown plan", () => {
+  it("returns false for unknown planId (safe default)", () => {
+    const tenant = makeTenant({ planId: "unknown_plan" as any });
+    expect(tenant.canAccessClaims()).toBe(false);
+  });
+});
+
 describe("Tenant.createDefault SaaS fields", () => {
   it("initializes with starter plan and correct LLM limits", () => {
     const tenant = Tenant.createDefault({
