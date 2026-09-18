@@ -24,6 +24,7 @@ export class UpdateTenantPlanUseCase {
     if (!tenant) throw new Error(`Tenant not found: ${sellerId}`);
 
     const planFeatures = PLAN_LIMITS[planId];
+    if (!planFeatures) throw new Error(`Invalid plan: ${planId}`);
     const isUpgrade = planFeatures.llmResponsesPerMonth > tenant.settings.monthlyLLMLimit;
 
     tenant.updateSettings({
