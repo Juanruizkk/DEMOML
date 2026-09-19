@@ -9,6 +9,11 @@ import { PostgresItemKnowledgeRepository } from "../infrastructure/persistence/p
 import { PostgresOrderMessageRepository } from "../infrastructure/persistence/postgres/PostgresOrderMessageRepository.js";
 import { PostgresLLMUsageRepository } from "../infrastructure/persistence/postgres/PostgresLLMUsageRepository.js";
 import { PostgresGoldenDatasetRepository } from "../infrastructure/persistence/postgres/PostgresGoldenDatasetRepository.js";
+import { PostgresLeadRepository } from "../infrastructure/persistence/postgres/PostgresLeadRepository.js";
+import { CreateLeadUseCase } from "../application/use-cases/leads/CreateLeadUseCase.js";
+import { UpdateLeadStatusUseCase } from "../application/use-cases/leads/UpdateLeadStatusUseCase.js";
+import { ListLeadsUseCase } from "../application/use-cases/leads/ListLeadsUseCase.js";
+import { LeadController } from "../presentation/controllers/LeadController.js";
 
 import { CryptoPasswordHasher } from "../infrastructure/security/CryptoPasswordHasher.js";
 import { JwtTokenService } from "../infrastructure/security/JwtTokenService.js";
@@ -104,6 +109,7 @@ export function buildContainer() {
   const orderMessageRepo = new PostgresOrderMessageRepository(db);
   const llmUsageRepo = new PostgresLLMUsageRepository(db);
   const goldenDatasetRepo = new PostgresGoldenDatasetRepository(db);
+  const leadRepo = new PostgresLeadRepository(db);
 
   const passwordHasher = new CryptoPasswordHasher();
   const tokenService = new JwtTokenService();
@@ -232,6 +238,11 @@ export function buildContainer() {
   const getTenantLLMUsageUseCase = new GetTenantLLMUsageUseCase(llmUsageRepo);
   const setLLMSpendingLimitUseCase = new SetLLMSpendingLimitUseCase(llmUsageRepo);
 
+  const adminEmail = process.env.ADMIN_EMAIL ?? 'juanignacioruizr@gmail.com';
+  const createLeadUseCase = new CreateLeadUseCase(leadRepo, emailClient, adminEmail);
+  const updateLeadStatusUseCase = new UpdateLeadStatusUseCase(leadRepo);
+  const listLeadsUseCase = new ListLeadsUseCase(leadRepo);
+
   const getTenantSettingsUseCase = new GetTenantSettingsUseCase(tenantRepo);
   const updateTenantSettingsUseCase = new UpdateTenantSettingsUseCase(tenantRepo);
   const sendTestEmailUseCase = new SendTestEmailUseCase(tenantRepo, eventRepo, emailClient);
@@ -320,6 +331,7 @@ export function buildContainer() {
     setLLMSpendingLimitUseCase,
     tenantRepo,
   );
+  const leadCtrl = new LeadController(createLeadUseCase, updateLeadStatusUseCase, listLeadsUseCase);
 
   return {
     // Efectos de arranque (server.ts)
@@ -343,5 +355,6 @@ export function buildContainer() {
     demoCtrl,
     productsCtrl,
     llmUsageCtrl,
+    leadCtrl,
   };
 }
