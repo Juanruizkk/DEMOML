@@ -34,5 +34,17 @@ export class Lead {
     this.qualified = props.qualified;
     this.status = props.status;
     this.createdAt = props.createdAt ?? new Date();
+
+    this.validate();
+  }
+
+  private validate(): void {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(this.email)) {
+      throw new Error(`Email inválido: ${this.email}`);
+    }
+    if (!this.name || this.name.length < 2) {
+      throw new Error("El nombre debe tener al menos 2 caracteres.");
+    }
   }
 }
