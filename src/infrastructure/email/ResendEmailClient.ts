@@ -4,6 +4,9 @@ import {
   SendQuestionAlertParams,
   SendClaimAlertParams,
   SendTestEmailParams,
+  SendTenantInvitationParams,
+  SendPasswordResetParams,
+  SendNewLeadAlertParams,
   EmailSendResult,
 } from "../../application/interfaces/IEmailClient.js";
 
@@ -53,6 +56,40 @@ export class ResendEmailClient implements IEmailClient {
     `;
     const subject = "✅ Verificación de Alertas por Email - MELI AI Assistant";
 
+    return this.sendMail(params.to, subject, html);
+  }
+
+  public async sendTenantInvitation(params: SendTenantInvitationParams): Promise<EmailSendResult> {
+    const html = this.buildTenantInvitationHtml(params);
+    const subject = `🚀 ¡Bienvenido a MELI AI Assistant! Activá tu cuenta de vendedor`;
+
+    return this.sendMail(params.to, subject, html);
+  }
+
+  public async sendPasswordReset(params: SendPasswordResetParams): Promise<EmailSendResult> {
+    const html = this.buildPasswordResetHtml(params);
+    const subject = `🔐 Restablecimiento de contraseña - MELI AI Assistant`;
+
+    return this.sendMail(params.to, subject, html);
+  }
+
+  public async sendNewLeadAlert(params: SendNewLeadAlertParams): Promise<EmailSendResult> {
+    const { lead } = params;
+    const subject = `Nuevo lead: ${lead.name} — ${lead.weeklyQuestions} preg/sem`;
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #0f172a; color: #f8fafc; border-radius: 12px; border: 1px solid #334155;">
+        <h2 style="color: #60a5fa; margin-top: 0; font-size: 20px;">🎯 Nuevo lead calificado</h2>
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px; width: 120px;">Nombre</td><td style="padding: 8px 0; font-size: 14px;">${lead.name}</td></tr>
+          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Email</td><td style="padding: 8px 0; font-size: 14px;">${lead.email}</td></tr>
+          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Teléfono</td><td style="padding: 8px 0; font-size: 14px;">${lead.phone}</td></tr>
+          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Tienda ML</td><td style="padding: 8px 0; font-size: 14px;">${lead.mlStore}</td></tr>
+          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Preg/semana</td><td style="padding: 8px 0; font-size: 14px; color: #34d399; font-weight: 600;">${lead.weeklyQuestions}</td></tr>
+        </table>
+        <a href="${process.env.APP_BASE_URL ?? 'http://localhost:5173'}/admin" style="display: inline-block; margin-top: 8px; padding: 10px 20px; background: #3b82f6; color: #fff; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600;">Ver en panel → Leads</a>
+        <p style="font-size: 11px; color: #475569; margin-top: 20px; margin-bottom: 0;">MELI AI Assistant — notificación automática</p>
+      </div>
+    `;
     return this.sendMail(params.to, subject, html);
   }
 
@@ -163,6 +200,109 @@ export class ResendEmailClient implements IEmailClient {
             Gestionar Reclamo Ahora
           </a>
         </div>
+      </div>
+    `;
+  }
+
+  private buildTenantInvitationHtml(params: SendTenantInvitationParams): string {
+    return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; background: #0f172a; color: #f8fafc; border-radius: 16px; border: 1px solid #334155;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+          <span style="background: linear-gradient(135deg, #3b82f6, #6366f1); color: #ffffff; font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+            🚀 Activación de Cuenta
+          </span>
+          <span style="color: #94a3b8; font-size: 13px; font-weight: 500;">MELI AI Assistant</span>
+        </div>
+
+        <h1 style="color: #f8fafc; font-size: 22px; font-weight: 700; margin: 0 0 12px 0; line-height: 1.3;">
+          ¡Bienvenido/a a bordo, ${params.name}! 🎉
+        </h1>
+
+        <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6; margin: 0 0 20px 0;">
+          Tu cuenta de vendedor ha sido creada exitosamente. Con <strong>MELI AI Assistant</strong> vas a automatizar tus ventas en Mercado Libre, responder preguntas al instante y blindar tu reputación 24/7.
+        </p>
+
+        <div style="background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 24px;">
+          <h3 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #60a5fa; letter-spacing: 0.5px; font-weight: 700;">
+            Lo que podés hacer desde ahora:
+          </h3>
+          <ul style="margin: 0; padding-left: 18px; font-size: 14px; color: #e2e8f0; line-height: 1.8;">
+            <li><strong>🤖 Respuestas con IA:</strong> Automatización precisa y personalizada de preguntas frecuentes.</li>
+            <li><strong>🛡️ Moderación en tiempo real:</strong> Revisión rápida de consultas complejas antes de responder.</li>
+            <li><strong>⏰ Guardián de Reclamos:</strong> Monitoreo constante de SLA y alertas de vencimiento.</li>
+          </ul>
+        </div>
+
+        ${
+          params.temporaryToken
+            ? `
+        <div style="background: #1e1b4b; border: 1px dashed #6366f1; padding: 12px 16px; border-radius: 8px; margin-bottom: 24px; text-align: center;">
+          <p style="margin: 0; font-size: 13px; color: #c7d2fe;">Tu código temporal de activación:</p>
+          <p style="margin: 4px 0 0 0; font-size: 18px; font-weight: 700; letter-spacing: 2px; color: #ffffff;">${params.temporaryToken}</p>
+        </div>
+        `
+            : ""
+        }
+
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${params.activationUrl}" style="display: inline-block; background: linear-gradient(135deg, #2563eb, #3b82f6); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 700; font-size: 15px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);">
+            Activar Cuenta y Conectar Mercado Libre →
+          </a>
+        </div>
+
+        <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0 0 6px 0;">
+          Este enlace de activación es único y expira en 24 horas por motivos de seguridad.
+        </p>
+        <p style="font-size: 11px; color: #475569; text-align: center; margin: 0;">
+          Si no esperabas esta invitación, podés desestimar este mensaje.
+        </p>
+      </div>
+    `;
+  }
+
+  private buildPasswordResetHtml(params: SendPasswordResetParams): string {
+    const minutes = params.expiresInMinutes || 60;
+    const greeting = params.name ? `Hola <strong>${params.name}</strong>,` : "Hola,";
+
+    return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; background: #0f172a; color: #f8fafc; border-radius: 16px; border: 1px solid #334155;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+          <span style="background: #334155; color: #94a3b8; font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+            🔐 Seguridad de la Cuenta
+          </span>
+          <span style="color: #94a3b8; font-size: 13px; font-weight: 500;">MELI AI Assistant</span>
+        </div>
+
+        <h1 style="color: #f8fafc; font-size: 22px; font-weight: 700; margin: 0 0 12px 0; line-height: 1.3;">
+          Restablecimiento de Contraseña
+        </h1>
+
+        <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6; margin: 0 0 16px 0;">
+          ${greeting}
+        </p>
+
+        <p style="font-size: 14px; color: #94a3b8; line-height: 1.6; margin: 0 0 24px 0;">
+          Recibimos una solicitud para cambiar la contraseña de tu cuenta en <strong>MELI AI Assistant</strong>. Hacé clic en el siguiente botón para definir una nueva clave:
+        </p>
+
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${params.resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #2563eb, #3b82f6); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 700; font-size: 15px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);">
+            Restablecer Contraseña →
+          </a>
+        </div>
+
+        <div style="background: #1e293b; padding: 14px 18px; border-radius: 10px; border-left: 4px solid #f59e0b; margin-bottom: 24px;">
+          <p style="margin: 0; font-size: 13px; color: #e2e8f0; line-height: 1.5;">
+            ⏳ <strong>Atención:</strong> Este enlace de recuperación expirará en <strong>${minutes} minutos</strong>.
+          </p>
+        </div>
+
+        <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 0 0 6px 0;">
+          🔒 Si no solicitaste este cambio, ignorá este correo. Tu contraseña actual seguirá siendo segura y no se modificará.
+        </p>
+        <p style="font-size: 11px; color: #475569; margin: 0;">
+          MELI AI Assistant • Sistema automatizado de seguridad
+        </p>
       </div>
     `;
   }

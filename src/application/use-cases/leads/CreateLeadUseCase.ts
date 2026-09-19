@@ -40,9 +40,15 @@ export class CreateLeadUseCase {
     await this.leadRepo.save(lead);
 
     if (qualified) {
-      await (this.emailClient as any).sendNewLeadAlert({
+      await this.emailClient.sendNewLeadAlert({
         to: this.adminEmail,
-        lead,
+        lead: {
+          name: lead.name,
+          email: lead.email,
+          phone: lead.phone,
+          mlStore: lead.mlStore,
+          weeklyQuestions: lead.weeklyQuestions,
+        },
       }).catch(() => {});
     }
 
