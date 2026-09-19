@@ -1937,3 +1937,47 @@
   border-color: #e2e8f0;
   color: #334155;
 }
+
+/* ── Shared layout helpers ─────────────────────────────────────── */
+.admin-section {
+  padding: 24px 32px;
+}
+
+.admin-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.admin-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.btn-ghost {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-ghost:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .btn-ghost {
+  border-color: #e2e8f0;
+  color: #334155;
+}
+
+[data-theme="light"] .btn-ghost:hover {
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
