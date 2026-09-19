@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import PageHeader from '../components/PageHeader'
 import MonthPicker from '../components/MonthPicker'
@@ -6,7 +7,6 @@ import {
   Building2,
   Mail,
   UserPlus,
-  Sparkles,
   Copy,
   Check,
   X,
@@ -17,13 +17,11 @@ import {
   Store,
   CheckCircle2,
   Clock,
-  Users,
-  MessageSquare,
-  Send,
-  ShieldAlert,
-  KeyRound,
-  Layers,
-  Radio
+  Search,
+  Filter,
+  Ban,
+  ChevronRight,
+  Sparkles,
 } from 'lucide-react'
 import './AdminPage.css'
 
@@ -41,6 +39,10 @@ interface TenantOverview {
   email?: string
   totalQuestions?: number
   autoAnswerEnabled?: boolean
+  planId?: string
+  billingStatus?: string
+  llmResponsesThisMonth?: number
+  monthlyLLMLimit?: number
 }
 
 interface PendingInvitation {
@@ -62,112 +64,78 @@ interface CreateTenantResult {
   activationUrl: string
 }
 
-interface PermissionMeta {
-  key: string
-  label: string
-  desc: string
-  icon: React.ReactNode
-  soon?: boolean
+interface LeadRow {
+  id: string
+  name: string
+  email: string
+  phone: string
+  mlStore: string
+  weeklyQuestions: string
+  qualified: boolean
+  status: 'nuevo' | 'contactado' | 'convertido' | 'descartado'
+  createdAt: string
 }
 
-interface TenantIntegrations {
-  whatsappMode: 'platform_shared' | 'custom_byo'
-  customPhoneNumberId: string
-  customAccessToken: string
-  llmProvider: 'groq' | 'openai' | 'anthropic'
-  llmApiKey: string
-  hasLlmApiKey: boolean
-  hasCustomAccessToken: boolean
+type TableRow =
+  | { kind: 'tenant';      data: TenantOverview }
+  | { kind: 'pending';     data: PendingInvitation }
+  | { kind: 'unconnected'; data: UnconnectedTenant }
+
+const PLAN_LABELS: Record<string, string> = {
+  starter:    'Starter',
+  pro:        'Pro',
+  business:   'Business',
+  enterprise: 'Enterprise',
 }
 
-const CHANNEL_PERMISSIONS: PermissionMeta[] = [
-  {
-    key: 'whatsappEnabled',
-    label: 'Canal WhatsApp',
-    desc: 'Alertas y aprobación de preguntas directamente vía WhatsApp',
-    icon: <MessageSquare size={16} />,
-  },
-  {
-    key: 'telegramEnabled',
-    label: 'Bot Telegram',
-    desc: 'Bot interactivo para el equipo de ventas en Telegram',
-    icon: <Send size={16} />,
-  },
-  {
-    key: 'emailEnabled',
-    label: 'Alertas por Email',
-    desc: 'Notificaciones de urgencias y vencimiento SLA vía Resend',
-    icon: <Mail size={16} />,
-  },
-]
+const PLAN_COLORS: Record<string, string> = {
+  starter:    'plan-badge--starter',
+  pro:        'plan-badge--pro',
+  business:   'plan-badge--business',
+  enterprise: 'plan-badge--enterprise',
+}
 
-const MODULE_PERMISSIONS: PermissionMeta[] = [
-  {
-    key: 'preSaleEnabled',
-    label: 'Respuestas Pre-venta',
-    desc: 'Automatización con IA para preguntas antes de la compra',
-    icon: <Sparkles size={16} />,
-  },
-  {
-    key: 'postSaleEnabled',
-    label: 'Gestión Post-venta',
-    desc: 'Monitoreo de reclamos, mediaciones y tiempos de SLA',
-    icon: <ShieldAlert size={16} />,
-  },
-  {
-    key: 'multiUserEnabled',
-    label: 'Equipo / Multi-Usuario',
-    desc: 'Múltiples vendedores y colaboradores con accesos propios',
-    icon: <Users size={16} />,
-  },
-]
+function rowName(row: TableRow): string {
+  if (row.kind === 'tenant') return row.data.nickname || row.data.sellerId
+  return row.data.name
+}
+
+function rowEmail(row: TableRow): string {
+  return row.data.email || '—'
+}
+
+function rowStatus(row: TableRow): 'active' | 'paused' | 'cancelled' | 'pending' | 'no-ml' {
+  if (row.kind === 'pending')     return 'pending'
+  if (row.kind === 'unconnected') return 'no-ml'
+  const t = row.data as TenantOverview
+  if (t.billingStatus === 'cancelled') return 'cancelled'
+  if (t.autoAnswerEnabled) return 'active'
+  return 'paused'
+}
 
 export default function AdminPage() {
-  const [metrics, setMetrics]           = useState<Metrics | null>(null)
-  const [tenants, setTenants]           = useState<TenantOverview[]>([])
-  const [pending, setPending]           = useState<PendingInvitation[]>([])
-  const [unconnected, setUnconnected]   = useState<UnconnectedTenant[]>([])
-  const [loading, setLoading]           = useState(true)
-  const [selected, setSelected]         = useState<string | null>(null)
-  const [saving, setSaving]             = useState(false)
-  const [savedSuccess, setSavedSuccess] = useState(false)
-  const [copiedId, setCopiedId]         = useState(false)
-  const [localPerms, setLocalPerms]     = useState<Record<string, boolean>>({})
-  const [localIntegrations, setLocalIntegrations] = useState<TenantIntegrations>({
-    whatsappMode: 'platform_shared',
-    customPhoneNumberId: '',
-    customAccessToken: '',
-    llmProvider: 'groq',
-    llmApiKey: '',
-    hasLlmApiKey: false,
-    hasCustomAccessToken: false,
-  })
-  const [savingIntegrations, setSavingIntegrations] = useState(false)
-  const [savedIntegrations, setSavedIntegrations]   = useState(false)
-  const [clearLlmKey, setClearLlmKey]               = useState(false)
-  const [clearWaToken, setClearWaToken]             = useState(false)
-  const [localPlan, setLocalPlan] = useState<{
-    planId: string;
-    billingStatus: string;
-    nextBillingDate: string;
-    llmResponsesThisMonth: number;
-    monthlyLLMLimit: number;
-  }>({
-    planId: 'starter',
-    billingStatus: 'active',
-    nextBillingDate: '',
-    llmResponsesThisMonth: 0,
-    monthlyLLMLimit: 300,
-  })
-  const [savingPlan, setSavingPlan]     = useState(false)
-  const [savedPlan, setSavedPlan]       = useState(false)
+  const navigate = useNavigate()
+  const [metrics, setMetrics]         = useState<Metrics | null>(null)
+  const [tenants, setTenants]         = useState<TenantOverview[]>([])
+  const [pending, setPending]         = useState<PendingInvitation[]>([])
+  const [unconnected, setUnconnected] = useState<UnconnectedTenant[]>([])
+  const [loading, setLoading]         = useState(true)
 
-  const [activeSection, setActiveSection] = useState<'tenants' | 'llm_usage'>('tenants')
-  const [llmStats, setLlmStats] = useState<any | null>(null)
-  const [llmMonth, setLlmMonth] = useState(() => new Date().toISOString().slice(0, 7))
+  const [search, setSearch]           = useState('')
+  const [filterPlan, setFilterPlan]   = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
+
+  const [inactivating, setInactivating] = useState<string | null>(null)
+
+  const [activeSection, setActiveSection] = useState<'tenants' | 'llm_usage' | 'leads'>('tenants')
+  const [llmStats, setLlmStats]   = useState<any | null>(null)
+  const [llmMonth, setLlmMonth]   = useState(() => new Date().toISOString().slice(0, 7))
   const [loadingLlm, setLoadingLlm] = useState(false)
 
-  // Modal state
+  const [leads, setLeads] = useState<LeadRow[]>([])
+  const [leadsLoading, setLeadsLoading] = useState(false)
+  const [leadsStatusFilter, setLeadsStatusFilter] = useState<string>('all')
+
   const [showModal, setShowModal]       = useState(false)
   const [newName, setNewName]           = useState('')
   const [newEmail, setNewEmail]         = useState('')
@@ -175,8 +143,7 @@ export default function AdminPage() {
   const [createError, setCreateError]   = useState<string | null>(null)
   const [createdLink, setCreatedLink]   = useState<string | null>(null)
   const [copied, setCopied]             = useState(false)
-  const [resetSent, setResetSent]       = useState<string | null>(null)
-  const [resetting, setResetting]       = useState<string | null>(null)
+  const [resenting, setResenting]       = useState<string | null>(null)
   const [resentLink, setResentLink]     = useState<Record<string, string>>({})
   const [copiedResent, setCopiedResent] = useState<string | null>(null)
 
@@ -191,135 +158,56 @@ export default function AdminPage() {
       setTenants(t)
       setPending(p)
       setUnconnected(u)
-      // Auto-select first tenant if available
-      if (t.length > 0 && !selected) {
-        selectTenant(t[0])
-      }
     }).catch(console.error).finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
-    setResetSent(null)
-    setSavedSuccess(false)
-  }, [selected])
+  const allRows = useMemo<TableRow[]>(() => {
+    const rows: TableRow[] = [
+      ...tenants.map(t => ({ kind: 'tenant' as const, data: t })),
+      ...pending.map(p => ({ kind: 'pending' as const, data: p })),
+      ...unconnected.map(u => ({ kind: 'unconnected' as const, data: u })),
+    ]
+    return rows
+  }, [tenants, pending, unconnected])
 
-  const selectTenant = async (t: TenantOverview) => {
-    setSelected(t.sellerId)
-    setClearLlmKey(false)
-    setClearWaToken(false)
-    try {
-      const detail = await api.get<{ settings: Record<string, any> }>(`/admin/tenants/${t.sellerId}`)
-      const s = detail.settings || {}
-      setLocalPerms(s.permissions || {
-        whatsappEnabled: true, telegramEnabled: true, emailEnabled: false,
-        preSaleEnabled: true, postSaleEnabled: true, multiUserEnabled: false,
-      })
-      setLocalIntegrations({
-        whatsappMode: s.whatsappMode || 'platform_shared',
-        customPhoneNumberId: s.customPhoneNumberId || '',
-        customAccessToken: '',
-        llmProvider: s.llmProvider || 'groq',
-        llmApiKey: '',
-        hasLlmApiKey: s.llmApiKey === '***',
-        hasCustomAccessToken: s.customAccessToken === '***',
-      })
-      setLocalPlan({
-        planId: s.planId || 'starter',
-        billingStatus: s.billingStatus || 'active',
-        nextBillingDate: s.nextBillingDate ? s.nextBillingDate.slice(0, 10) : '',
-        llmResponsesThisMonth: s.llmResponsesThisMonth || 0,
-        monthlyLLMLimit: s.monthlyLLMLimit || 300,
-      })
-    } catch {
-      setLocalPerms({ whatsappEnabled: true, telegramEnabled: true, emailEnabled: false, preSaleEnabled: true, postSaleEnabled: true, multiUserEnabled: false })
-    }
-  }
+  const filtered = useMemo(() => {
+    return allRows.filter(row => {
+      const name  = rowName(row).toLowerCase()
+      const email = rowEmail(row).toLowerCase()
+      const q     = search.toLowerCase()
+      if (q && !name.includes(q) && !email.includes(q)) return false
 
-  const savePermissions = async () => {
-    if (!selected) return
-    setSaving(true)
-    setSavedSuccess(false)
+      if (filterPlan !== 'all') {
+        if (row.kind !== 'tenant') return false
+        const plan = (row.data as TenantOverview).planId || 'starter'
+        if (plan !== filterPlan) return false
+      }
+
+      if (filterStatus !== 'all') {
+        if (rowStatus(row) !== filterStatus) return false
+      }
+
+      return true
+    })
+  }, [allRows, search, filterPlan, filterStatus])
+
+  const handleInactivate = async (sellerId: string, currentPlan: string, nextBillingDate: string) => {
+    if (!window.confirm('¿Inactivar este tenant? Se cancelará su facturación y se desactivará la IA.')) return
+    setInactivating(sellerId)
     try {
-      await api.put(`/admin/tenants/${selected}/permissions`, { permissions: localPerms })
+      await api.put(`/admin/tenants/${sellerId}/plan`, {
+        planId: currentPlan,
+        billingStatus: 'cancelled',
+        nextBillingDate: nextBillingDate || new Date().toISOString(),
+      })
       setTenants(ts => ts.map(t =>
-        t.sellerId === selected ? { ...t, permissions: { ...localPerms } } : t
+        t.sellerId === sellerId ? { ...t, billingStatus: 'cancelled', autoAnswerEnabled: false } : t
       ))
-      setSavedSuccess(true)
-      setTimeout(() => setSavedSuccess(false), 3000)
     } catch (e) {
       console.error(e)
     } finally {
-      setSaving(false)
+      setInactivating(null)
     }
-  }
-
-  const saveIntegrations = async () => {
-    if (!selected) return
-    setSavingIntegrations(true)
-    setSavedIntegrations(false)
-    try {
-      const payload: Record<string, string> = {
-        whatsappMode: localIntegrations.whatsappMode,
-        llmProvider: localIntegrations.llmProvider,
-      }
-      if (localIntegrations.customPhoneNumberId) payload.customPhoneNumberId = localIntegrations.customPhoneNumberId
-      if (localIntegrations.customAccessToken)   payload.customAccessToken = localIntegrations.customAccessToken
-      else if (clearWaToken)                     payload.customAccessToken = ""
-      if (localIntegrations.llmApiKey)           payload.llmApiKey = localIntegrations.llmApiKey
-      else if (clearLlmKey)                      payload.llmApiKey = ""
-
-      await api.patch(`/admin/tenants/${selected}/integrations`, { integrations: payload })
-      setSavedIntegrations(true)
-      setClearLlmKey(false)
-      setClearWaToken(false)
-      setLocalIntegrations(prev => ({
-        ...prev,
-        customAccessToken: '',
-        llmApiKey: '',
-        hasLlmApiKey: Boolean(prev.llmApiKey) || (prev.hasLlmApiKey && !clearLlmKey),
-        hasCustomAccessToken: Boolean(prev.customAccessToken) || (prev.hasCustomAccessToken && !clearWaToken),
-      }))
-      setTimeout(() => setSavedIntegrations(false), 3000)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setSavingIntegrations(false)
-    }
-  }
-
-  const handleUpdatePlan = async () => {
-    if (!selected) return
-    setSavingPlan(true)
-    setSavedPlan(false)
-    try {
-      const payload = {
-        planId: localPlan.planId,
-        billingStatus: localPlan.billingStatus,
-        nextBillingDate: localPlan.nextBillingDate
-          ? new Date(localPlan.nextBillingDate).toISOString()
-          : new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
-      }
-      const updated = await api.put<{ monthlyLLMLimit: number }>(
-        `/admin/tenants/${selected}/plan`,
-        payload
-      )
-      setLocalPlan(prev => ({
-        ...prev,
-        monthlyLLMLimit: updated.monthlyLLMLimit ?? prev.monthlyLLMLimit,
-      }))
-      setSavedPlan(true)
-      setTimeout(() => setSavedPlan(false), 3000)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setSavingPlan(false)
-    }
-  }
-
-  const handleCopySellerId = (id: string) => {
-    navigator.clipboard.writeText(id)
-    setCopiedId(true)
-    setTimeout(() => setCopiedId(false), 2000)
   }
 
   const openModal = () => {
@@ -359,14 +247,14 @@ export default function AdminPage() {
   }
 
   const handleResendInvitation = async (userId: string) => {
-    setResetting(userId)
+    setResenting(userId)
     try {
       const result = await api.post<{ activationUrl: string }>(`/admin/users/${userId}/resend-invitation`, {})
       setResentLink(prev => ({ ...prev, [userId]: result.activationUrl }))
     } catch (err: any) {
-      console.error('Error al reenviar invitación:', err)
+      console.error(err)
     } finally {
-      setResetting(null)
+      setResenting(null)
     }
   }
 
@@ -376,32 +264,6 @@ export default function AdminPage() {
     navigator.clipboard.writeText(link)
     setCopiedResent(userId)
     setTimeout(() => setCopiedResent(null), 2500)
-  }
-
-  const handleResetPassword = async (userId: string, email: string) => {
-    setResetting(userId)
-    try {
-      await api.post(`/admin/users/${userId}/reset-password`, {})
-      setResetSent(email)
-      setTimeout(() => setResetSent(null), 4000)
-    } catch (err: any) {
-      console.error('Error al enviar reset:', err)
-    } finally {
-      setResetting(null)
-    }
-  }
-
-  const handleResetForTenant = async (email: string) => {
-    setResetting(email)
-    try {
-      await api.post('/admin/reset-password', { email })
-      setResetSent(email)
-      setTimeout(() => setResetSent(null), 4000)
-    } catch (err: any) {
-      console.error('Error al enviar reset:', err)
-    } finally {
-      setResetting(null)
-    }
   }
 
   const fetchLlmStats = (month: string) => {
@@ -416,7 +278,30 @@ export default function AdminPage() {
     if (activeSection === 'llm_usage') fetchLlmStats(llmMonth)
   }, [activeSection, llmMonth])
 
-  const selectedTenant = tenants.find(t => t.sellerId === selected)
+  const fetchLeads = async () => {
+    setLeadsLoading(true)
+    try {
+      const data = await api.get<LeadRow[]>('/leads')
+      setLeads(data)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLeadsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeSection === 'leads') fetchLeads()
+  }, [activeSection])
+
+  const handleLeadStatusChange = async (id: string, status: string) => {
+    try {
+      await api.patch(`/leads/${id}/status`, { status })
+      setLeads(prev => prev.map(l => l.id === id ? { ...l, status: status as LeadRow['status'] } : l))
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   return (
     <div className="page">
@@ -447,470 +332,284 @@ export default function AdminPage() {
             >
               Consumo IA
             </button>
+            <button
+              className={`admin-section-tab${activeSection === 'leads' ? ' admin-section-tab--active' : ''}`}
+              onClick={() => setActiveSection('leads')}
+            >
+              Leads
+            </button>
           </div>
 
           {activeSection === 'tenants' && (
-        <div className="admin-layout">
-          {/* Tenant list */}
-          <div className="tenant-list">
-            <div className="tenant-list-header">
-              <div className="tenant-list-header-left">
-                <Store size={16} className="text-blue" />
-                <span className="tenant-list-title">Organizaciones</span>
-                <span className="tenant-count-pill">{tenants.length}</span>
-              </div>
-              <button className="btn-new-tenant" onClick={openModal}>
-                <UserPlus size={13} />
-                <span>Nuevo Tenant</span>
-              </button>
-            </div>
-
-            {/* Pending invitations */}
-            {pending.length > 0 && (
-              <div className="pending-section">
-                <div className="pending-section-title">
-                  <Clock size={13} />
-                  <span>Invitaciones pendientes ({pending.length})</span>
-                </div>
-                {pending.map(inv => (
-                  <div key={inv.id}>
-                    <div className="tenant-row tenant-row--pending">
-                      <div className="tenant-row-info">
-                        <span className="tenant-row-name">{inv.name}</span>
-                        <span className="tenant-row-email">{inv.email}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="badge-pending">Pendiente</span>
-                        <button
-                          className="btn-resend-invite"
-                          disabled={resetting === inv.id}
-                          onClick={() => handleResendInvitation(inv.id)}
-                          title="Reenviar link de activación"
-                        >
-                          {resetting === inv.id ? '…' : '↺ Reenviar'}
-                        </button>
-                      </div>
-                    </div>
-                    {resentLink[inv.id] && (
-                      <div className="resent-link-panel">
-                        <span className="resent-link-label">Enlace de activación</span>
-                        <div className="resent-link-row">
-                          <span className="resent-link-text">{resentLink[inv.id]}</span>
-                          <button
-                            className="btn-resend-copy"
-                            onClick={() => copyResentLink(inv.id)}
-                          >
-                            {copiedResent === inv.id ? <Check size={13} /> : <Copy size={13} />}
-                            {copiedResent === inv.id ? 'Copiado' : 'Copiar'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Activados pero sin ML conectado */}
-            {unconnected.length > 0 && (
-              <div className="pending-section">
-                <div className="pending-section-title">
-                  <AlertCircle size={13} />
-                  <span>Activados — sin Mercado Libre ({unconnected.length})</span>
-                </div>
-                {unconnected.map(u => (
-                  <div key={u.id} className="tenant-row tenant-row--pending">
-                    <div className="tenant-row-info">
-                      <span className="tenant-row-name">{u.name}</span>
-                      <span className="tenant-row-email">{u.email}</span>
-                    </div>
-                    <span className="badge-unconnected">Sin ML</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {tenants.length === 0 && pending.length === 0 && unconnected.length === 0 && (
-              <p className="list-empty" style={{ padding: '24px 16px' }}>Sin tenants registrados</p>
-            )}
-
-            <div className="tenant-items-wrapper">
-              {tenants.map(t => {
-                const isSelected = selected === t.sellerId
-                const initial = (t.nickname || t.sellerId).charAt(0).toUpperCase()
-                return (
-                  <button
-                    key={t.sellerId}
-                    className={`tenant-row${isSelected ? ' tenant-row--active' : ''}`}
-                    onClick={() => selectTenant(t)}
-                  >
-                    <div className="tenant-row-avatar">
-                      {initial}
-                    </div>
-                    <div className="tenant-row-info">
-                      <span className="tenant-row-name">{t.nickname || t.sellerId}</span>
-                      {t.email && <span className="tenant-row-email">{t.email}</span>}
-                    </div>
-                    <div className="tenant-row-stats">
-                      {t.totalQuestions !== undefined && (
-                        <span className="tenant-row-badge">{t.totalQuestions} Q</span>
-                      )}
-                      {t.autoAnswerEnabled && (
-                        <span className="tenant-row-badge tenant-row-badge--green">IA ✓</span>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Tenant detail */}
-          {selectedTenant ? (
-            <div className="tenant-detail glass">
-              <div className="tenant-detail-header">
-                <div className="tenant-detail-header-left">
-                  <div className="tenant-detail-avatar">
-                    <Store size={24} />
-                  </div>
-                  <div className="tenant-detail-titles">
-                    <div className="tenant-name-row">
-                      <h3 className="tenant-detail-name">{selectedTenant.nickname || selectedTenant.sellerId}</h3>
-                      {selectedTenant.autoAnswerEnabled ? (
-                        <span className="tenant-status-pill tenant-status-pill--active">
-                          <CheckCircle2 size={13} />
-                          IA Activa
-                        </span>
-                      ) : (
-                        <span className="tenant-status-pill tenant-status-pill--paused">
-                          <Clock size={13} />
-                          Pausado
-                        </span>
-                      )}
-                    </div>
-                    <div className="tenant-meta-pills">
-                      <button
-                        type="button"
-                        className="meta-pill meta-pill--copy"
-                        onClick={() => handleCopySellerId(selectedTenant.sellerId)}
-                        title="Copiar Seller ID"
-                      >
-                        <span className="meta-pill-label">Seller ID:</span>
-                        <span className="meta-pill-val">{selectedTenant.sellerId}</span>
-                        {copiedId ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
-                      </button>
-                      {selectedTenant.email && (
-                        <span className="meta-pill">
-                          <Mail size={12} />
-                          <span>{selectedTenant.email}</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="permissions-section">
-                <div className="permissions-header">
-                  <div className="header-icon-box blue">
-                    <ShieldCheck size={18} />
-                  </div>
-                  <div>
-                    <h4 className="permissions-title">Permisos & Módulos Habilitados</h4>
-                    <p className="permissions-hint">Configurá las capacidades y canales activos para este cliente.</p>
-                  </div>
-                </div>
-
-                <p style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-dim)', margin: 0 }}>Canales de Alerta</p>
-                <div className="permissions-grid">
-                  {CHANNEL_PERMISSIONS.map((item) => {
-                    const isChecked = Boolean(localPerms[item.key])
-                    return (
-                      <div
-                        key={item.key}
-                        className={`permission-item${isChecked ? ' permission-item--active' : ''}`}
-                        onClick={() => setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] }))}
-                      >
-                        <div className="permission-item-icon">{item.icon}</div>
-                        <div className="permission-info">
-                          <div className="permission-label-row">
-                            <span className="permission-label">{item.label}</span>
-                            {item.soon && <span className="permission-soon">próximamente</span>}
-                          </div>
-                          <span className="permission-desc">{item.desc}</span>
-                        </div>
-                        <button type="button" className={`toggle${isChecked ? ' toggle--on' : ''}`} onClick={(e) => { e.stopPropagation(); setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] })) }}>
-                          <span className="toggle-thumb" />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                <div style={{ height: '1px', background: 'var(--border-glass)' }} />
-
-                <p style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-dim)', margin: 0 }}>Módulos Funcionales</p>
-                <div className="permissions-grid">
-                  {MODULE_PERMISSIONS.map((item) => {
-                    const isChecked = Boolean(localPerms[item.key])
-                    return (
-                      <div
-                        key={item.key}
-                        className={`permission-item${isChecked ? ' permission-item--active' : ''}`}
-                        onClick={() => setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] }))}
-                      >
-                        <div className="permission-item-icon">{item.icon}</div>
-                        <div className="permission-info">
-                          <div className="permission-label-row">
-                            <span className="permission-label">{item.label}</span>
-                            {item.soon && <span className="permission-soon">próximamente</span>}
-                          </div>
-                          <span className="permission-desc">{item.desc}</span>
-                        </div>
-                        <button type="button" className={`toggle${isChecked ? ' toggle--on' : ''}`} onClick={(e) => { e.stopPropagation(); setLocalPerms(p => ({ ...p, [item.key]: !p[item.key] })) }}>
-                          <span className="toggle-thumb" />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                <div className="admin-actions-bar">
-                  <button className="btn-save" onClick={savePermissions} disabled={saving}>
-                    {saving ? 'Guardando cambios…' : savedSuccess ? '✓ Permisos Guardados' : 'Guardar Configuración'}
-                  </button>
-                </div>
-
-                {selectedTenant.email && (
-                  <div style={{ paddingTop: '14px', borderTop: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                    <div>
-                      <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', margin: 0 }}>Acceso & Contraseña</p>
-                      <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', margin: '2px 0 0' }}>Enviá un enlace de restablecimiento al correo del tenant</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn-admin-reset"
-                      disabled={resetting === selectedTenant.email}
-                      onClick={() => handleResetForTenant(selectedTenant.email!)}
-                    >
-                      <KeyRound size={14} />
-                      {resetting === selectedTenant.email ? 'Enviando email…' : 'Reset Contraseña'}
+            <div className="admin-table-container">
+              {/* Toolbar */}
+              <div className="admin-toolbar">
+                <div className="admin-search-wrap">
+                  <Search size={15} className="admin-search-icon" />
+                  <input
+                    type="text"
+                    className="admin-search-input"
+                    placeholder="Buscar por nombre o email…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                  {search && (
+                    <button className="admin-search-clear" onClick={() => setSearch('')}>
+                      <X size={13} />
                     </button>
-                  </div>
-                )}
-
-                {resetSent && (
-                  <div className="admin-alert admin-alert--success">
-                    <CheckCircle2 size={16} />
-                    <span>Se envió el correo de restablecimiento a <strong>{resetSent}</strong></span>
-                  </div>
-                )}
-              </div>
-
-              {/* Integrations section */}
-              <div className="permissions-section" style={{ marginTop: '24px' }}>
-                <div className="permissions-header">
-                  <div className="header-icon-box blue">
-                    <Layers size={18} />
-                  </div>
-                  <div>
-                    <h4 className="permissions-title">Integraciones del Cliente</h4>
-                    <p className="permissions-hint">Credenciales propias del cliente para WhatsApp y LLM.</p>
-                  </div>
+                  )}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                  {/* WhatsApp — solo si el canal está habilitado */}
-                  {localPerms.whatsappEnabled !== false && <fieldset style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
-                    <legend style={{ padding: '0 8px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>WhatsApp</legend>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Modo</label>
-                      <select
-                        className="input-field"
-                        value={localIntegrations.whatsappMode}
-                        onChange={e => setLocalIntegrations(p => ({ ...p, whatsappMode: e.target.value as 'platform_shared' | 'custom_byo' }))}
-                      >
-                        <option value="platform_shared">Compartido (número de la plataforma)</option>
-                        <option value="custom_byo">Propio del cliente (custom WABA)</option>
-                      </select>
-
-                      {localIntegrations.whatsappMode === 'custom_byo' && (
-                        <>
-                          <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Phone Number ID</label>
-                          <input
-                            className="input-field"
-                            type="text"
-                            placeholder="Ej: 123456789012345"
-                            value={localIntegrations.customPhoneNumberId}
-                            onChange={e => setLocalIntegrations(p => ({ ...p, customPhoneNumberId: e.target.value }))}
-                          />
-                          <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                            Access Token {localIntegrations.hasCustomAccessToken && <span style={{ color: 'var(--green)', fontSize: '11px' }}>✓ configurado</span>}
-                          </label>
-                          <input
-                            className="input-field"
-                            type="password"
-                            placeholder={localIntegrations.hasCustomAccessToken ? 'Dejar vacío para mantener el actual' : 'Pegar token de acceso'}
-                            value={localIntegrations.customAccessToken}
-                            onChange={e => { setLocalIntegrations(p => ({ ...p, customAccessToken: e.target.value })); setClearWaToken(false) }}
-                          />
-                          {localIntegrations.hasCustomAccessToken && !localIntegrations.customAccessToken && (
-                            <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                              <input type="checkbox" checked={clearWaToken} onChange={e => setClearWaToken(e.target.checked)} />
-                              Limpiar token (volver a número de plataforma)
-                            </label>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </fieldset>}
-
-                  {/* LLM */}
-                  <fieldset style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
-                    <legend style={{ padding: '0 8px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Modelo de IA (LLM)</legend>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Proveedor</label>
-                      <select
-                        className="input-field"
-                        value={localIntegrations.llmProvider}
-                        onChange={e => setLocalIntegrations(p => ({ ...p, llmProvider: e.target.value as 'groq' | 'openai' | 'anthropic' }))}
-                      >
-                        <option value="groq">Groq (recomendado — gratis)</option>
-                        <option value="openai">OpenAI (GPT-4o mini)</option>
-                        <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
-                      </select>
-                      <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        API Key {localIntegrations.hasLlmApiKey && <span style={{ color: 'var(--green)', fontSize: '11px' }}>✓ configurada</span>}
-                      </label>
-                      <input
-                        className="input-field"
-                        type="password"
-                        placeholder={localIntegrations.hasLlmApiKey ? 'Dejar vacío para mantener la actual' : 'Pegar API key del cliente'}
-                        value={localIntegrations.llmApiKey}
-                        onChange={e => { setLocalIntegrations(p => ({ ...p, llmApiKey: e.target.value })); setClearLlmKey(false) }}
-                      />
-                      {localIntegrations.hasLlmApiKey && !localIntegrations.llmApiKey && (
-                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input type="checkbox" checked={clearLlmKey} onChange={e => setClearLlmKey(e.target.checked)} />
-                          Limpiar clave (usar credenciales de plataforma)
-                        </label>
-                      )}
-                    </div>
-                  </fieldset>
-                </div>
-
-                <div className="admin-actions-bar" style={{ marginTop: '16px' }}>
-                  <button className="btn-save" onClick={saveIntegrations} disabled={savingIntegrations}>
-                    {savingIntegrations ? 'Guardando…' : savedIntegrations ? '✓ Integraciones Guardadas' : 'Guardar Integraciones'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Plan & Billing section */}
-              <div className="permissions-section" style={{ marginTop: '24px' }}>
-                <div className="permissions-header">
-                  <div className="header-icon-box blue">
-                    <Radio size={18} />
-                  </div>
-                  <div>
-                    <h4 className="permissions-title">Plan & Facturación</h4>
-                    <p className="permissions-hint">Gestioná el plan, estado de pago y cuota de respuestas IA.</p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
-                  <div>
-                    <label style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Plan</label>
+                <div className="admin-filters">
+                  <div className="admin-filter-group">
+                    <Filter size={13} />
                     <select
-                      className="input-field"
-                      value={localPlan.planId}
-                      onChange={e => setLocalPlan(p => ({ ...p, planId: e.target.value }))}
+                      className="admin-filter-select"
+                      value={filterPlan}
+                      onChange={e => setFilterPlan(e.target.value)}
                     >
-                      <option value="starter">Starter — 300 respuestas/mes</option>
-                      <option value="pro">Pro — 1.000 respuestas/mes</option>
-                      <option value="business">Business — 5.000 respuestas/mes</option>
-                      <option value="enterprise">Enterprise — Ilimitado</option>
+                      <option value="all">Todos los planes</option>
+                      <option value="starter">Starter</option>
+                      <option value="pro">Pro</option>
+                      <option value="business">Business</option>
+                      <option value="enterprise">Enterprise</option>
                     </select>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Estado de facturación</label>
+                  <div className="admin-filter-group">
                     <select
-                      className="input-field"
-                      value={localPlan.billingStatus}
-                      onChange={e => setLocalPlan(p => ({ ...p, billingStatus: e.target.value }))}
+                      className="admin-filter-select"
+                      value={filterStatus}
+                      onChange={e => setFilterStatus(e.target.value)}
                     >
-                      <option value="active">Activo</option>
-                      <option value="overdue">Vencido</option>
+                      <option value="all">Todos los estados</option>
+                      <option value="active">IA Activa</option>
+                      <option value="paused">Pausado</option>
                       <option value="cancelled">Cancelado</option>
+                      <option value="pending">Pendiente</option>
+                      <option value="no-ml">Sin ML</option>
                     </select>
                   </div>
+                </div>
 
-                  <div>
-                    <label style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Próximo vencimiento</label>
-                    <input
-                      className="input-field"
-                      type="date"
-                      value={localPlan.nextBillingDate}
-                      onChange={e => setLocalPlan(p => ({ ...p, nextBillingDate: e.target.value }))}
-                    />
-                  </div>
+                <button className="btn-new-tenant" onClick={openModal}>
+                  <UserPlus size={13} />
+                  <span>Nuevo Tenant</span>
+                </button>
+              </div>
 
-                  <div style={{ background: 'var(--surface-2, rgba(255,255,255,0.04))', borderRadius: '8px', padding: '12px 14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                    <span>Respuestas IA este mes: </span>
-                    <strong>{localPlan.llmResponsesThisMonth}</strong>
-                    <span> / </span>
-                    <strong>{localPlan.monthlyLLMLimit === 999_999_999 ? '∞' : localPlan.monthlyLLMLimit}</strong>
-                    {localPlan.monthlyLLMLimit > 0 && localPlan.monthlyLLMLimit < 999_999_999 && (
-                      <span style={{ marginLeft: '8px', color: localPlan.llmResponsesThisMonth / localPlan.monthlyLLMLimit >= 0.8 ? '#f59e0b' : 'var(--text-dim)' }}>
-                        ({Math.round((localPlan.llmResponsesThisMonth / localPlan.monthlyLLMLimit) * 100)}%)
-                      </span>
+              {/* Table */}
+              <div className="admin-table-wrapper glass">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Organización</th>
+                      <th>Email</th>
+                      <th>Plan</th>
+                      <th>Estado</th>
+                      <th>Respuestas IA / mes</th>
+                      <th style={{ textAlign: 'right' }}>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="admin-table-empty">
+                          Sin resultados para los filtros actuales
+                        </td>
+                      </tr>
                     )}
-                  </div>
-                </div>
+                    {filtered.map((row, i) => {
+                      const name   = rowName(row)
+                      const email  = rowEmail(row)
+                      const status = rowStatus(row)
+                      const isTenant = row.kind === 'tenant'
+                      const t = isTenant ? (row.data as TenantOverview) : null
+                      const plan = t?.planId || 'starter'
+                      const llmUsed  = t?.llmResponsesThisMonth ?? 0
+                      const llmLimit = t?.monthlyLLMLimit ?? 300
+                      const usePct   = llmLimit > 0 && llmLimit < 999_999_999 ? llmUsed / llmLimit : null
+                      const isActivating = isTenant && inactivating === t?.sellerId
 
-                <div className="admin-actions-bar" style={{ marginTop: '16px' }}>
-                  <button className="btn-save" onClick={handleUpdatePlan} disabled={savingPlan}>
-                    {savingPlan ? 'Guardando…' : savedPlan ? '✓ Plan Guardado' : 'Guardar Plan'}
-                  </button>
-                </div>
+                      return (
+                        <tr key={`${row.kind}-${i}`} className="admin-table-row">
+                          <td>
+                            <div className="admin-row-name-cell">
+                              <div className="admin-row-avatar">
+                                {name.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="admin-row-name">{name}</span>
+                            </div>
+                          </td>
+                          <td className="admin-row-email">{email}</td>
+                          <td>
+                            {isTenant ? (
+                              <span className={`plan-badge ${PLAN_COLORS[plan] || 'plan-badge--starter'}`}>
+                                {PLAN_LABELS[plan] || plan}
+                              </span>
+                            ) : <span className="admin-row-dim">—</span>}
+                          </td>
+                          <td>
+                            <StatusBadge status={status} />
+                          </td>
+                          <td>
+                            {isTenant ? (
+                              <div className="admin-llm-cell">
+                                <span className={`admin-llm-count${usePct !== null && usePct >= 0.8 ? ' admin-llm-count--warn' : ''}`}>
+                                  {llmUsed}
+                                  {llmLimit < 999_999_999 && <span className="admin-llm-limit"> / {llmLimit}</span>}
+                                  {llmLimit >= 999_999_999 && <span className="admin-llm-limit"> / ∞</span>}
+                                </span>
+                                {usePct !== null && (
+                                  <div className="admin-llm-bar">
+                                    <div
+                                      className={`admin-llm-bar-fill${usePct >= 0.8 ? ' admin-llm-bar-fill--warn' : ''}`}
+                                      style={{ width: `${Math.min(usePct * 100, 100)}%` }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            ) : <span className="admin-row-dim">—</span>}
+                          </td>
+                          <td>
+                            <div className="admin-row-actions">
+                              {isTenant && (
+                                <>
+                                  <button
+                                    className="btn-action btn-action--primary"
+                                    onClick={() => navigate(`/admin/tenants/${t!.sellerId}`)}
+                                  >
+                                    <ExternalLink size={13} />
+                                    Ver detalles
+                                    <ChevronRight size={12} />
+                                  </button>
+                                  {t?.billingStatus !== 'cancelled' && (
+                                    <button
+                                      className="btn-action btn-action--danger"
+                                      disabled={isActivating}
+                                      onClick={() => handleInactivate(
+                                        t!.sellerId,
+                                        t!.planId || 'starter',
+                                        t!.billingStatus === 'active' ? new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString() : ''
+                                      )}
+                                    >
+                                      <Ban size={13} />
+                                      {isActivating ? 'Inactivando…' : 'Inactivar'}
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                              {row.kind === 'pending' && (
+                                <div className="admin-pending-actions">
+                                  <button
+                                    className="btn-action btn-action--ghost"
+                                    disabled={resenting === row.data.id}
+                                    onClick={() => handleResendInvitation(row.data.id)}
+                                  >
+                                    {resenting === row.data.id ? '…' : '↺ Reenviar'}
+                                  </button>
+                                  {resentLink[row.data.id] && (
+                                    <button
+                                      className="btn-action btn-action--ghost"
+                                      onClick={() => copyResentLink(row.data.id)}
+                                    >
+                                      {copiedResent === row.data.id ? <Check size={13} /> : <Copy size={13} />}
+                                      {copiedResent === row.data.id ? 'Copiado' : 'Copiar link'}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                              {row.kind === 'unconnected' && (
+                                <span className="admin-row-dim" style={{ fontSize: '0.78rem' }}>Sin acciones</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          ) : (
-            <div className="tenant-empty-hero glass">
-              <div className="empty-hero-icon-box">
-                <Store size={44} />
-              </div>
-              <h3>Centro de Control Multi-Tenant</h3>
-              <p className="empty-hero-desc">
-                Seleccioná una organización del listado lateral para inspeccionar sus métricas, 
-                configurar canales de alerta o habilitar el módulo de Equipo Multi-Usuario.
+
+              <p className="admin-table-count">
+                {filtered.length} de {allRows.length} organizaciones
               </p>
-              <div className="empty-hero-stats">
-                <div className="empty-stat-item">
-                  <span className="empty-stat-val">{tenants.length}</span>
-                  <span className="empty-stat-lbl">Organizaciones</span>
-                </div>
-                <div className="empty-stat-item">
-                  <span className="empty-stat-val" style={{ color: '#10b981' }}>
-                    {tenants.filter(t => t.autoAnswerEnabled).length}
-                  </span>
-                  <span className="empty-stat-lbl">IA Activa</span>
-                </div>
-                <div className="empty-stat-item">
-                  <span className="empty-stat-val" style={{ color: '#f59e0b' }}>
-                    {pending.length}
-                  </span>
-                  <span className="empty-stat-lbl">Invitaciones</span>
-                </div>
-              </div>
-              <button className="btn-primary" onClick={openModal} style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UserPlus size={16} />
-                Registrar Nuevo Tenant
-              </button>
             </div>
           )}
-        </div>
+
+          {activeSection === 'leads' && (
+            <div className="admin-section">
+              <div className="admin-toolbar">
+                <span className="admin-section-title">Leads</span>
+                <select
+                  className="admin-filter-select"
+                  value={leadsStatusFilter}
+                  onChange={e => setLeadsStatusFilter(e.target.value)}
+                >
+                  <option value="all">Todos los estados</option>
+                  <option value="nuevo">Nuevo</option>
+                  <option value="contactado">Contactado</option>
+                  <option value="convertido">Convertido</option>
+                  <option value="descartado">Descartado</option>
+                </select>
+                <button className="btn-ghost" onClick={fetchLeads}>↺ Actualizar</button>
+              </div>
+
+              {leadsLoading ? (
+                <div className="admin-loading">Cargando leads…</div>
+              ) : (
+                <div className="admin-table-wrapper">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Teléfono</th>
+                        <th>Tienda ML</th>
+                        <th>Preg/sem</th>
+                        <th>Calificado</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leads
+                        .filter(l => leadsStatusFilter === 'all' || l.status === leadsStatusFilter)
+                        .map(l => (
+                          <tr key={l.id} className="admin-table-row">
+                            <td>{l.name}</td>
+                            <td>{l.email}</td>
+                            <td>{l.phone}</td>
+                            <td>{l.mlStore}</td>
+                            <td>{l.weeklyQuestions}</td>
+                            <td>
+                              <span className={`lead-qualified-badge lead-qualified-badge--${l.qualified ? 'yes' : 'no'}`}>
+                                {l.qualified ? 'Sí' : 'No'}
+                              </span>
+                            </td>
+                            <td>
+                              <select
+                                className="lead-status-select"
+                                value={l.status}
+                                onChange={e => handleLeadStatusChange(l.id, e.target.value)}
+                              >
+                                <option value="nuevo">Nuevo</option>
+                                <option value="contactado">Contactado</option>
+                                <option value="convertido">Convertido</option>
+                                <option value="descartado">Descartado</option>
+                              </select>
+                            </td>
+                            <td>{new Date(l.createdAt).toLocaleDateString('es-AR')}</td>
+                          </tr>
+                        ))}
+                      {leads.filter(l => leadsStatusFilter === 'all' || l.status === leadsStatusFilter).length === 0 && (
+                        <tr><td colSpan={8} className="admin-table-empty">No hay leads aún.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           )}
 
           {activeSection === 'llm_usage' && (
@@ -983,10 +682,8 @@ export default function AdminPage() {
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
-            {/* Modal Glow Accents */}
             <div className="modal-ambient-glow" aria-hidden="true" />
 
-            {/* Modal Header */}
             <div className="modal-header">
               <div className="modal-header-left">
                 <div className="modal-icon-badge">
@@ -1008,7 +705,6 @@ export default function AdminPage() {
               </button>
             </div>
 
-            {/* Modal Body */}
             {createdLink ? (
               <div className="modal-success-content">
                 <div className="modal-success-banner">
@@ -1039,16 +735,11 @@ export default function AdminPage() {
                     onClick={copyLink}
                   >
                     {copied ? (
-                      <>
-                        <Check size={16} /> ¡Enlace Copiado al Portapapeles!
-                      </>
+                      <><Check size={16} /> ¡Enlace Copiado al Portapapeles!</>
                     ) : (
-                      <>
-                        <Copy size={16} /> Copiar Enlace de Activación
-                      </>
+                      <><Copy size={16} /> Copiar Enlace de Activación</>
                     )}
                   </button>
-
                   <button className="btn-modal-done" onClick={closeModal}>
                     Finalizar
                   </button>
@@ -1056,7 +747,6 @@ export default function AdminPage() {
               </div>
             ) : (
               <form className="modal-form" onSubmit={handleCreate}>
-                {/* Field 1: Nombre */}
                 <div className="modal-field">
                   <label className="modal-label" htmlFor="tenant-name">
                     Nombre del Comercio / Empresa
@@ -1076,7 +766,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Field 2: Email */}
                 <div className="modal-field">
                   <label className="modal-label" htmlFor="tenant-email">
                     Correo Electrónico del Administrador
@@ -1095,7 +784,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Info Callout */}
                 <div className="modal-info-callout">
                   <ShieldCheck size={16} className="callout-icon" />
                   <p className="callout-text">
@@ -1103,7 +791,6 @@ export default function AdminPage() {
                   </p>
                 </div>
 
-                {/* Error Banner */}
                 {createError && (
                   <div className="modal-error-banner" role="alert">
                     <AlertCircle size={17} />
@@ -1111,14 +798,8 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                {/* Actions */}
                 <div className="modal-form-actions">
-                  <button
-                    type="button"
-                    className="btn-modal-cancel"
-                    onClick={closeModal}
-                    disabled={creating}
-                  >
+                  <button type="button" className="btn-modal-cancel" onClick={closeModal} disabled={creating}>
                     Cancelar
                   </button>
                   <button type="submit" className="btn-modal-submit" disabled={creating}>
@@ -1127,10 +808,7 @@ export default function AdminPage() {
                         <span className="pulse-dot" /> Registrando...
                       </span>
                     ) : (
-                      <>
-                        <span>Crear Tenant</span>
-                        <ArrowRight size={16} />
-                      </>
+                      <><span>Crear Tenant</span><ArrowRight size={16} /></>
                     )}
                   </button>
                 </div>
@@ -1143,3 +821,14 @@ export default function AdminPage() {
   )
 }
 
+function StatusBadge({ status }: { status: ReturnType<typeof rowStatus> }) {
+  const map = {
+    active:    { label: 'IA Activa',  cls: 'status-badge--active' },
+    paused:    { label: 'Pausado',    cls: 'status-badge--paused' },
+    cancelled: { label: 'Cancelado',  cls: 'status-badge--cancelled' },
+    pending:   { label: 'Pendiente',  cls: 'status-badge--pending' },
+    'no-ml':   { label: 'Sin ML',     cls: 'status-badge--no-ml' },
+  }
+  const { label, cls } = map[status]
+  return <span className={`status-badge ${cls}`}>{label}</span>
+}
