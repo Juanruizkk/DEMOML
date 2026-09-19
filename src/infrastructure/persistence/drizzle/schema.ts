@@ -200,3 +200,15 @@ export const goldenDataset = pgTable('golden_dataset', {
   index('idx_golden_decision').on(table.decision),
   index('idx_golden_source_question').on(table.sourceQuestionId),
 ]);
+
+export const leads = pgTable('leads', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
+  phone: text('phone').notNull(),
+  mlStore: text('ml_store').notNull(),
+  weeklyQuestions: text('weekly_questions').notNull(),
+  qualified: boolean('qualified').notNull().default(false),
+  status: text('status').notNull().default('nuevo'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

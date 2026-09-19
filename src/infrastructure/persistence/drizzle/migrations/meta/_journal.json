@@ -29,6 +29,13 @@
       "when": 1789697882382,
       "tag": "0003_superb_slipstream",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789827547300,
+      "tag": "0004_shocking_bishop",
+      "breakpoints": true
     }
   ]
 }
