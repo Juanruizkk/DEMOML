@@ -80,17 +80,26 @@ export class ResendEmailClient implements IEmailClient {
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #0f172a; color: #f8fafc; border-radius: 12px; border: 1px solid #334155;">
         <h2 style="color: #60a5fa; margin-top: 0; font-size: 20px;">🎯 Nuevo lead calificado</h2>
         <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px; width: 120px;">Nombre</td><td style="padding: 8px 0; font-size: 14px;">${lead.name}</td></tr>
-          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Email</td><td style="padding: 8px 0; font-size: 14px;">${lead.email}</td></tr>
-          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Teléfono</td><td style="padding: 8px 0; font-size: 14px;">${lead.phone}</td></tr>
-          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Tienda ML</td><td style="padding: 8px 0; font-size: 14px;">${lead.mlStore}</td></tr>
-          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Preg/semana</td><td style="padding: 8px 0; font-size: 14px; color: #34d399; font-weight: 600;">${lead.weeklyQuestions}</td></tr>
+          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px; width: 120px;">Nombre</td><td style="padding: 8px 0; font-size: 14px;">${this.escapeHtml(lead.name)}</td></tr>
+          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Email</td><td style="padding: 8px 0; font-size: 14px;">${this.escapeHtml(lead.email)}</td></tr>
+          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Teléfono</td><td style="padding: 8px 0; font-size: 14px;">${this.escapeHtml(lead.phone)}</td></tr>
+          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Tienda ML</td><td style="padding: 8px 0; font-size: 14px;">${this.escapeHtml(lead.mlStore)}</td></tr>
+          <tr><td style="padding: 8px 0; color: #94a3b8; font-size: 13px;">Preg/semana</td><td style="padding: 8px 0; font-size: 14px; color: #34d399; font-weight: 600;">${this.escapeHtml(lead.weeklyQuestions)}</td></tr>
         </table>
         <a href="${process.env.APP_BASE_URL ?? 'http://localhost:5173'}/admin" style="display: inline-block; margin-top: 8px; padding: 10px 20px; background: #3b82f6; color: #fff; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600;">Ver en panel → Leads</a>
         <p style="font-size: 11px; color: #475569; margin-top: 20px; margin-bottom: 0;">MELI AI Assistant — notificación automática</p>
       </div>
     `;
     return this.sendMail(params.to, subject, html);
+  }
+
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   private async sendMail(to: string, subject: string, html: string): Promise<EmailSendResult> {

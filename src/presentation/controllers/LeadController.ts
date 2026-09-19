@@ -35,7 +35,8 @@ export class LeadController {
 
       return reply.status(201).send(result);
     } catch (err: any) {
-      return reply.status(500).send({ error: err.message });
+      const isValidation = err.message?.includes('inválido') || err.message?.includes('caracteres');
+      return reply.status(isValidation ? 400 : 500).send({ error: err.message });
     }
   };
 

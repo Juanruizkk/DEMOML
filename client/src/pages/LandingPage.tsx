@@ -98,6 +98,11 @@ export default function LandingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(leadForm),
       })
+      if (!res.ok) {
+        // Server error — fail open, don't punish valid user
+        setLeadResult('qualified')
+        return
+      }
       const data = await res.json()
       setLeadResult(data.qualified ? 'qualified' : 'disqualified')
     } catch {

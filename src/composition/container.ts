@@ -238,7 +238,7 @@ export function buildContainer() {
   const getTenantLLMUsageUseCase = new GetTenantLLMUsageUseCase(llmUsageRepo);
   const setLLMSpendingLimitUseCase = new SetLLMSpendingLimitUseCase(llmUsageRepo);
 
-  const adminEmail = process.env.ADMIN_EMAIL ?? 'juanignacioruizr@gmail.com';
+  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@localhost';
   const createLeadUseCase = new CreateLeadUseCase(leadRepo, emailClient, adminEmail);
   const updateLeadStatusUseCase = new UpdateLeadStatusUseCase(leadRepo);
   const listLeadsUseCase = new ListLeadsUseCase(leadRepo);
