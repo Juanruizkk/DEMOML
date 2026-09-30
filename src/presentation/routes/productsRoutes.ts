@@ -13,4 +13,5 @@ export function registerProductsRoutes(app: FastifyInstance, c: Container, guard
   app.delete("/api/tenant/products/:itemId/knowledge", { preHandler: authenticate }, productsCtrl.deleteKnowledge);
   app.post("/api/tenant/products/:itemId/simulate", { preHandler: authenticate }, productsCtrl.simulate);
   app.post("/api/tenant/products/:itemId/suggest-faqs", { preHandler: authenticate }, productsCtrl.suggestFaqs);
+  app.get("/api/tenant/products/:itemId/quality", { preHandler: authenticate }, productsCtrl.getQuality);
 }

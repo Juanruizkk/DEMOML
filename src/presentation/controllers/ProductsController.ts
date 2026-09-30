@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { GetSellerProductsUseCase } from "../../application/use-cases/products/GetSellerProductsUseCase.js";
 import { SaveItemKnowledgeUseCase } from "../../application/use-cases/products/SaveItemKnowledgeUseCase.js";
 import { SuggestItemFaqsUseCase } from "../../application/use-cases/products/SuggestItemFaqsUseCase.js";
+import { AnalyzeItemQualityUseCase } from "../../application/use-cases/products/AnalyzeItemQualityUseCase.js";
 import { IItemKnowledgeRepository } from "../../application/interfaces/IItemKnowledgeRepository.js";
 import { IMeliClient } from "../../application/interfaces/IMeliClient.js";
 import { ILLMService } from "../../application/interfaces/ILLMService.js";
@@ -243,6 +244,23 @@ export class ProductsController {
       return reply
         .status(500)
         .send({ error: `Error en simulación: ${err.message}` });
+    }
+  };
+
+  public getQuality = async (request: FastifyRequest, reply: FastifyReply) => {
+    const sellerId = this.extractSellerId(request);
+    const { itemId } = request.params as { itemId: string };
+
+    if (!sellerId || !itemId) {
+      return reply.status(400).send({ error: "sellerId e itemId son requeridos." });
+    }
+
+    try {
+      const item = await this.meliClient.getItem(sellerId, itemId);
+      const checks = new AnalyzeItemQualityUseCase().execute(item);
+      return reply.send({ ok: true, checks });
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
     }
   };
 }
