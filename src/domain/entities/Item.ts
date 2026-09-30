@@ -15,6 +15,9 @@ export interface ItemProps {
   attributes: ItemAttribute[];
   descriptionText: string;
   permalink?: string;
+  pictures?: string[];
+  videoId?: string | null;
+  freeShipping?: boolean;
   cachedAt?: number;
 }
 
@@ -29,6 +32,9 @@ export class Item {
   public readonly attributes: ItemAttribute[];
   public readonly descriptionText: string;
   public readonly permalink?: string;
+  public readonly pictures: string[];
+  public readonly videoId: string | null;
+  public readonly freeShipping: boolean;
   public readonly cachedAt: number;
 
   constructor(props: ItemProps) {
@@ -42,6 +48,9 @@ export class Item {
     this.attributes = props.attributes || [];
     this.descriptionText = props.descriptionText || "";
     this.permalink = props.permalink;
+    this.pictures = props.pictures ?? [];
+    this.videoId = props.videoId ?? null;
+    this.freeShipping = props.freeShipping ?? false;
     this.cachedAt = props.cachedAt || Date.now();
   }
 
