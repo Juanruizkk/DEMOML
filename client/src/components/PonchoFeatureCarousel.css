@@ -1,0 +1,352 @@
+/* ── Poncho Capital Inspired 3D Feature Carousel ── */
+
+.poncho-carousel-container {
+  position: relative;
+  /* Scrollable height to control the smooth scroll progress */
+  min-height: 280vh;
+  margin: 2rem 0;
+  background: var(--lp-bg, #FAF8F5);
+}
+
+.poncho-sticky-frame {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  padding: 1.5rem 0;
+  box-sizing: border-box;
+}
+
+.poncho-header-container {
+  margin-bottom: 1.5rem;
+  text-align: center;
+  z-index: 10;
+}
+
+.poncho-section-header {
+  margin-bottom: 0.5rem !important;
+}
+
+.poncho-section-header .section-title {
+  margin-bottom: 0.5rem !important;
+}
+
+.poncho-section-header .section-desc {
+  margin-bottom: 0 !important;
+}
+
+/* ── 3D Wrapper & Perspective Track ── */
+.poncho-3d-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding: 2.5rem 0;
+  z-index: 5;
+}
+
+.poncho-track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  will-change: transform;
+  user-select: none;
+}
+
+/* ── Individual 3D Card Item ── */
+.poncho-card-item {
+  flex-shrink: 0;
+  cursor: pointer;
+  transform-origin: center center;
+  will-change: transform, opacity;
+  box-sizing: border-box;
+}
+
+.poncho-card-inner {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 1.5rem 1.75rem;
+  text-align: left;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+  box-sizing: border-box;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.poncho-card-inner:hover {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+/* Glass Reflection Layer */
+.card-glass-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, transparent 42%, transparent 58%, rgba(0, 0, 0, 0.08) 100%);
+  z-index: 1;
+}
+
+/* ── Top Row: Badge & Sub-tag ── */
+.card-top-row {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.card-badge-pill {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  border-radius: 9999px;
+  padding: 0.3rem 0.7rem;
+}
+
+.card-tag-sub {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ── Card Typography ── */
+.card-main-title {
+  position: relative;
+  z-index: 10;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  margin: 0 0 0.5rem;
+  color: #ffffff;
+}
+
+.card-desc {
+  position: relative;
+  z-index: 10;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0 0 1.25rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Card Custom Widget Slot ── */
+.card-widget-slot {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  margin-bottom: 1.25rem;
+}
+
+.card-custom-widget {
+  width: 100%;
+}
+
+.widget-row-bordered {
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.widget-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.widget-sub-row.border-top {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.widget-sub-row.highlight-sub {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.widget-sub-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.widget-sub-value {
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.widget-dot-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.widget-tiny-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.widget-sub-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.widget-pill-val {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Channels pill grid */
+.channels-pill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.channel-box {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ffffff;
+  text-align: center;
+}
+
+/* ── Card Action Link (Bottom with Arrow) ── */
+.card-action-link {
+  position: relative;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  margin-top: auto;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.card-action-link:hover {
+  transform: translateX(4px);
+  opacity: 0.9;
+}
+
+/* ── Left / Right Edge Fades ── */
+.carousel-edge-fade-left {
+  pointer-events: none;
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 6rem;
+  background: linear-gradient(to right, var(--lp-bg, #FAF8F5) 0%, rgba(250, 248, 245, 0.8) 50%, transparent 100%);
+  z-index: 20;
+}
+
+.carousel-edge-fade-right {
+  pointer-events: none;
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  width: 6rem;
+  background: linear-gradient(to left, var(--lp-bg, #FAF8F5) 0%, rgba(250, 248, 245, 0.8) 50%, transparent 100%);
+  z-index: 20;
+}
+
+@media (max-width: 640px) {
+  .carousel-edge-fade-left,
+  .carousel-edge-fade-right {
+    width: 2rem;
+  }
+}
+
+/* ── Carousel Bottom Navigation Controls ── */
+.poncho-controls-bar {
+  position: relative;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.carousel-nav-arrow {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1.5px solid var(--lp-border, rgba(0, 0, 0, 0.08));
+  color: var(--lp-text, #0d0d14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.15s ease;
+}
+
+.carousel-nav-arrow:hover:not(:disabled) {
+  background: #f4f4f5;
+  transform: scale(1.08);
+}
+
+.carousel-nav-arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.carousel-dots-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.carousel-dot-pill {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.15);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.carousel-dot-pill.active {
+  width: 26px;
+  background: var(--lp-accent, #C4145A);
+}

@@ -1,0 +1,1239 @@
+/* ── Mercado Libre Product Simulator Styles ── */
+
+.meli-sim-wrapper {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #333333;
+}
+
+/* ── Top Header Switcher ── */
+.meli-sim-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: #ffffff;
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.meli-sim-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #0d0d14;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.meli-sim-badge svg {
+  color: #3483fa;
+}
+
+.meli-product-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.meli-tabs-label {
+  font-size: 0.78rem;
+  color: #666666;
+  font-weight: 500;
+}
+
+.meli-product-tab-btn {
+  background: #f5f5f5;
+  border: 1px solid #e5e5e5;
+  color: #4b5563;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.meli-product-tab-btn:hover {
+  background: #ebebeb;
+  color: #111827;
+}
+
+.meli-product-tab-btn.active {
+  background: #3483fa;
+  color: #ffffff;
+  border-color: #2968c8;
+  box-shadow: 0 2px 8px rgba(52, 131, 250, 0.35);
+}
+
+/* ── Main Container (White Card Mercado Libre Style) ── */
+.meli-post-container {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e6e6e6;
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
+  text-align: left;
+}
+
+/* ── Breadcrumbs ── */
+.meli-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: #3483fa;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.meli-back-link {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.meli-sep {
+  color: #cccccc;
+}
+
+.meli-crumb {
+  color: #666666;
+}
+
+.meli-crumb:last-child {
+  color: #333333;
+  font-weight: 500;
+}
+
+/* ── 2-Column Product Grid ── */
+.meli-product-grid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 2.25rem;
+  border-bottom: 1px solid #ededed;
+  padding-bottom: 2.5rem;
+}
+
+@media (max-width: 960px) {
+  .meli-product-grid {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
+}
+
+/* ── Left Column: Gallery & Visuals ── */
+.meli-col-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.meli-gallery-wrap {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 600px) {
+  .meli-gallery-wrap {
+    flex-direction: column-reverse;
+  }
+}
+
+.meli-thumbs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .meli-thumbs-list {
+    flex-direction: row;
+  }
+}
+
+.meli-thumb-item {
+  width: 50px;
+  height: 50px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 3px;
+  background: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.meli-thumb-item:hover,
+.meli-thumb-item.active {
+  border-color: #3483fa;
+  box-shadow: 0 0 0 1.5px #3483fa;
+}
+
+.mock-shirt-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+}
+
+.meli-main-image-frame {
+  flex: 1;
+  min-height: 340px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 1.5rem;
+}
+
+.meli-zoom-hint {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.25rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  color: #666666;
+  font-weight: 600;
+}
+
+/* ── Shirt SVG / Illustration ── */
+.product-visual-shirt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.shirt-illustration {
+  width: 170px;
+  height: 190px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shirt-body {
+  width: 140px;
+  height: 170px;
+  background: var(--shirt-color, #1e293b);
+  border-radius: 16px 16px 8px 8px;
+  position: relative;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2), inset 0 2px 6px rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+}
+
+.shirt-collar {
+  position: absolute;
+  top: -8px;
+  width: 50px;
+  height: 22px;
+  background: #fafafa;
+  border-radius: 0 0 50px 50px;
+  border-bottom: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.shirt-sleeves {
+  position: absolute;
+  top: 8px;
+  width: 190px;
+  height: 60px;
+  background: var(--shirt-color, #1e293b);
+  z-index: -1;
+  border-radius: 12px;
+  opacity: 0.95;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.shirt-brand-logo {
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 0.35rem;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.shirt-dryfit-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #38bdf8;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.shirt-variant-badge {
+  font-size: 0.78rem;
+  color: #4b5563;
+  background: #ffffff;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+/* Tech / Appliance visuals */
+.product-visual-appliance,
+.product-visual-tech {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.appliance-icon-big,
+.tech-icon-big {
+  font-size: 5rem;
+  line-height: 1;
+  filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
+}
+
+.appliance-model-title,
+.tech-model-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.appliance-badge,
+.tech-badge {
+  font-size: 0.78rem;
+  color: #3483fa;
+  background: rgba(52, 131, 250, 0.08);
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+/* ── Highlights List ── */
+.meli-product-highlights {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 1.25rem;
+}
+
+.meli-highlights-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #333333;
+  margin: 0 0 0.85rem;
+}
+
+.meli-highlights-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.meli-highlights-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+  line-height: 1.45;
+}
+
+.meli-check-icon {
+  color: #00a650;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── Specs Table ── */
+.meli-specs-box {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 1.25rem;
+}
+
+.meli-specs-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #333333;
+  margin: 0 0 0.85rem;
+}
+
+.meli-specs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.meli-specs-table tr.even {
+  background: #f7f7f7;
+}
+
+.meli-specs-table tr.odd {
+  background: #ffffff;
+}
+
+.meli-specs-table td {
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid #ebebeb;
+}
+
+.spec-label {
+  color: #666666;
+  font-weight: 600;
+  width: 40%;
+}
+
+.spec-value {
+  color: #333333;
+  font-weight: 500;
+}
+
+/* ── Right Column: Buy Box ── */
+.meli-col-buybox {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.meli-top-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.meli-rating-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.meli-rating-num {
+  font-weight: 700;
+  color: #333333;
+}
+
+.meli-stars {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.meli-reviews-count {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.meli-bestseller-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #f77c00;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  width: fit-content;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.meli-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0d0d14;
+  line-height: 1.25;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* ── Price Block ── */
+.meli-price-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.meli-original-price {
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.45);
+  text-decoration: line-through;
+}
+
+.meli-current-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.meli-currency {
+  font-size: 1.4rem;
+  font-weight: 400;
+  color: #333333;
+}
+
+.meli-price-amount {
+  font-size: 2.25rem;
+  font-weight: 400;
+  color: #333333;
+  line-height: 1;
+}
+
+.meli-discount-badge {
+  font-size: 1rem;
+  color: #00a650;
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
+.meli-installments-row {
+  font-size: 0.92rem;
+  color: #333333;
+  margin-top: 0.15rem;
+}
+
+.meli-payment-link {
+  font-size: 0.8rem;
+  color: #3483fa;
+  text-decoration: none;
+  margin-top: 0.2rem;
+}
+
+.meli-payment-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Shipping Box ── */
+.meli-shipping-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: #f7fbf8;
+  border: 1px solid rgba(0, 166, 80, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+}
+
+.meli-shipping-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+}
+
+.meli-full-tag {
+  background: #00a650;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  font-style: italic;
+  padding: 0.1rem 0.45rem;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+
+.meli-shipping-sub {
+  font-size: 0.78rem;
+  color: #666666;
+  margin: 0.2rem 0;
+  line-height: 1.35;
+}
+
+.meli-shipping-link {
+  font-size: 0.75rem;
+  color: #3483fa;
+  cursor: pointer;
+}
+
+/* ── Returns ── */
+.meli-return-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.meli-return-title {
+  color: #00a650;
+  font-weight: 600;
+}
+
+.meli-return-sub {
+  color: #666666;
+  margin: 0.1rem 0 0;
+  font-size: 0.75rem;
+}
+
+/* ── Color Variations ── */
+.meli-variation-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.meli-variation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: #333333;
+}
+
+.meli-size-guide-link {
+  color: #3483fa;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.meli-color-swatches {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.meli-swatch-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #4b5563;
+  transition: all 0.15s ease;
+}
+
+.meli-swatch-btn:hover {
+  border-color: #3483fa;
+}
+
+.meli-swatch-btn.active {
+  border-color: #3483fa;
+  box-shadow: 0 0 0 1.5px #3483fa;
+  background: #f0f7ff;
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
+.swatch-circle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+/* ── Sizes ── */
+.meli-sizes-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.meli-size-btn {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.meli-size-btn:hover {
+  border-color: #3483fa;
+}
+
+.meli-size-btn.active {
+  border-color: #3483fa;
+  background: #3483fa;
+  color: #ffffff;
+}
+
+/* ── Stock ── */
+.meli-stock-row {
+  font-size: 0.82rem;
+  color: #333333;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.meli-stock-row span {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+/* ── Action Buttons ── */
+.meli-actions-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+}
+
+.meli-btn-buy-now {
+  background: #3483fa;
+  color: #ffffff;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  box-shadow: 0 2px 8px rgba(52, 131, 250, 0.3);
+}
+
+.meli-btn-buy-now:hover {
+  background: #2968c8;
+}
+
+.meli-btn-add-cart {
+  background: rgba(65, 137, 230, 0.12);
+  color: #3483fa;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.meli-btn-add-cart:hover {
+  background: rgba(65, 137, 230, 0.2);
+}
+
+/* ── Seller Reputation Box ── */
+.meli-seller-card {
+  border: 1px solid #ebebeb;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.meli-seller-title {
+  font-size: 0.82rem;
+  color: rgba(0, 0, 0, 0.65);
+  font-weight: 600;
+  display: block;
+}
+
+.meli-seller-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  color: #333333;
+  margin-top: 0.2rem;
+}
+
+.seller-official-pill {
+  background: #e0f2fe;
+  color: #0284c7;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.meli-seller-level {
+  font-size: 0.78rem;
+  color: #00a650;
+  font-weight: 600;
+  display: block;
+}
+
+/* Thermometer */
+.meli-thermometer-bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.thermo-step {
+  background: #e2e8f0;
+}
+
+.thermo-step:nth-child(1) { background: #fee2e2; }
+.thermo-step:nth-child(2) { background: #fef3c7; }
+.thermo-step:nth-child(3) { background: #dcfce7; }
+.thermo-step:nth-child(4) { background: #86efac; }
+.thermo-step.active-platinum {
+  background: #00a650;
+  box-shadow: 0 0 6px rgba(0, 166, 80, 0.6);
+}
+
+.meli-seller-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  text-align: center;
+  border-top: 1px solid #ebebeb;
+  padding-top: 0.6rem;
+}
+
+.seller-metric-col strong {
+  display: block;
+  font-size: 0.82rem;
+  color: #111827;
+}
+
+.seller-metric-col span {
+  font-size: 0.68rem;
+  color: #666666;
+  line-height: 1.2;
+}
+
+/* ───────────────────────────────────────────────────────────── */
+/* ── PREGUNTAS Y RESPUESTAS SIMULATOR SECTION ────────────────── */
+/* ───────────────────────────────────────────────────────────── */
+.meli-questions-section {
+  padding-top: 2.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.meli-questions-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.meli-questions-title {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #0d0d14;
+  margin: 0 0 0.35rem;
+  letter-spacing: -0.02em;
+}
+
+.meli-questions-subtitle {
+  font-size: 0.85rem;
+  color: #666666;
+  margin: 0;
+  max-width: 580px;
+  line-height: 1.45;
+}
+
+.meli-ai-live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+}
+
+.live-pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: livePulse 1.8s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+@keyframes livePulse {
+  0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  50% { transform: scale(1.15); opacity: 0.8; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+
+.meli-ai-live-indicator strong {
+  display: block;
+  font-size: 0.78rem;
+  color: #065f46;
+}
+
+.meli-ai-live-indicator span {
+  font-size: 0.7rem;
+  color: #047857;
+}
+
+/* ── Quick Topic Pills ── */
+.meli-topic-pills-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.topic-pills-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #333333;
+}
+
+.topic-pills-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.meli-topic-pill {
+  background: #f0f0f0;
+  border: 1px solid #e0e0e0;
+  color: #333333;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.meli-topic-pill:hover {
+  background: #e5e5e5;
+  border-color: #cccccc;
+  transform: translateY(-1px);
+}
+
+/* ── Preguntale al vendedor Form ── */
+.meli-ask-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.meli-ask-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #333333;
+  margin: 0;
+}
+
+.meli-ask-form {
+  width: 100%;
+}
+
+.meli-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #ffffff;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem 0.35rem 0.85rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.meli-input-wrap:focus-within {
+  border-color: #3483fa;
+  box-shadow: 0 0 0 3px rgba(52, 131, 250, 0.15);
+}
+
+.meli-ask-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+  color: #111827;
+  padding: 0.4rem 0;
+  background: transparent;
+}
+
+.meli-ask-input::placeholder {
+  color: #9ca3af;
+}
+
+.meli-ask-submit-btn {
+  background: #3483fa;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1.35rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.meli-ask-submit-btn:hover:not(:disabled) {
+  background: #2968c8;
+}
+
+.meli-ask-submit-btn:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Suggested Chips ── */
+.meli-preset-chips-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.preset-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.preset-buttons-wrap {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.meli-preset-chip {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.meli-preset-chip:hover {
+  background: #f0f7ff;
+  border-color: #3483fa;
+  color: #1e40af;
+}
+
+/* ── Simulating Live Animation Card ── */
+.meli-simulating-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: #f0fdf4;
+  border: 1.5px dashed #34d399;
+  border-radius: 8px;
+  padding: 0.85rem 1.15rem;
+  animation: fadeIn 0.3s ease;
+}
+
+.sim-sparkle-pulse {
+  color: #059669;
+  animation: pulseGlow 1.2s infinite;
+}
+
+.sim-text-wrap {
+  flex: 1;
+}
+
+.sim-text-wrap strong {
+  display: block;
+  font-size: 0.82rem;
+  color: #065f46;
+}
+
+.sim-text-wrap span {
+  font-size: 0.72rem;
+  color: #047857;
+}
+
+.sim-badge-time {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(5, 150, 105, 0.12);
+  color: #047857;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-family: monospace;
+}
+
+/* ── Questions Feed (History) ── */
+.meli-qa-history-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 1.25rem;
+}
+
+.qa-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.qa-history-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #333333;
+  margin: 0;
+}
+
+.qa-history-count {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.qa-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.qa-item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #f3f4f6;
+  transition: all 0.3s ease;
+}
+
+.qa-item-card.new-qa-highlight {
+  animation: highlightGlow 2.5s ease-out;
+  background: rgba(52, 131, 250, 0.03);
+  padding: 0.75rem;
+  border-radius: 8px;
+  border-bottom: 1px solid rgba(52, 131, 250, 0.2);
+}
+
+@keyframes highlightGlow {
+  0% { background: rgba(52, 131, 250, 0.12); }
+  100% { background: rgba(52, 131, 250, 0.03); }
+}
+
+.qa-question-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.qa-buyer-text {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.qa-q-text {
+  font-size: 0.92rem;
+  color: #1f2937;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.qa-time-ago {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.qa-answer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding-left: 0.5rem;
+}
+
+.qa-reply-curve {
+  color: rgba(0, 0, 0, 0.4);
+  font-size: 1.1rem;
+  line-height: 1;
+  font-weight: 700;
+  margin-top: -2px;
+}
+
+.qa-reply-content {
+  flex: 1;
+}
+
+.qa-reply-text {
+  font-size: 0.88rem;
+  color: rgba(0, 0, 0, 0.85);
+  margin: 0 0 0.4rem;
+  line-height: 1.45;
+}
+
+.qa-ai-meta-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+}
+
+.meta-speed-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #0284c7;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+.meta-rule-tag {
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.meta-auto-tag {
+  color: #6366f1;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 700;
+}

@@ -13,7 +13,6 @@ import {
   Clock,
   Layers,
   Sliders,
-  Send,
   Bell,
   HelpCircle,
   ChevronDown,
@@ -24,53 +23,12 @@ import {
   Award,
   Lock
 } from 'lucide-react'
+import MeliProductSimulator from '../components/MeliProductSimulator'
+import PonchoFeatureCarousel from '../components/PonchoFeatureCarousel'
 import './LandingPage.css'
-
-interface DemoPreset {
-  question: string
-  item: string
-  answer: string
-  latency: string
-  ruleApplied: string
-}
-
-const DEMO_PRESETS: DemoPreset[] = [
-  {
-    question: '¿Hacen Factura A con CUIT discriminado?',
-    item: 'Cafetera Espresso Oster Prima Latte (MLA3964722766)',
-    answer: '¡Hola! Sí, emitimos Factura A y B de forma automática. Al momento de realizar tu compra, solo asegúrate de tener cargados los datos fiscales de tu empresa (CUIT y Razón Social) en tu cuenta de Mercado Libre.',
-    latency: '1.4s',
-    ruleApplied: 'Regla Fiscal: Emisión Factura A/B automática'
-  },
-  {
-    question: '¿Tienen stock en color rojo para enviar hoy?',
-    item: 'Termo Acero Inox Lumilagro 1L (MLA3964649982)',
-    answer: '¡Hola! Sí, disponemos de stock disponible en color rojo. Si realizas tu compra antes de las 14:00 hs, despachamos en el día mediante Mercado Envíos Flex para que lo recibas hoy mismo.',
-    latency: '1.2s',
-    ruleApplied: 'Inventario en vivo + Despacho Flex Activo'
-  },
-  {
-    question: '¿Es compatible con PlayStation 5 y Nintendo Switch?',
-    item: 'Teclado Mecanico Gamer Redragon K552 (MLA2101482425)',
-    answer: '¡Hola! Sí, es 100% compatible mediante conexión USB con PS5, PS4, PC y Nintendo Switch. Es Plug & Play, por lo que no requiere instalación de drivers adicionales. ¡Esperamos tu compra!',
-    latency: '1.6s',
-    ruleApplied: 'RAG Ficha Técnica & Atributos de Publicación'
-  },
-  {
-    question: '¿Cuánto demora el envío a Córdoba Capital?',
-    item: 'Auriculares Inalámbricos Bluetooth Pro (MLA90812344)',
-    answer: '¡Hola! El envío a Córdoba Capital se realiza mediante Mercado Envíos y suele demorar entre 24 y 48 horas hábiles. Podés verificar la fecha exacta ingresando tu código postal debajo del precio de la publicación.',
-    latency: '1.3s',
-    ruleApplied: 'Cálculo Logístico Mercado Envíos'
-  }
-]
 
 export default function LandingPage() {
   const navigate = useNavigate()
-  const [selectedPresetIndex, setSelectedPresetIndex] = useState<number>(0)
-  const [customQuestion, setCustomQuestion] = useState<string>(DEMO_PRESETS[0].question)
-  const [activePreset, setActivePreset] = useState<DemoPreset>(DEMO_PRESETS[0])
-  const [isSimulating, setIsSimulating] = useState<boolean>(false)
 
   // ROI Calculator State
   const [monthlyQuestions, setMonthlyQuestions] = useState<number>(1500)
@@ -112,40 +70,6 @@ export default function LandingPage() {
     }
   }
 
-  const handleSelectPreset = (index: number) => {
-    setSelectedPresetIndex(index)
-    const preset = DEMO_PRESETS[index]
-    setCustomQuestion(preset.question)
-    setIsSimulating(true)
-    setTimeout(() => {
-      setActivePreset(preset)
-      setIsSimulating(false)
-    }, 280)
-  }
-
-  const handleSimulateCustom = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!customQuestion.trim()) return
-
-    setIsSimulating(true)
-    setTimeout(() => {
-      // Find matching preset or generate smart context response
-      const matched = DEMO_PRESETS.find(p => p.question.toLowerCase() === customQuestion.toLowerCase())
-      if (matched) {
-        setActivePreset(matched)
-      } else {
-        setActivePreset({
-          question: customQuestion,
-          item: 'Publicación Activa en Mercado Libre',
-          answer: `¡Hola! Gracias por tu consulta. Analizamos los atributos de la publicación y nuestras políticas: contamos con disponibilidad inmediata, garantía oficial y despacho rápido con Mercado Envíos. ¿Querés que te reservemos una unidad?`,
-          latency: '1.5s',
-          ruleApplied: 'Inferencia RAG Multi-Atributo'
-        })
-      }
-      setIsSimulating(false)
-    }, 450)
-  }
-
   const toggleFaq = (idx: number) => {
     setOpenFaq(prev => (prev === idx ? null : idx))
   }
@@ -170,12 +94,13 @@ export default function LandingPage() {
           <nav className="landing-nav">
             <Link to="/" className="landing-logo">
               <div className="landing-logo-icon">
-                <Bot size={20} strokeWidth={2.5} />
+                <Bot size={18} strokeWidth={2.5} />
               </div>
-              <span>MELI <strong style={{ color: '#38bdf8' }}>AI</strong></span>
+              <span>MELI <strong style={{ color: 'var(--lp-accent)' }}>AI</strong></span>
             </Link>
 
             <ul className="landing-nav-links">
+              <li><a href="#simulator">Simulador ML</a></li>
               <li><a href="#features">Superpoderes</a></li>
               <li><a href="#comparison">Comparativa</a></li>
               <li><a href="#roi">Calculadora ROI</a></li>
@@ -205,7 +130,8 @@ export default function LandingPage() {
           </div>
 
           <h1 className="hero-main-title">
-            Multiplica tus ventas en Mercado Libre respondiendo en segundos, 24/7.
+            <span style={{ color: 'var(--lp-accent)' }}>Multiplica tus ventas</span>{' '}
+            en Mercado Libre respondiendo en segundos, 24/7.
           </h1>
 
           <p className="hero-subtitle">
@@ -217,76 +143,15 @@ export default function LandingPage() {
               <Sparkles size={18} />
               <span>Conectar mi Tienda Gratis</span>
             </Link>
-            <a href="#playground" className="landing-btn-hero-secondary">
+            <a href="#simulator" className="landing-btn-hero-secondary">
               <Zap size={18} />
-              <span>Ver Simulador en Vivo</span>
+              <span>Probar Simulador de Preguntas</span>
             </a>
           </div>
 
-          {/* ── Interactive Simulator (Macch-inspired Composer) ── */}
-          <div id="playground" className="hero-playground-wrapper">
-            <div className="playground-top-bar">
-              <div className="playground-badge-label">
-                <Cpu size={14} />
-                <span>Simulador de Motor RAG en Vivo</span>
-              </div>
-              <div className="playground-item-preview">
-                <Store size={13} />
-                <span>{activePreset.item}</span>
-              </div>
-            </div>
-
-            <form onSubmit={handleSimulateCustom} className="playground-composer-box">
-              <input
-                type="text"
-                className="playground-input"
-                placeholder="Escribe una pregunta de un comprador de Mercado Libre..."
-                value={customQuestion}
-                onChange={e => setCustomQuestion(e.target.value)}
-              />
-              <button type="submit" className="playground-send-btn" title="Simular Respuesta">
-                <Send size={15} />
-              </button>
-            </form>
-
-            <div className="playground-chips-row">
-              {DEMO_PRESETS.map((preset, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  className="playground-chip"
-                  style={{
-                    backgroundColor: selectedPresetIndex === idx ? 'rgba(59, 130, 246, 0.2)' : undefined,
-                    borderColor: selectedPresetIndex === idx ? '#3b82f6' : undefined,
-                    color: selectedPresetIndex === idx ? '#93c5fd' : undefined
-                  }}
-                  onClick={() => handleSelectPreset(idx)}
-                >
-                  "{preset.question}"
-                </button>
-              ))}
-            </div>
-
-            <div className="playground-response-card">
-              <div className="playground-response-meta">
-                <div className="playground-response-tag">
-                  <CheckCircle2 size={14} />
-                  <span>Respuesta Automática Generada ({activePreset.ruleApplied})</span>
-                </div>
-                <div className="playground-latency">
-                  Latencia: {activePreset.latency}
-                </div>
-              </div>
-              <p className="playground-response-text">
-                {isSimulating ? (
-                  <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>
-                    Analizando ficha técnica, stock disponible y reglas de negocio...
-                  </span>
-                ) : (
-                  activePreset.answer
-                )}
-              </p>
-            </div>
+          {/* ── Mercado Libre Product & Questions Simulator ── */}
+          <div id="simulator" className="hero-meli-sim-wrapper">
+            <MeliProductSimulator />
           </div>
         </div>
       </section>
@@ -395,123 +260,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Bento Grid Features ── */}
-      <section id="features" className="landing-section" style={{ background: 'rgba(15, 23, 42, 0.2)' }}>
-        <div className="landing-container">
-          <div className="section-header">
-            <div className="section-tag">
-              <Sparkles size={14} />
-              <span>Arquitectura SaaS</span>
-            </div>
-            <h2 className="section-title">Tecnología diseñada para potenciar tu reputación</h2>
-            <p className="section-desc">
-              Todo lo que necesitas para escalar tu operación en Mercado Libre sin contratar más personal de soporte.
-            </p>
-          </div>
+      {/* ── 3D Scroll Perspective Feature Carousel (Poncho Capital Style) ── */}
+      <PonchoFeatureCarousel />
 
-          <div className="bento-grid">
-            {/* Bento Card 1 (Span 2) */}
-            <div className="bento-card bento-col-span-2">
-              <div>
-                <div className="bento-icon blue">
-                  <Zap size={22} />
-                </div>
-                <div className="bento-content">
-                  <h4>Motor RAG Conectado a la API Oficial de Mercado Libre</h4>
-                  <p>
-                    A diferencia de bots genéricos, MELI AI sincroniza tus publicaciones en tiempo real. Extrae atributos técnicos, compatibilidades, variantes de color y stock para formular respuestas perfectas y naturales.
-                  </p>
-                </div>
-              </div>
-              <div className="bento-widget">
-                <div className="widget-chat-row">
-                  <span className="widget-badge" style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa' }}>
-                    Sincronización de Ficha
-                  </span>
-                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                    MLA3964722766: 19 Bares | Depósito 1.5L | Garantía 12m
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bento Card 2 */}
-            <div className="bento-card">
-              <div>
-                <div className="bento-icon emerald">
-                  <ShieldCheck size={22} />
-                </div>
-                <div className="bento-content">
-                  <h4>Prevención de Reclamos Post-Venta</h4>
-                  <p>
-                    Detecta consultas críticas post-venta (demoras de envío, dudas de uso) y ofrece soluciones inmediatas antes de que el comprador inicie un reclamo en la plataforma.
-                  </p>
-                </div>
-              </div>
-              <div className="bento-widget">
-                <div className="widget-chat-row">
-                  <span className="widget-badge" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }}>
-                    Reputación Verde
-                  </span>
-                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                    0.2% tasa de reclamos
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bento Card 3 */}
-            <div className="bento-card">
-              <div>
-                <div className="bento-icon amber">
-                  <Sliders size={22} />
-                </div>
-                <div className="bento-content">
-                  <h4>Reglas de Negocio a Medida</h4>
-                  <p>
-                    Configura políticas de Facturación A/B, horarios de corte Flex, promociones cruzadas y restricciones de envío en pocos clics.
-                  </p>
-                </div>
-              </div>
-              <div className="bento-widget">
-                <div className="widget-chat-row">
-                  <span className="widget-badge" style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24' }}>
-                    Reglas Activas
-                  </span>
-                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                    Factura A automática + Flex hasta 15:00 hs
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bento Card 4 (Span 2) */}
-            <div className="bento-card bento-col-span-2">
-              <div>
-                <div className="bento-icon purple">
-                  <Bell size={22} />
-                </div>
-                <div className="bento-content">
-                  <h4>Notificaciones Multicanal: Telegram, WhatsApp y Correo</h4>
-                  <p>
-                    Mantén el control total. Cuando un cliente solicita algo especial o el sistema detecta una oportunidad comercial de alto valor, recibes una notificación instantánea en tus canales de mensajería preferidos.
-                  </p>
-                </div>
-              </div>
-              <div className="bento-widget">
-                <div className="widget-chat-row">
-                  <span className="widget-badge" style={{ background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' }}>
-                    Alerta Telegram
-                  </span>
-                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                    Comprador VIP solicitó presupuesto por 20 unidades
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ── Interactive ROI Calculator ── */}
       <section id="roi" className="landing-section">
@@ -554,7 +305,7 @@ export default function LandingPage() {
                 <p>Ventas adicionales estimadas por respuesta instantánea</p>
               </div>
               <div className="roi-result-card">
-                <div className="roi-number" style={{ color: '#38bdf8' }}>+${estimatedRevenueGain} USD</div>
+                <div className="roi-number" style={{ color: 'var(--lp-accent)' }}>+${estimatedRevenueGain} USD</div>
                 <p>Facturación extra estimada por mes</p>
               </div>
             </div>
@@ -563,7 +314,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── SaaS Pricing Plans ── */}
-      <section id="pricing" className="landing-section" style={{ background: 'rgba(15, 23, 42, 0.25)' }}>
+      <section id="pricing" className="landing-section" style={{ background: 'var(--lp-surface)' }}>
         <div className="landing-container">
           <div className="section-header">
             <div className="section-tag">
@@ -656,7 +407,7 @@ export default function LandingPage() {
                   <span className="price-amount">{proPrice}</span>
                   <span className="price-period">/mes {isAnnual && '(facturado anual)'}</span>
                 </div>
-                <div className="pricing-quota-pill" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#93c5fd' }}>
+                <div className="pricing-quota-pill">
                   <Zap size={15} />
                   <span>1,000 respuestas IA al mes</span>
                 </div>
@@ -947,7 +698,7 @@ export default function LandingPage() {
               <div className="landing-logo-icon">
                 <Bot size={18} strokeWidth={2.5} />
               </div>
-              <span>MELI <strong style={{ color: '#38bdf8' }}>AI</strong></span>
+              <span>MELI <strong style={{ color: 'var(--lp-accent)' }}>AI</strong></span>
             </Link>
 
             <ul className="footer-links">
