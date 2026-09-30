@@ -11,6 +11,8 @@ export interface QualityCheck {
 }
 
 export class AnalyzeItemQualityUseCase {
+  private static readonly DESCRIPTION_MIN_LENGTH = 100;
+
   public execute(item: Item): QualityCheck[] {
     return [
       this.checkTitleBrand(item),
@@ -23,22 +25,31 @@ export class AnalyzeItemQualityUseCase {
     ];
   }
 
-  private getAttribute(item: Item, name: string): string | null {
+  private getAttribute(item: Item, name: string): string | null | undefined {
     const attr = item.attributes.find(
       (a) => a.name.toLowerCase() === name.toLowerCase()
     );
-    return attr?.value_name ?? null;
+    return attr === undefined ? undefined : (attr.value_name ?? null);
   }
 
   private checkTitleBrand(item: Item): QualityCheck {
     const brand = this.getAttribute(item, "Marca");
-    if (!brand) {
+    if (brand === undefined) {
       return {
         key: "title_brand",
         label: "Título incluye marca",
         status: "error",
         detail: 'Atributo "Marca" no encontrado',
         suggestion: "Completá el atributo Marca en la publicación",
+      };
+    }
+    if (!brand) {
+      return {
+        key: "title_brand",
+        label: "Título incluye marca",
+        status: "error",
+        detail: 'El atributo "Marca" no tiene valor',
+        suggestion: "Completá el valor del atributo Marca en la publicación",
       };
     }
     const inTitle = item.title.toLowerCase().includes(brand.toLowerCase());
@@ -55,13 +66,22 @@ export class AnalyzeItemQualityUseCase {
 
   private checkTitleModel(item: Item): QualityCheck {
     const model = this.getAttribute(item, "Modelo");
-    if (!model) {
+    if (model === undefined) {
       return {
         key: "title_model",
         label: "Título incluye modelo",
         status: "error",
         detail: 'Atributo "Modelo" no encontrado',
         suggestion: "Completá el atributo Modelo en la publicación",
+      };
+    }
+    if (!model) {
+      return {
+        key: "title_model",
+        label: "Título incluye modelo",
+        status: "error",
+        detail: 'El atributo "Modelo" no tiene valor',
+        suggestion: "Completá el valor del atributo Modelo en la publicación",
       };
     }
     const inTitle = item.title.toLowerCase().includes(model.toLowerCase());
@@ -124,7 +144,7 @@ export class AnalyzeItemQualityUseCase {
 
   private checkDescription(item: Item): QualityCheck {
     const len = item.descriptionText.length;
-    if (len > 100) {
+    if (len > AnalyzeItemQualityUseCase.DESCRIPTION_MIN_LENGTH) {
       return {
         key: "description",
         label: "Descripción completa",
