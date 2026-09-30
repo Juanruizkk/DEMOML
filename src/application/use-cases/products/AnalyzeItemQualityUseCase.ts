@@ -32,68 +32,49 @@ export class AnalyzeItemQualityUseCase {
     return attr === undefined ? undefined : (attr.value_name ?? null);
   }
 
-  private checkTitleBrand(item: Item): QualityCheck {
-    const brand = this.getAttribute(item, "Marca");
-    if (brand === undefined) {
+  private checkTitleAttribute(
+    item: Item,
+    attrName: string,
+    key: string,
+    label: string
+  ): QualityCheck {
+    const value = this.getAttribute(item, attrName);
+    if (value === undefined) {
       return {
-        key: "title_brand",
-        label: "Título incluye marca",
+        key,
+        label,
         status: "error",
-        detail: 'Atributo "Marca" no encontrado',
-        suggestion: "Completá el atributo Marca en la publicación",
+        detail: `Atributo "${attrName}" no encontrado`,
+        suggestion: `Completá el atributo ${attrName} en la publicación`,
       };
     }
-    if (!brand) {
+    if (!value) {
       return {
-        key: "title_brand",
-        label: "Título incluye marca",
+        key,
+        label,
         status: "error",
-        detail: 'El atributo "Marca" no tiene valor',
-        suggestion: "Completá el valor del atributo Marca en la publicación",
+        detail: `El atributo "${attrName}" no tiene valor`,
+        suggestion: `Completá el valor del atributo ${attrName} en la publicación`,
       };
     }
-    const inTitle = item.title.toLowerCase().includes(brand.toLowerCase());
+    const inTitle = item.title.toLowerCase().includes(value.toLowerCase());
     return {
-      key: "title_brand",
-      label: "Título incluye marca",
+      key,
+      label,
       status: inTitle ? "ok" : "error",
       detail: inTitle
-        ? `"${brand}" encontrado en el título`
-        : `"${brand}" no está en el título`,
-      suggestion: inTitle ? undefined : `Agregá "${brand}" al título`,
+        ? `"${value}" encontrado en el título`
+        : `"${value}" no está en el título`,
+      suggestion: inTitle ? undefined : `Agregá "${value}" al título`,
     };
   }
 
+  private checkTitleBrand(item: Item): QualityCheck {
+    return this.checkTitleAttribute(item, "Marca", "title_brand", "Título incluye marca");
+  }
+
   private checkTitleModel(item: Item): QualityCheck {
-    const model = this.getAttribute(item, "Modelo");
-    if (model === undefined) {
-      return {
-        key: "title_model",
-        label: "Título incluye modelo",
-        status: "error",
-        detail: 'Atributo "Modelo" no encontrado',
-        suggestion: "Completá el atributo Modelo en la publicación",
-      };
-    }
-    if (!model) {
-      return {
-        key: "title_model",
-        label: "Título incluye modelo",
-        status: "error",
-        detail: 'El atributo "Modelo" no tiene valor',
-        suggestion: "Completá el valor del atributo Modelo en la publicación",
-      };
-    }
-    const inTitle = item.title.toLowerCase().includes(model.toLowerCase());
-    return {
-      key: "title_model",
-      label: "Título incluye modelo",
-      status: inTitle ? "ok" : "error",
-      detail: inTitle
-        ? `"${model}" encontrado en el título`
-        : `"${model}" no está en el título`,
-      suggestion: inTitle ? undefined : `Agregá "${model}" al título`,
-    };
+    return this.checkTitleAttribute(item, "Modelo", "title_model", "Título incluye modelo");
   }
 
   private checkImages(item: Item): QualityCheck {

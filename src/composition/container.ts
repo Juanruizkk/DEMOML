@@ -53,6 +53,7 @@ import { HandleTelegramWebhookUseCase } from "../application/use-cases/channels/
 import { TenantNotificationService } from "../application/services/TenantNotificationService.js";
 import { GetSellerProductsUseCase } from "../application/use-cases/products/GetSellerProductsUseCase.js";
 import { SaveItemKnowledgeUseCase } from "../application/use-cases/products/SaveItemKnowledgeUseCase.js";
+import { AnalyzeItemQualityUseCase } from "../application/use-cases/products/AnalyzeItemQualityUseCase.js";
 
 import { RegisterUserUseCase } from "../application/use-cases/auth/RegisterUserUseCase.js";
 import { LoginUserUseCase } from "../application/use-cases/auth/LoginUserUseCase.js";
@@ -323,7 +324,9 @@ export function buildContainer() {
     itemKnowledgeRepo,
     meliClient,
     llmService,
-    tenantRepo
+    tenantRepo,
+    undefined,
+    new AnalyzeItemQualityUseCase()
   );
   const llmUsageCtrl = new LLMUsageController(
     getLLMUsageStatsUseCase,

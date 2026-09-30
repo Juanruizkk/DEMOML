@@ -317,14 +317,10 @@ export default function ProductsPage() {
     setQualityError('')
     setQualityLoading(true)
 
-    const [knowledgeRes] = await Promise.allSettled([
-      api.get<{ ok: boolean; knowledge: KnowledgeDetail; item?: ItemDetails }>(
+    try {
+      const res = await api.get<{ ok: boolean; knowledge: KnowledgeDetail; item?: ItemDetails }>(
         `/tenant/products/${product.id}/knowledge`
-      ),
-    ])
-
-    if (knowledgeRes.status === 'fulfilled') {
-      const res = knowledgeRes.value
+      )
       setKnowledge({
         customInstructions: res.knowledge?.customInstructions || '',
         faqs: res.knowledge?.faqs || [],
@@ -345,7 +341,7 @@ export default function ProductsPage() {
           descriptionText: '',
         })
       }
-    } else {
+    } catch {
       setKnowledge({ customInstructions: '', faqs: [], isActive: true })
       setItemDetails(null)
     }

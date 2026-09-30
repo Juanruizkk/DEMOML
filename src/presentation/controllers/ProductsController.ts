@@ -11,6 +11,7 @@ import { paginateArray } from "../../domain/value-objects/Pagination.js";
 
 export class ProductsController {
   private readonly suggestFaqsUseCase: SuggestItemFaqsUseCase;
+  private readonly analyzeQualityUseCase: AnalyzeItemQualityUseCase;
 
   constructor(
     private readonly getProductsUseCase: GetSellerProductsUseCase,
@@ -19,9 +20,11 @@ export class ProductsController {
     private readonly meliClient: IMeliClient,
     private readonly llmService: ILLMService,
     private readonly tenantRepo: ITenantRepository,
-    suggestFaqsUseCase?: SuggestItemFaqsUseCase
+    suggestFaqsUseCase?: SuggestItemFaqsUseCase,
+    analyzeQualityUseCase?: AnalyzeItemQualityUseCase
   ) {
     this.suggestFaqsUseCase = suggestFaqsUseCase || new SuggestItemFaqsUseCase(this.meliClient);
+    this.analyzeQualityUseCase = analyzeQualityUseCase || new AnalyzeItemQualityUseCase();
   }
 
   private extractSellerId(request: FastifyRequest): string {
@@ -257,7 +260,7 @@ export class ProductsController {
 
     try {
       const item = await this.meliClient.getItem(sellerId, itemId);
-      const checks = new AnalyzeItemQualityUseCase().execute(item);
+      const checks = this.analyzeQualityUseCase.execute(item);
       return reply.send({ ok: true, checks });
     } catch (err: any) {
       return reply.status(500).send({ error: err.message });
