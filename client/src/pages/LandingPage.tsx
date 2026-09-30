@@ -96,7 +96,7 @@ export default function LandingPage() {
           <nav className="landing-nav">
             <Link to="/" className="landing-logo">
               <div className="landing-logo-icon">
-                <Bot size={18} strokeWidth={2.5} />
+                <Store size={18} strokeWidth={2.5} />
               </div>
               <span>MELI <strong style={{ color: 'var(--lp-accent)' }}>AI</strong></span>
             </Link>
@@ -594,8 +594,11 @@ export default function LandingPage() {
                     <span
                       className="blog-badge-category"
                       style={{
-                        backgroundColor: `${article.categoryColor}1f`,
-                        color: article.categoryColor,
+                        backgroundColor: `${article.categoryColor}15`,
+                        color: article.categoryColor === '#10b981' ? '#065F46' : article.categoryColor,
+                        borderColor: `${article.categoryColor}33`,
+                        borderWidth: 1,
+                        borderStyle: 'solid'
                       }}
                     >
                       {article.category}
@@ -762,7 +765,7 @@ export default function LandingPage() {
           <div className="footer-top-row">
             <Link to="/" className="landing-logo">
               <div className="landing-logo-icon">
-                <Bot size={18} strokeWidth={2.5} />
+                <Store size={18} strokeWidth={2.5} />
               </div>
               <span>MELI <strong style={{ color: 'var(--lp-accent)' }}>AI</strong></span>
             </Link>

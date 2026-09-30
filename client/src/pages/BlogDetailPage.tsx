@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
-  Bot,
+  Store,
   ArrowLeft,
   ArrowRight,
   Clock,
@@ -10,13 +10,14 @@ import {
   ExternalLink,
   Share2,
   Check,
-  Sparkles,
   Info,
   AlertTriangle,
   Lightbulb,
   CheckCircle2,
   Tag,
-  BookOpen
+  BookOpen,
+  TrendingUp,
+  FileText
 } from 'lucide-react'
 import { BLOG_ARTICLES, BlogArticle, BlogSection } from '../data/blogArticles'
 import './BlogDetailPage.css'
@@ -54,7 +55,7 @@ export default function BlogDetailPage() {
             <nav className="landing-nav">
               <Link to="/" className="landing-logo">
                 <div className="landing-logo-icon">
-                  <Bot size={18} strokeWidth={2.5} />
+                  <Store size={18} strokeWidth={2.5} />
                 </div>
                 <span>MELI <strong style={{ color: 'var(--lp-accent)' }}>AI</strong></span>
               </Link>
@@ -90,7 +91,7 @@ export default function BlogDetailPage() {
           <nav className="landing-nav">
             <Link to="/" className="landing-logo">
               <div className="landing-logo-icon">
-                <Bot size={18} strokeWidth={2.5} />
+                <Store size={18} strokeWidth={2.5} />
               </div>
               <span>MELI <strong style={{ color: 'var(--lp-accent)' }}>AI</strong></span>
             </Link>
@@ -134,9 +135,9 @@ export default function BlogDetailPage() {
               <span
                 className="blog-badge-category"
                 style={{
-                  backgroundColor: `${article.categoryColor}1f`,
-                  color: article.categoryColor,
-                  borderColor: `${article.categoryColor}3d`
+                  backgroundColor: `${article.categoryColor}15`,
+                  color: article.categoryColor === '#10b981' ? '#065F46' : article.categoryColor,
+                  borderColor: `${article.categoryColor}33`
                 }}
               >
                 {article.category}
@@ -174,7 +175,7 @@ export default function BlogDetailPage() {
                   onClick={handleShare}
                   title="Copiar enlace del artículo"
                 >
-                  {copied ? <Check size={15} style={{ color: '#10b981' }} /> : <Share2 size={15} />}
+                  {copied ? <Check size={15} style={{ color: '#059669' }} /> : <Share2 size={15} />}
                   <span>{copied ? '¡Enlace copiado!' : 'Compartir'}</span>
                 </button>
               </div>
@@ -183,7 +184,7 @@ export default function BlogDetailPage() {
             {/* Official Source Verification Box */}
             <div className="blog-official-source-box">
               <div className="blog-source-header">
-                <ShieldCheck size={18} style={{ color: '#10b981' }} />
+                <ShieldCheck size={18} style={{ color: '#059669' }} />
                 <strong>Fuente Oficial Verificada</strong>
               </div>
               <p className="blog-source-text">
@@ -311,7 +312,7 @@ export default function BlogDetailPage() {
           {/* ── In-Article CTA Card ── */}
           <div className="blog-article-promo-card">
             <div className="promo-card-icon">
-              <Sparkles size={24} style={{ color: '#FFE600' }} />
+              <TrendingUp size={24} style={{ color: 'var(--lp-accent)' }} />
             </div>
             <div className="promo-card-content">
               <h3>¿Querés automatizar tus respuestas y proteger tu reputación?</h3>
@@ -321,7 +322,7 @@ export default function BlogDetailPage() {
             </div>
             <div className="promo-card-action">
               <Link to="/login?register=true" className="landing-btn-hero-primary" style={{ padding: '14px 24px', whiteSpace: 'nowrap' }}>
-                <Sparkles size={16} />
+                <TrendingUp size={16} />
                 <span>Conectar mi Tienda Gratis</span>
               </Link>
             </div>
@@ -337,8 +338,8 @@ export default function BlogDetailPage() {
                     <span
                       className="blog-badge-category"
                       style={{
-                        backgroundColor: `${rel.categoryColor}1f`,
-                        color: rel.categoryColor,
+                        backgroundColor: `${rel.categoryColor}15`,
+                        color: rel.categoryColor === '#10b981' ? '#065F46' : rel.categoryColor,
                         marginBottom: 10
                       }}
                     >
@@ -362,7 +363,7 @@ export default function BlogDetailPage() {
           <div className="footer-top-row">
             <Link to="/" className="landing-logo">
               <div className="landing-logo-icon">
-                <Bot size={18} strokeWidth={2.5} />
+                <Store size={18} strokeWidth={2.5} />
               </div>
               <span>MELI <strong style={{ color: 'var(--lp-accent)' }}>AI</strong></span>
             </Link>

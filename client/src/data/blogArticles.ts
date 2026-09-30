@@ -316,7 +316,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
       {
         type: 'callout',
         calloutType: 'success',
-        text: '🤖 Ventaja estratégica con MELI AI: Cuando tu publicación está asociada a catálogo, nuestro bot de IA consulta los metadatos técnicos oficiales (dimensiones, especificaciones, compatibilidades) mediante la API y responde con 0% de margen de error.',
+        text: '⚡ Ventaja estratégica: Cuando tu publicación está asociada a catálogo, el sistema consulta los metadatos técnicos oficiales (dimensiones, especificaciones, compatibilidades) mediante la API y responde con 0% de margen de error.',
       },
     ],
   },
@@ -571,7 +571,7 @@ export const BLOG_ARTICLES: BlogArticle[] = [
       {
         type: 'callout',
         calloutType: 'success',
-        text: '🤖 Prevención inteligente con MELI AI: Nuestro módulo de mensajería post-venta asiste al comprador al instante con manuales y respuestas técnicas, solucionando incidentes en minutos antes de que escalen a devolución o mediación.',
+        text: '🛡️ Prevención proactiva: El módulo de mensajería post-venta asiste al comprador al instante con manuales y respuestas técnicas, solucionando incidentes en minutos antes de que escalen a devolución o mediación.',
       },
     ],
   },

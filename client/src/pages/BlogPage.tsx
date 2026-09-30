@@ -1,16 +1,16 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Bot,
+  Store,
   Search,
   BookOpen,
   ArrowRight,
   ShieldCheck,
   Clock,
-  ExternalLink,
-  Sparkles,
   Tag,
-  CheckCircle2
+  CheckCircle2,
+  TrendingUp,
+  FileText
 } from 'lucide-react'
 import { BLOG_ARTICLES, BLOG_CATEGORIES, BlogArticle } from '../data/blogArticles'
 import './BlogPage.css'
@@ -46,7 +46,7 @@ export default function BlogPage() {
           <nav className="landing-nav">
             <Link to="/" className="landing-logo">
               <div className="landing-logo-icon">
-                <Bot size={18} strokeWidth={2.5} />
+                <Store size={18} strokeWidth={2.5} />
               </div>
               <span>MELI <strong style={{ color: 'var(--lp-accent)' }}>AI</strong></span>
             </Link>
@@ -77,8 +77,8 @@ export default function BlogPage() {
         <div className="landing-container">
           <div className="hero-pill-badge">
             <span className="hero-pill-dot" />
-            <BookOpen size={14} style={{ marginRight: 4 }} />
-            <span>Documentación Oficial y Guías para Sellers de Mercado Libre</span>
+            <BookOpen size={14} style={{ marginRight: 6 }} />
+            <span>Documentación Oficial &amp; Guías para Sellers de Mercado Libre</span>
           </div>
 
           <h1 className="blog-hero-title">
@@ -95,7 +95,7 @@ export default function BlogPage() {
               <Search size={18} className="search-icon" />
               <input
                 type="text"
-                placeholder="Buscar por tema (ej. Reputación, Ficha técnica, Envíos Flex, Factura A)..."
+                placeholder="Buscar por tema (ej. Reputación, Ficha técnica, Devoluciones, Envíos Flex, Factura A)..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="blog-search-input"
@@ -135,7 +135,7 @@ export default function BlogPage() {
             <div className="blog-featured-card">
               <div className="blog-featured-badge-row">
                 <span className="blog-badge-featured">⭐ Artículo Destacado</span>
-                <span className="blog-badge-category" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                <span className="blog-badge-category" style={{ background: '#ECFDF5', color: '#065F46', borderColor: '#A7F3D0' }}>
                   {featuredArticle.category}
                 </span>
                 <span className="blog-read-time">
@@ -163,7 +163,7 @@ export default function BlogPage() {
                 </div>
 
                 <div className="blog-official-stamp">
-                  <ShieldCheck size={16} style={{ color: '#10b981' }} />
+                  <ShieldCheck size={16} style={{ color: '#059669' }} />
                   <span>Fuente Oficial: {featuredArticle.officialSource.name}</span>
                 </div>
 
@@ -211,9 +211,9 @@ export default function BlogPage() {
                       <span
                         className="blog-badge-category"
                         style={{
-                          backgroundColor: `${article.categoryColor}1f`,
-                          color: article.categoryColor,
-                          borderColor: `${article.categoryColor}3d`
+                          backgroundColor: `${article.categoryColor}15`,
+                          color: article.categoryColor === '#10b981' ? '#065F46' : article.categoryColor,
+                          borderColor: `${article.categoryColor}33`
                         }}
                       >
                         {article.category}
@@ -246,7 +246,7 @@ export default function BlogPage() {
                     </div>
 
                     <div className="blog-card-source">
-                      <ShieldCheck size={13} style={{ color: '#10b981' }} />
+                      <ShieldCheck size={13} style={{ color: '#059669' }} />
                       <span title={article.officialSource.name}>
                         {article.officialSource.name}
                       </span>
@@ -258,7 +258,7 @@ export default function BlogPage() {
                         <span>{article.author.name}</span>
                       </div>
                       <Link to={`/blog/${article.slug}`} className="blog-card-link">
-                        <span>Leer</span>
+                        <span>Leer artículo</span>
                         <ArrowRight size={14} />
                       </Link>
                     </div>
@@ -275,15 +275,15 @@ export default function BlogPage() {
         <div className="landing-container">
           <div className="blog-cta-box">
             <div className="blog-cta-content">
-              <span className="hero-pill-badge" style={{ background: 'rgba(255, 255, 255, 0.12)', borderColor: 'rgba(255, 255, 255, 0.2)' }}>
-                <Sparkles size={14} style={{ color: '#FFE600' }} />
-                <span>Ecosistema Conectado a la API de Mercado Libre</span>
-              </span>
+              <div className="blog-cta-badge">
+                <ShieldCheck size={14} style={{ color: '#10B981' }} />
+                <span>Ecosistema Conectado a la API Oficial de Mercado Libre</span>
+              </div>
               <h2 className="blog-cta-title">
-                Aplicá estas reglas oficiales automáticamente con IA
+                Aplicá estas reglas oficiales automáticamente en tu tienda
               </h2>
               <p className="blog-cta-desc">
-                Conectá tu cuenta de Mercado Libre en 60 segundos. MELI AI responde consultas pre-venta con los datos de tu catálogo, evita reclamos y cuida tu termómetro verde 24/7.
+                Conectá tu cuenta de Mercado Libre en 60 segundos. Respondé consultas de preventa con los datos de tu catálogo, previene devoluciones y cuidá tu termómetro verde 24/7.
               </p>
               <div className="blog-cta-checklist">
                 <div className="blog-cta-check-item">
@@ -303,10 +303,10 @@ export default function BlogPage() {
 
             <div className="blog-cta-actions">
               <Link to="/login?register=true" className="landing-btn-hero-primary" style={{ padding: '16px 28px' }}>
-                <Sparkles size={18} />
+                <TrendingUp size={18} />
                 <span>Conectar mi Tienda Gratis</span>
               </Link>
-              <Link to="/#simulator" className="landing-btn-hero-secondary" style={{ padding: '16px 28px', background: 'rgba(255, 255, 255, 0.08)' }}>
+              <Link to="/#simulator" className="landing-btn-hero-secondary" style={{ padding: '16px 28px', background: 'rgba(255, 255, 255, 0.12)', color: '#FFFFFF' }}>
                 <span>Probar Simulador</span>
                 <ArrowRight size={16} />
               </Link>
@@ -321,7 +321,7 @@ export default function BlogPage() {
           <div className="footer-top-row">
             <Link to="/" className="landing-logo">
               <div className="landing-logo-icon">
-                <Bot size={18} strokeWidth={2.5} />
+                <Store size={18} strokeWidth={2.5} />
               </div>
               <span>MELI <strong style={{ color: 'var(--lp-accent)' }}>AI</strong></span>
             </Link>
