@@ -87,6 +87,9 @@ export class MeliApiClient implements IMeliClient {
       attributes: itemData.attributes || [],
       descriptionText: descriptionData.plain_text || "",
       permalink: itemData.permalink,
+      pictures: (itemData.pictures || []).map((p: any) => p.url as string),
+      videoId: itemData.video_id ?? null,
+      freeShipping: itemData.shipping?.free_shipping ?? false,
       cachedAt: Date.now(),
     });
   }
