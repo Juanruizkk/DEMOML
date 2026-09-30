@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, useCallback } from 'react'
 import {
   Zap,
   ShieldCheck,
@@ -242,28 +242,42 @@ const FEATURE_CARDS: FeatureCardData[] = [
 
 export default function PonchoFeatureCarousel() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const stickyRef = useRef<HTMLDivElement>(null)
   const [scrollProgress, setScrollProgress] = useState<number>(0)
   const [activeIndex, setActiveIndex] = useState<number>(0)
+  const [windowWidth, setWindowWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1200)
 
+  // Track window resize
   useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Handle scroll calculation
+  useEffect(() => {
+    let ticking = false
+
     const handleScroll = () => {
-      if (!containerRef.current) return
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect()
+            const totalScrollable = containerRef.current.offsetHeight - window.innerHeight
+            const currentScroll = -rect.top
 
-      const rect = containerRef.current.getBoundingClientRect()
-      const totalScrollable = containerRef.current.scrollHeight - window.innerHeight
-      const currentScroll = -rect.top
+            if (totalScrollable > 0) {
+              const rawProgress = currentScroll / totalScrollable
+              const progress = Math.min(Math.max(rawProgress, 0), 1)
+              setScrollProgress(progress)
 
-      if (totalScrollable <= 0) return
-
-      // Progress normalized 0 to 1
-      const progress = Math.min(Math.max(currentScroll / totalScrollable, 0), 1)
-      setScrollProgress(progress)
-
-      // Calculate active card index (0 to 6)
-      const exactIndex = progress * (FEATURE_CARDS.length - 1)
-      const roundedIndex = Math.round(exactIndex)
-      setActiveIndex(roundedIndex)
+              const exactIndex = progress * (FEATURE_CARDS.length - 1)
+              setActiveIndex(Math.round(exactIndex))
+            }
+          }
+          ticking = false
+        })
+        ticking = true
+      }
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
@@ -272,20 +286,19 @@ export default function PonchoFeatureCarousel() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Calculate track translateX based on progress
-  // At progress 0: first card is in focal area (shifted slightly right or center)
-  // At progress 1: last card is in focal area
-  const cardWidth = 330
+  // Card geometry
+  const cardWidth = 320
   const cardGap = 20
-  const totalTrackWidth = FEATURE_CARDS.length * (cardWidth + cardGap) - cardGap
-  const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
-  const focalOffset = Math.max((windowWidth - cardWidth) / 2, 20)
-  const maxTranslate = totalTrackWidth - windowWidth + focalOffset * 2
-  const currentTranslateX = focalOffset - scrollProgress * (totalTrackWidth - cardWidth)
+  
+  // Mathematical centering formula:
+  // Center of card idx = idx * (cardWidth + cardGap) + cardWidth / 2
+  // We want the active fractional index to be centered at windowWidth / 2
+  const currentExactIndex = scrollProgress * (FEATURE_CARDS.length - 1)
+  const currentTranslateX = (windowWidth / 2) - (currentExactIndex * (cardWidth + cardGap) + cardWidth / 2)
 
   const scrollToCard = (index: number) => {
     if (!containerRef.current) return
-    const totalScrollable = containerRef.current.scrollHeight - window.innerHeight
+    const totalScrollable = containerRef.current.offsetHeight - window.innerHeight
     const targetProgress = index / (FEATURE_CARDS.length - 1)
     const targetScrollY = containerRef.current.offsetTop + targetProgress * totalScrollable
     window.scrollTo({ top: targetScrollY, behavior: 'smooth' })
@@ -293,7 +306,7 @@ export default function PonchoFeatureCarousel() {
 
   return (
     <div ref={containerRef} className="poncho-carousel-container" id="features">
-      <div ref={stickyRef} className="poncho-sticky-frame">
+      <div className="poncho-sticky-frame">
         
         {/* Section Header */}
         <div className="landing-container poncho-header-container">
@@ -321,16 +334,16 @@ export default function PonchoFeatureCarousel() {
             }}
           >
             {FEATURE_CARDS.map((card, idx) => {
-              // Calculate distance from active focal point
-              const currentExactIndex = scrollProgress * (FEATURE_CARDS.length - 1)
+              // Distance from focal point (-6 to +6)
               const diff = idx - currentExactIndex
+              const absDiff = Math.abs(diff)
 
-              // Calculate 3D transforms
-              const translateY = Math.abs(diff) * 14.5
-              const scale = Math.max(1 - Math.abs(diff) * 0.075, 0.82)
-              const rotate = diff * 3.4
-              const opacity = Math.max(1 - Math.abs(diff) * 0.22, 0.42)
-              const zIndex = Math.round(40 - Math.abs(diff) * 5)
+              // 3D parameters matching Poncho Capital exact attributes
+              const translateY = Math.min(absDiff * 14.5, 40)
+              const scale = Math.max(1 - absDiff * 0.075, 0.8)
+              const rotate = Math.max(Math.min(diff * 3.3, 10), -10)
+              const opacity = Math.max(1 - absDiff * 0.22, 0.45)
+              const zIndex = Math.max(Math.round(35 - absDiff * 5), 1)
 
               return (
                 <div
@@ -343,7 +356,7 @@ export default function PonchoFeatureCarousel() {
                     opacity,
                     zIndex,
                     transform: `translateY(${translateY}px) scale(${scale}) rotate(${rotate}deg)`,
-                    transition: 'opacity 0.1s linear, transform 0.1s linear'
+                    transition: 'transform 0.05s ease-out, opacity 0.05s ease-out'
                   }}
                   onClick={() => scrollToCard(idx)}
                 >
@@ -362,7 +375,7 @@ export default function PonchoFeatureCarousel() {
                       aria-hidden="true"
                     />
 
-                    {/* Top Row: Pill Badge + Location */}
+                    {/* Top Row: Pill Badge + Tag */}
                     <div className="card-top-row">
                       <span
                         className="card-badge-pill"

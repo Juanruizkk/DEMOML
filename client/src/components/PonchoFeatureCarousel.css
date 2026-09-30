@@ -3,7 +3,8 @@
 .poncho-carousel-container {
   position: relative;
   /* Scrollable height to control the smooth scroll progress */
-  min-height: 280vh;
+  height: 240vh;
+  min-height: 240vh;
   margin: 2rem 0;
   background: var(--lp-bg, #FAF8F5);
 }
