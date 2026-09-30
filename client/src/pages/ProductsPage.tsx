@@ -628,7 +628,23 @@ export default function ProductsPage() {
               </button>
             </div>
 
-            {/* Main Split Layout Body */}
+            {/* Tab Navigation */}
+            <div className="modal-tabs">
+              <button
+                className={`modal-tab${activeTab === 'knowledge' ? ' modal-tab--active' : ''}`}
+                onClick={() => setActiveTab('knowledge')}
+              >
+                <Sparkles size={15} /> Conocimiento IA
+              </button>
+              <button
+                className={`modal-tab${activeTab === 'quality' ? ' modal-tab--active' : ''}`}
+                onClick={() => setActiveTab('quality')}
+              >
+                <ListChecks size={15} /> Calidad de Publicación
+              </button>
+            </div>
+
+            {activeTab === 'knowledge' && (
             <div className="modal-body-split">
               {/* Left Column: Knowledge Rules & FAQs */}
               <div className="modal-column modal-column--rules">
@@ -876,6 +892,57 @@ export default function ProductsPage() {
                 )}
               </div>
             </div>
+            )}
+
+            {activeTab === 'quality' && (
+              <div className="quality-tab">
+                <div className="quality-tab-header">
+                  <span className="quality-tab-title">Calidad de Publicación</span>
+                  {!qualityLoading && !qualityError && qualityChecks.length > 0 && (
+                    <span className="quality-counter">
+                      {qualityChecks.filter((c) => c.status === 'ok').length}/{qualityChecks.length} ítems
+                    </span>
+                  )}
+                </div>
+
+                {qualityLoading && (
+                  <div className="quality-loading">
+                    <span className="pulse-dot" /> Analizando publicación...
+                  </div>
+                )}
+
+                {qualityError && !qualityLoading && (
+                  <div className="quality-error">
+                    {qualityError}
+                    <button
+                      className="btn-secondary btn-sm"
+                      onClick={() => selectedProduct && openKnowledgeEditor(selectedProduct)}
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                )}
+
+                {!qualityLoading && !qualityError && qualityChecks.length > 0 && (
+                  <div className="quality-checklist">
+                    {qualityChecks.map((check) => (
+                      <div key={check.key} className={`quality-check-row quality-check-row--${check.status}`}>
+                        <span className="quality-check-icon">
+                          {check.status === 'ok' ? '✅' : check.status === 'warning' ? '⚠️' : '❌'}
+                        </span>
+                        <div className="quality-check-body">
+                          <span className="quality-check-label">{check.label}</span>
+                          <span className="quality-check-detail">{check.detail}</span>
+                          {check.suggestion && (
+                            <span className="quality-check-suggestion">{check.suggestion}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Modal Footer */}
             <div className="modal-footer">
