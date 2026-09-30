@@ -1,4 +1,11 @@
-import { IMeliClient, MeliQuestionDTO, MeliClaimDTO } from "../../application/interfaces/IMeliClient.js";
+import {
+  IMeliClient,
+  MeliQuestionDTO,
+  MeliClaimDTO,
+  MeliClaimMessageDTO,
+  MeliOrderDTO,
+  MeliPackMessageDTO,
+} from "../../application/interfaces/IMeliClient.js";
 import { ITenantRepository } from "../../application/interfaces/ITenantRepository.js";
 import { Item } from "../../domain/entities/Item.js";
 
@@ -163,6 +170,15 @@ export class MeliApiClient implements IMeliClient {
     return this.meliFetch<MeliClaimDTO>(sellerId, `/post-purchase/v1/claims/${claimId}`);
   }
 
+  public async getClaimMessages(sellerId: string, claimId: string): Promise<MeliClaimMessageDTO[]> {
+    try {
+      const res = await this.meliFetch<MeliClaimMessageDTO[]>(sellerId, `/post-purchase/v1/claims/${claimId}/messages`);
+      return Array.isArray(res) ? res : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
   public async searchClaims(sellerId: string, status: string = "opened"): Promise<MeliClaimDTO[]> {
     try {
       const res = await this.meliFetch<{ data: MeliClaimDTO[] }>(
@@ -173,6 +189,38 @@ export class MeliApiClient implements IMeliClient {
     } catch (e) {
       return [];
     }
+  }
+
+  public async getOrder(sellerId: string, orderId: string): Promise<MeliOrderDTO> {
+    return this.meliFetch<MeliOrderDTO>(sellerId, `/orders/${orderId}`);
+  }
+
+  public async getOrderMessages(sellerId: string, packId: string): Promise<MeliPackMessageDTO[]> {
+    try {
+      const res = await this.meliFetch<{ messages: MeliPackMessageDTO[] }>(
+        sellerId,
+        `/messages/packs/${packId}/sellers/${sellerId}?tag=post_sale`
+      );
+      return res.messages || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  public async postOrderMessage(
+    sellerId: string,
+    packId: string,
+    buyerId: string,
+    text: string
+  ): Promise<void> {
+    await this.meliFetch(sellerId, `/messages/packs/${packId}/sellers/${sellerId}?tag=post_sale`, {
+      method: "POST",
+      body: JSON.stringify({
+        from: { user_id: Number(sellerId) },
+        to: [{ user_id: Number(buyerId) }],
+        text,
+      }),
+    });
   }
 
   public async refreshTokens(refreshToken: string): Promise<{

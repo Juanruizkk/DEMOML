@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Tenant, TenantSettings } from "../domain/entities/Tenant.js";
+import { Tenant, TenantSettings } from "../../src/domain/entities/Tenant.js";
 
 function makeTenant(settingsOverride: Partial<TenantSettings> = {}): Tenant {
   const now = new Date();
@@ -10,6 +10,7 @@ function makeTenant(settingsOverride: Partial<TenantSettings> = {}): Tenant {
     refreshToken: "refresh",
     expiresAt: Date.now() + 3600 * 1000,
     settings: {
+      automationMode: "always_auto",
       autoAnswerEnabled: true,
       confidenceThreshold: 0.75,
       tone: "casual_rioplatense",

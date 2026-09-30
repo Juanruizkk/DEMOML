@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { HandleTelegramWebhookUseCase, TelegramUpdate } from "../../application/use-cases/HandleTelegramWebhookUseCase.js";
+import { HandleTelegramWebhookUseCase, TelegramUpdate } from "../../application/use-cases/channels/HandleTelegramWebhookUseCase.js";
 import { ITelegramClient } from "../../application/interfaces/ITelegramClient.js";
 import { ITenantRepository } from "../../application/interfaces/ITenantRepository.js";
 
@@ -28,7 +28,9 @@ export class TelegramWebhookController {
   public getInfo = async (request: FastifyRequest, reply: FastifyReply) => {
     const botUsername = process.env.TELEGRAM_BOT_USERNAME || "MeliBotAlertsBot";
     const user = (request as any).user;
-    const sellerId = user?.sellerId || (request.query as any)?.seller_id || process.env.ML_SELLER_ID || "";
+    const sellerId = user?.role === "tenant"
+      ? (user.sellerId || "")
+      : ((request.query as any)?.seller_id || process.env.ML_SELLER_ID || "");
 
     const tenant = sellerId ? await this.tenantRepo.findBySellerId(sellerId) : null;
 
@@ -45,7 +47,9 @@ export class TelegramWebhookController {
   // POST /api/tenant/telegram/test — send test alert message to tenant's Telegram
   public sendTest = async (request: FastifyRequest, reply: FastifyReply) => {
     const user = (request as any).user;
-    const sellerId = user?.sellerId || (request.body as any)?.seller_id || process.env.ML_SELLER_ID || "";
+    const sellerId = user?.role === "tenant"
+      ? (user.sellerId || "")
+      : ((request.body as any)?.seller_id || process.env.ML_SELLER_ID || "");
 
     if (!sellerId) {
       return reply.status(400).send({ error: "No hay una tienda vinculada a este usuario." });

@@ -17,11 +17,19 @@ EMAIL_FROM=MELI AI Assistant <onboarding@resend.dev>
 EMAIL_ENABLED=true
 ```
 
-### 2. Casos de Uso
-1. **Preguntas que requieren revisión humana**: Notificación con producto, pregunta, respuesta sugerida y botón para aprobar/responder.
-2. **Reclamos con SLA crítico (< 12hs)**: Notificación urgente de vencimiento de tiempo de respuesta para no afectar reputación en Mercado Libre.
-3. **Email de prueba**: Verificación de conectividad desde el Portal del Tenant.
+### 2. Casos de Uso y Templates
+1. **Verificación / Conexión**: Comprobación inicial de integración con Resend.
+2. **Preguntas que requieren revisión humana**: Notificación con producto, pregunta del comprador, respuesta sugerida por IA y botón directo al portal.
+3. **Reclamos con SLA crítico (< 12hs)**: Notificación urgente de vencimiento para proteger la reputación en Mercado Libre.
+4. **Activación de Cuenta / Invitación de Tenant**: Bienvenida y enlace seguro para activar la cuenta de vendedor y conectar Mercado Libre.
+5. **Restablecimiento de Contraseña**: Enlace seguro con tiempo de expiración para recuperación de clave.
 
-### 3. Modo Sandbox vs Producción
+### 3. Ejecución del Suite de Prueba
+Para disparar todos los emails de prueba a tu cuenta registrada:
+```powershell
+npx tsx scripts/send-test-emails.ts
+```
+
+### 4. Modo Sandbox vs Producción
 * **Sandbox**: Remitente `onboarding@resend.dev` (envía únicamente al email con el que te registraste en Resend, sin necesidad de configurar DNS).
 * **Producción**: Remitente de tu dominio propio (ej: `alertas@tudominio.com`) previa verificación de DKIM, SPF y DMARC en Resend.

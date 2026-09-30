@@ -72,6 +72,14 @@ export class GetSellerProductsUseCase {
       })
     );
 
-    return items.filter((item): item is SellerProductDTO => item !== null);
+    const result: SellerProductDTO[] = [];
+    for (const item of items) {
+      if (item) {
+        result.push(item);
+      }
+    }
+    return result;
   }
 }
+
+

@@ -1,8 +1,8 @@
-import { IQuestionRepository } from "../interfaces/IQuestionRepository.js";
-import { IEventRepository } from "../interfaces/IEventRepository.js";
-import { IRealtimeNotifier } from "../interfaces/IRealtimeNotifier.js";
-import { EventLog } from "../../domain/entities/EventLog.js";
-import { Question } from "../../domain/entities/Question.js";
+import { IQuestionRepository } from "../../interfaces/IQuestionRepository.js";
+import { IEventRepository } from "../../interfaces/IEventRepository.js";
+import { IRealtimeNotifier } from "../../interfaces/IRealtimeNotifier.js";
+import { EventLog } from "../../../domain/entities/EventLog.js";
+import { Question } from "../../../domain/entities/Question.js";
 
 export class RejectAnswerUseCase {
   constructor(

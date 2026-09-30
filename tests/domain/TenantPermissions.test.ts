@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Tenant } from '../domain/entities/Tenant.js'
+import { Tenant } from '../../src/domain/entities/Tenant.js'
 
 describe('TenantPermissions', () => {
   function makeTenant(overrides: Partial<any> = {}) {

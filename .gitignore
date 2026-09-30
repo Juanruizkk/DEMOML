@@ -9,3 +9,11 @@ dist/
 .req.txt
 docs/req.txt
 req.txt
+
+# === Added by security-skill ===
+.env
+.env.local
+.env.*
+*.key
+*.pem
+secrets/

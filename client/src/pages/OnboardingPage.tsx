@@ -1,73 +1,100 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
-import PageHeader from '../components/PageHeader'
+import { CheckCircle2, ShoppingBag, Zap, Shield, ArrowRight, ExternalLink } from 'lucide-react'
 import './OnboardingPage.css'
 
-interface OnboardingStatus {
-  completed: boolean
-  steps?: string[]
+interface OnboardingStatusDTO {
+  isMeliConnected: boolean
+  meliAuthUrl: string
+  user: { name: string; email: string }
+  tenant?: { nickname: string; autoAnswerEnabled: boolean }
 }
 
 export default function OnboardingPage() {
-  const [status, setStatus]   = useState<OnboardingStatus | null>(null)
+  const navigate = useNavigate()
+  const [status, setStatus] = useState<OnboardingStatusDTO | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState<string | null>(null)
 
   useEffect(() => {
-    api.get<OnboardingStatus>('/auth/onboarding-status')
-      .then(setStatus)
-      .catch(err => setError(err instanceof Error ? err.message : 'Error al cargar estado'))
+    api.get<OnboardingStatusDTO>('/auth/onboarding-status')
+      .then(data => {
+        setStatus(data)
+        if (data.isMeliConnected) {
+          navigate('/dashboard', { replace: true })
+        }
+      })
+      .catch(console.error)
       .finally(() => setLoading(false))
-  }, [])
+  }, [navigate])
+
+  if (loading) {
+    return (
+      <div className="onboarding-page">
+        <div className="list-empty"><span className="pulse-dot" /> Cargando…</div>
+      </div>
+    )
+  }
 
   return (
-    <div className="page">
-      <PageHeader
-        title="Onboarding"
-        subtitle="Configuración inicial"
-        stats={status ? [
-          {
-            label: 'Estado',
-            value: status.completed ? 'Completado' : 'Pendiente',
-            color: status.completed ? 'emerald' : 'amber',
-          },
-        ] : []}
-      />
-      <div className="onboarding-content">
-        {loading && (
-          <div className="list-empty"><span className="pulse-dot" /> Cargando…</div>
-        )}
-        {error && (
-          <p className="onboarding-error">{error}</p>
-        )}
-        {status && (
-          <div className="onboarding-card glass">
-            <div className="onboarding-status-row">
-              <span className={`onboarding-dot${status.completed ? ' onboarding-dot--ok' : ' onboarding-dot--pending'}`} />
-              <div>
-                <p className="onboarding-status-label">
-                  {status.completed ? 'Onboarding completado' : 'Configuración pendiente'}
-                </p>
-                <p className="onboarding-status-hint">
-                  {status.completed
-                    ? 'Tu cuenta está lista para recibir preguntas.'
-                    : 'Completá los pasos a continuación para empezar.'}
-                </p>
-              </div>
-            </div>
+    <div className="onboarding-page">
+      <div className="onboarding-hero">
+        <div className="onboarding-badge">
+          <ShoppingBag size={28} />
+        </div>
+        <h1 className="onboarding-title">
+          {status ? `¡Bienvenido, ${status.user.name.split(' ')[0]}!` : 'Bienvenido'}
+        </h1>
+        <p className="onboarding-subtitle">
+          Para activar el asistente necesitás conectar tu cuenta de Mercado Libre.
+          Es el único paso que falta.
+        </p>
+      </div>
 
-            {status.steps && status.steps.length > 0 && (
-              <ul className="onboarding-steps">
-                {status.steps.map((step, i) => (
-                  <li key={i} className="onboarding-step">
-                    <span className="onboarding-step-num tabular">{String(i + 1).padStart(2, '0')}</span>
-                    <span className="onboarding-step-text">{step}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+      <div className="onboarding-features">
+        <div className="onboarding-feature">
+          <Zap size={18} className="onboarding-feature-icon" />
+          <div>
+            <p className="onboarding-feature-title">Respuestas en 1–3 segundos</p>
+            <p className="onboarding-feature-desc">La IA responde las preguntas de tus compradores automáticamente.</p>
           </div>
-        )}
+        </div>
+        <div className="onboarding-feature">
+          <Shield size={18} className="onboarding-feature-icon" />
+          <div>
+            <p className="onboarding-feature-title">Moderación anti-sanciones</p>
+            <p className="onboarding-feature-desc">Bloquea respuestas que podrían costarte la cuenta en ML.</p>
+          </div>
+        </div>
+        <div className="onboarding-feature">
+          <CheckCircle2 size={18} className="onboarding-feature-icon" />
+          <div>
+            <p className="onboarding-feature-title">Control total desde el panel</p>
+            <p className="onboarding-feature-desc">Aprobá, editá o rechazá respuestas con un clic.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="onboarding-cta-section">
+        <a
+          href={status?.meliAuthUrl}
+          className="btn-connect-meli"
+        >
+          <ShoppingBag size={18} />
+          Conectar con Mercado Libre
+          <ExternalLink size={14} className="btn-connect-external" />
+        </a>
+        <p className="onboarding-cta-hint">
+          Se abre la pantalla de autorización oficial de Mercado Libre.
+          Tomá menos de un minuto.
+        </p>
+        <button
+          className="btn-skip-to-config"
+          onClick={() => navigate('/config?tab=connection')}
+        >
+          Ver opciones de configuración avanzada
+          <ArrowRight size={14} />
+        </button>
       </div>
     </div>
   )

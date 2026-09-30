@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { UpdateTenantPermissionsUseCase } from '../application/use-cases/admin/UpdateTenantPermissionsUseCase.js'
-import { Tenant } from '../domain/entities/Tenant.js'
+import { UpdateTenantPermissionsUseCase } from '../../src/application/use-cases/admin/UpdateTenantPermissionsUseCase.js'
+import { Tenant } from '../../src/domain/entities/Tenant.js'
 
 describe('UpdateTenantPermissionsUseCase', () => {
   const mockRepo = {

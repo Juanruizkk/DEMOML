@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateCost, resolveModelKey } from "../domain/value-objects/LLMPricing.js";
+import { calculateCost, resolveModelKey } from "../../src/domain/value-objects/LLMPricing.js";
 
 describe("calculateCost", () => {
   it("calculates cost for a known groq model", () => {

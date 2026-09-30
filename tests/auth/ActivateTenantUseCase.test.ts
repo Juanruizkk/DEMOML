@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { ActivateTenantUseCase } from "../application/use-cases/auth/ActivateTenantUseCase.js";
-import { IUserRepository } from "../application/interfaces/IUserRepository.js";
-import { IPasswordHasher } from "../application/interfaces/IPasswordHasher.js";
-import { ITokenService, UserTokenPayload } from "../application/interfaces/ITokenService.js";
-import { User } from "../domain/entities/User.js";
+import { ActivateTenantUseCase } from "../../src/application/use-cases/auth/ActivateTenantUseCase.js";
+import { IUserRepository } from "../../src/application/interfaces/IUserRepository.js";
+import { IPasswordHasher } from "../../src/application/interfaces/IPasswordHasher.js";
+import { ITokenService, UserTokenPayload } from "../../src/application/interfaces/ITokenService.js";
+import { User } from "../../src/domain/entities/User.js";
 
 function makePendingUser(): User {
   return new User({
@@ -22,9 +22,12 @@ function makeRepo(user: User | null): IUserRepository {
     findById: vi.fn().mockResolvedValue(null),
     findByEmail: vi.fn().mockResolvedValue(null),
     findBySellerId: vi.fn().mockResolvedValue(null),
+    findAllBySellerId: vi.fn().mockResolvedValue([]),
     findByActivationToken: vi.fn().mockResolvedValue(user),
     findPendingTenants: vi.fn().mockResolvedValue([]),
+    findActiveUnconnectedTenants: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     getAll: vi.fn().mockResolvedValue([]),
     count: vi.fn().mockResolvedValue(0),
   };

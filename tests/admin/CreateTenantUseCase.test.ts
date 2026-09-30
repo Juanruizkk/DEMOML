@@ -1,16 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
-import { CreateTenantUseCase } from "../application/use-cases/admin/CreateTenantUseCase.js";
-import { IUserRepository } from "../application/interfaces/IUserRepository.js";
-import { User } from "../domain/entities/User.js";
+import { CreateTenantUseCase } from "../../src/application/use-cases/admin/CreateTenantUseCase.js";
+import { IUserRepository } from "../../src/application/interfaces/IUserRepository.js";
+import { User } from "../../src/domain/entities/User.js";
 
 function makeRepo(): IUserRepository {
   return {
     findById: vi.fn().mockResolvedValue(null),
     findByEmail: vi.fn().mockResolvedValue(null),
     findBySellerId: vi.fn().mockResolvedValue(null),
+    findAllBySellerId: vi.fn().mockResolvedValue([]),
     findByActivationToken: vi.fn().mockResolvedValue(null),
     findPendingTenants: vi.fn().mockResolvedValue([]),
+    findActiveUnconnectedTenants: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     getAll: vi.fn().mockResolvedValue([]),
     count: vi.fn().mockResolvedValue(0),
   };

@@ -10,12 +10,14 @@ Estos usuarios gestionan la aplicación, paneles de administración, portal de c
 
 | Rol | Nombre | Email / Usuario | Contraseña por defecto | Seller ID Asociado | URL / Acceso | Permisos & Alcance |
 |---|---|---|---|---|---|---|
-| **`super_admin`** | Super Admin | `admin@melibot.com` | `Admin123456!` | *Ninguno (Global)* | [`/admin.html`](http://localhost:3000/admin.html) | Control total, métricas globales, gestión de tenants y refresco de tokens OAuth. |
-| **`demo`** | Demo User | `demo@melibot.com` | `Demo123456!` | `3680586616` | [`/demo`](http://localhost:3000/demo) | Acceso de solo lectura y simulación de preguntas/reclamos para reuniones comerciales. |
-| **`tenant`** | Tienda de Prueba | `test@test.com` | `Test123456!` | `3274140366` | [`/login`](http://localhost:5173/login) | Panel exclusivo del vendedor, configuración de IA, prompts y vinculación OAuth. |
-| **`tenant`** | Tienda Vendedor 2 | `test2@test.com` | `Test123456!` | `3680586616` | [`/login`](http://localhost:5173/login) | Panel exclusivo del vendedor asociado al seller ID de demo. |
+| **`super_admin`** | Super Admin | `admin@melibot.com` | `Admin123456!` | *Ninguno (Global)* | [`/admin`](http://localhost:5173/admin) | Control total, métricas globales, gestión de tenants, toggle `multiUserEnabled` y refresco de tokens OAuth. |
+| **`demo`** | Demo User | `demo@melibot.com` | `Demo123456!` | `3680586616` | [`/demo`](http://localhost:5173/demo) | Acceso de solo lectura y simulación de preguntas/reclamos para reuniones comerciales. |
+| **`tenant`** | Tienda Vendedor (Titular) | `test@test.com` | `Test123456!` | `3680586616` | [`/login`](http://localhost:5173/login) | Panel oficial del vendedor Sandbox, configuración de IA, preguntas, reclamos y equipo. |
+| **`tenant` (Equipo)** | Colaborador Invitado | `vendedor@...` | *Definida en activación* | `3680586616` | [`/login`](http://localhost:5173/login) | Colaborador de equipo con acceso a preguntas, reclamos y notificaciones de la tienda. |
 
 > 💡 **Nota de Inicialización:** Los usuarios `super_admin` y `demo` se crean automáticamente al arrancar el servidor (`npm run dev`) si no existen previamente en la base de datos SQLite.
+>
+> 👥 **Módulo Multi-Usuario & Equipo:** Cuando el Super Admin activa el permiso `multiUserEnabled` en una tienda, el titular puede invitar colaboradores desde [`/team`](http://localhost:5173/team). Cada colaborador recibe un correo vía Resend con un token para definir su contraseña y acceder con su cuenta propia al panel de la tienda.
 
 ---
 
@@ -23,27 +25,31 @@ Estos usuarios gestionan la aplicación, paneles de administración, portal de c
 
 Cuentas generadas a través del DevCenter de Mercado Libre Argentina (`MLA`) para simular el ciclo de vida completo de compras, preguntas pre-venta y reclamos post-venta.
 
-| Rol en Prueba | User ID | Nickname | Password | Función / Uso |
-|---|---|---|---|---|
-| **Vendedor (Seller)** | `3680586616` | `TESTUSER4327702539223624795` | `QFxIljwqcj` | Cuenta titular de las publicaciones donde responde el bot. |
-| **Comprador (Buyer)** | `3677130936` | `TESTUSER2533156973119126771` | `0PZfM1kGU1` | Cuenta utilizada para hacer preguntas, compras y abrir reclamos. |
+| Rol en Prueba | User ID | Nickname | Password | Email | Función / Uso |
+|---|---|---|---|---|---|
+| **Vendedor (Seller)** | `3683312128` | `TESTUSER4803001026556945644` | `VXWe8yHVsI` | `test_user_4803001026556945644@testuser.com` | Cuenta titular de las publicaciones donde responde el bot. |
+| **Comprador (Buyer)** | `3693647110` | `TESTUSER1491864555385308323` | `ZMHT5PqWv8` | `test_user_1491864555385308323@testuser.com` | Cuenta utilizada para hacer preguntas, compras y abrir reclamos. |
 
-> ⚠️ **Importante sobre Sandbox de MELI:** Los usuarios de prueba expiran a los 60 días sin actividad. Si se requiere generar un nuevo usuario de test, podés ejecutar:
+> ⚠️ **Importante sobre Sandbox de MELI:** Los usuarios de prueba expiran a los 60 días sin actividad. Si se requiere generar nuevos usuarios de test, ejecutá:
+> ```powershell
+> npm run meli:test-users
+> ```
+> O mediante PowerShell directo contra la API:
 > ```powershell
 > Invoke-RestMethod -Method Post -Uri "https://api.mercadolibre.com/users/test_user" `
 >   -Headers @{ "Authorization" = "Bearer $TU_TOKEN_REAL"; "Content-Type" = "application/json" } `
 >   -Body '{"site_id":"MLA"}'
 > ```
 
-### 2.1 Publicaciones Activas para Pruebas (Seller 3680586616)
+### 2.1 Publicaciones Directas Activas para Pruebas (Vendedor Test 3683312128 / TESTUSER4803001026556945644)
 
-| Producto | Item ID | Categoría | Precio | Enlace a Publicación |
-|---|---|---|---|---|
-| **Cafetera Oster Prima Latte** | `MLA2087991267` | Electrodomésticos | $185.000 | [Ver en MELI](http://articulo.mercadolibre.com.ar/MLA-2087991267-cafetera-oster-prima-latte-roja-bvstem6603r-_JM) |
-| **Teclado Mecánico Redragon Kumara** | `MLA3946551378` | Computación / Gaming | $52.000 | [Ver en MELI](http://articulo.mercadolibre.com.ar/MLA-3946551378-teclado-redragon-kumara-k552-switch-azul-teclado-de-color-negro-_JM) |
-| **Smartwatch Haylou LS12** | `MLA3946551334` | Relojes / Smart | $68.000 | [Ver en MELI](http://articulo.mercadolibre.com.ar/MLA-3946551334-smartwatch-haylou-ls12-rs4-_JM) |
-| **Termo Stanley Classic 1L** | `MLA2087991273` | Camping / Bazar | $79.000 | [Ver en MELI](http://articulo.mercadolibre.com.ar/MLA-2087991273-termo-stanley-classic-tapon-1l-1l-negroliso-negro-_JM) |
-| **Mouse Gamer Logitech G203** | `MLA2087991281` | Computación / Gaming | $32.000 | [Ver en MELI](http://articulo.mercadolibre.com.ar/MLA-2087991281-mouse-gamer-gamer-logitech-gg-series-g203-lightsync-g203-white-_JM) |
+Estas publicaciones están **activas en la cuenta del Vendedor de Test**, listas para recibir preguntas y compras del Comprador de Test sin restricciones de Sandbox:
+
+| Producto | Item ID | Precio | Enlace Directo |
+|---|---|---|---|
+| **Cafetera Espresso Oster Prima Latte** | `MLA2101482683` | $185.000 | [Ver Cafetera en MELI](http://articulo.mercadolibre.com.ar/MLA-2101482683-cafetera-espresso-oster-prima-latte-roja-19-bares-_JM) |
+| **Teclado Mecánico Gamer Redragon K552** | `MLA3964723090` | $52.000 | [Ver Teclado en MELI](http://articulo.mercadolibre.com.ar/MLA-3964723090-teclado-mecanico-gamer-redragon-k552-switch-blue-_JM) |
+| **Termo Acero Inox Lumilagro 1L** | `MLA2101515609` | $38.000 | [Ver Termo en MELI](http://articulo.mercadolibre.com.ar/MLA-2101515609-termo-acero-inox-lumilagro-1l-tapon-cebador-_JM) |
 
 ---
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
+import MonthPicker from './MonthPicker'
 import './LLMUsageCard.css'
 
 interface MonthlyStats {
@@ -83,12 +84,7 @@ export default function LLMUsageCard() {
     <div className="llm-usage-card">
       <div className="llm-usage-card-header">
         <h4>Consumo de IA</h4>
-        <input
-          type="month"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          className="llm-month-picker"
-        />
+        <MonthPicker value={month} onChange={setMonth} />
       </div>
 
       {loading && <p className="llm-loading">Cargando...</p>}

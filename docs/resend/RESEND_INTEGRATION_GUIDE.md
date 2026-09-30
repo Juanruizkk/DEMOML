@@ -222,6 +222,20 @@ export interface SendTestEmailParams {
   tenantName?: string;
 }
 
+export interface SendTenantInvitationParams {
+  to: string;
+  name: string;
+  activationUrl: string;
+  temporaryToken?: string;
+}
+
+export interface SendPasswordResetParams {
+  to: string;
+  name?: string;
+  resetUrl: string;
+  expiresInMinutes?: number;
+}
+
 export interface EmailSendResult {
   success: boolean;
   messageId?: string;
@@ -232,6 +246,8 @@ export interface IEmailClient {
   sendQuestionReviewAlert(params: SendQuestionAlertParams): Promise<EmailSendResult>;
   sendClaimSlaAlert(params: SendClaimAlertParams): Promise<EmailSendResult>;
   sendTestEmail(params: SendTestEmailParams): Promise<EmailSendResult>;
+  sendTenantInvitation(params: SendTenantInvitationParams): Promise<EmailSendResult>;
+  sendPasswordReset(params: SendPasswordResetParams): Promise<EmailSendResult>;
 }
 ```
 
@@ -531,37 +547,21 @@ En el panel de configuración de canales (`client/src/pages/TenantPage.tsx`), se
 
 ## 9. Scripts de Prueba y Verificación
 
-Podés crear un script rápido en `scripts/test-resend.ts` para verificar la API Key directamente:
-
-```typescript
-import { Resend } from 'resend';
-import dotenv from 'dotenv';
-dotenv.config();
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-async function test() {
-  console.log('🚀 Probando conexión con Resend...');
-  const { data, error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
-    to: ['tu-email-registrado@resend.com'],
-    subject: '🧪 Test de Conexión MELI AI Assistant',
-    html: '<h1>¡Funciona correctamente!</h1><p>Prueba enviada desde Resend SDK.</p>',
-  });
-
-  if (error) {
-    console.error('❌ Error:', error);
-  } else {
-    console.log('✅ Email enviado con ID:', data?.id);
-  }
-}
-
-test();
-```
-
-Para ejecutarlo:
+### 9.1 Test Rápido de Conectividad (`scripts/test-resend.ts`)
+Para verificar únicamente que la API Key es válida:
 ```powershell
 npx tsx scripts/test-resend.ts
+```
+
+### 9.2 Suite Completo de Mails Transaccionales (`scripts/send-test-emails.ts`)
+Para enviar todos los templates diseñados (Conexión, Alerta de Pregunta con IA, Alerta de Reclamo SLA Crítico, Activación de Cuenta / Invitación y Restablecimiento de Contraseña) a `asistentemercadol@gmail.com`:
+```powershell
+npx tsx scripts/send-test-emails.ts
+```
+
+O enviando a un destinatario específico (requiere dominio verificado en Resend para destinatarios externos):
+```powershell
+npx tsx scripts/send-test-emails.ts usuario@midominio.com
 ```
 
 ---

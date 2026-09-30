@@ -512,6 +512,7 @@
       if (newToken) {
         token = newToken;
         localStorage.setItem("meli_jwt", token);
+        localStorage.setItem("token", token);
       }
 
       if (error) {

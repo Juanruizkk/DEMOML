@@ -1,24 +1,19 @@
-import { IClaimRepository } from "../interfaces/IClaimRepository.js";
-import { ITenantRepository } from "../interfaces/ITenantRepository.js";
-import { IEventRepository } from "../interfaces/IEventRepository.js";
-import { IMeliClient } from "../interfaces/IMeliClient.js";
-import { IWhatsAppClient } from "../interfaces/IWhatsAppClient.js";
-import { ITelegramClient } from "../interfaces/ITelegramClient.js";
-import { IEmailClient } from "../interfaces/IEmailClient.js";
-import { IRealtimeNotifier } from "../interfaces/IRealtimeNotifier.js";
-import { Claim, ClaimAction, ClaimType } from "../../domain/entities/Claim.js";
-import { EventLog } from "../../domain/entities/EventLog.js";
+import { IClaimRepository } from "../../interfaces/IClaimRepository.js";
+import { IEventRepository } from "../../interfaces/IEventRepository.js";
+import { IMeliClient } from "../../interfaces/IMeliClient.js";
+import { IRealtimeNotifier } from "../../interfaces/IRealtimeNotifier.js";
+import { TenantNotificationService } from "../../services/TenantNotificationService.js";
+import { Claim, ClaimAction, ClaimType } from "../../../domain/entities/Claim.js";
+import { EventLog } from "../../../domain/entities/EventLog.js";
+import { getClaimReasonInfo } from "../../../domain/utils/claimReasonMapper.js";
 
 export class ProcessClaimUseCase {
   constructor(
     private readonly claimRepo: IClaimRepository,
-    private readonly tenantRepo: ITenantRepository,
     private readonly eventRepo: IEventRepository,
     private readonly meliClient: IMeliClient,
-    private readonly whatsAppClient: IWhatsAppClient,
     private readonly sseNotifier: IRealtimeNotifier,
-    private readonly telegramClient?: ITelegramClient,
-    private readonly emailClient?: IEmailClient
+    private readonly notificationService: TenantNotificationService
   ) {}
 
   public async execute(params: { claimId: string; sellerId: string }): Promise<Claim | null> {
@@ -50,6 +45,43 @@ export class ProcessClaimUseCase {
       const type = this.mapClaimType(raw.reason_id);
       const now = new Date();
 
+      // Enrich with Order & Product metadata
+      let itemTitle: string | undefined;
+      let itemId: string | undefined;
+      let buyerNickname: string | undefined;
+      let itemPrice: number | undefined;
+      let itemQuantity: number | undefined;
+      let complainantMessage: string | undefined;
+
+      try {
+        const order = await this.meliClient.getOrder(sellerId, String(raw.resource_id));
+        if (order) {
+          buyerNickname = order.buyer?.nickname;
+          const firstItem = order.order_items?.[0];
+          if (firstItem) {
+            itemTitle = firstItem.item?.title;
+            itemId = firstItem.item?.id;
+            itemPrice = firstItem.unit_price;
+            itemQuantity = firstItem.quantity;
+          }
+        }
+      } catch (e) {
+        // Safe fallback if order fetch is not available in mock/sandbox
+      }
+
+      try {
+        const claimMsgs = await this.meliClient.getClaimMessages(sellerId, claimId);
+        const compMsg = claimMsgs.find(m => m.sender_role === 'complainant') || claimMsgs[0];
+        if (compMsg?.message) {
+          complainantMessage = compMsg.message;
+        }
+      } catch (e) {
+        // Safe fallback if claim messages are not accessible
+      }
+
+      const reasonInfo = getClaimReasonInfo(raw.reason_id);
+      const reasonDetail = `${reasonInfo.title} — ${reasonInfo.description}`;
+
       // Check if claim already exists
       const existing = await this.claimRepo.findById(claimId);
       const isAlreadyNotified = Boolean(existing?.notifiedAt);
@@ -62,7 +94,14 @@ export class ProcessClaimUseCase {
         stage: raw.stage,
         status: raw.status,
         reason: raw.reason_id,
+        reasonDetail,
         buyerId: buyerPlayer ? String(buyerPlayer.user_id) : undefined,
+        buyerNickname: buyerNickname ?? existing?.buyerNickname,
+        itemId: itemId ?? existing?.itemId,
+        itemTitle: itemTitle ?? existing?.itemTitle,
+        itemPrice: itemPrice ?? existing?.itemPrice,
+        itemQuantity: itemQuantity ?? existing?.itemQuantity,
+        complainantMessage: complainantMessage ?? existing?.complainantMessage,
         actions,
         dueDate,
         createdAt: new Date(raw.date_created),
@@ -82,124 +121,75 @@ export class ProcessClaimUseCase {
         new EventLog({
           sellerId,
           type: "claim_received",
-          message: `⚖️ Reclamo ${claimId} procesado — tipo: ${type}, urgencia: ${claim.getUrgency()}, horas restantes: ${claim.getRemainingHours()}`,
+          message: `⚖️ Reclamo ${claimId} procesado — motivo: ${raw.reason_id} (${reasonInfo.categoryLabel}), urgencia: ${claim.getUrgency()}, horas restantes: ${claim.getRemainingHours()}`,
         })
       );
 
-      // 4. Send Alerts (WhatsApp & Telegram)
-      const tenant = await this.tenantRepo.findBySellerId(sellerId);
-      const phone = tenant?.settings?.whatsappAlertPhone;
-      const channelPref = tenant?.settings?.preferredAlertChannel || "whatsapp";
+      // 4. Alertas al vendedor por los canales configurados (WhatsApp / Telegram / Email)
       const urgencyEmoji = claim.getUrgency() === "critical" ? "🔴" : claim.getUrgency() === "high" ? "🟠" : "🟡";
-      const typeLabel = type === "med_pnr" ? "Paquete no recibido (PNR)" : type === "med_pdd" ? "Producto defectuoso (PDD)" : "Reclamo";
+      const rawUrgency = claim.getUrgency();
+      const emailUrgency: "critical" | "high" | "medium" | "low" =
+        rawUrgency === "critical" ? "critical" : rawUrgency === "high" ? "high" : "medium";
 
-      if (phone && tenant && (channelPref === "whatsapp" || channelPref === "both")) {
-        if (tenant.canSendWhatsAppAlert()) {
-          const creds = tenant.getWhatsAppCredentials();
-
-          const bodyText =
+      await this.notificationService.notify({
+        sellerId,
+        whatsapp: {
+          bodyText:
             `${urgencyEmoji} *NUEVO RECLAMO en Mercado Libre*\n\n` +
-            `📦 Orden: #${claim.orderId}\n` +
-            `🔖 Tipo: ${typeLabel}\n` +
-            `⏳ Tiempo restante: ${claim.getRemainingHours()} horas\n` +
-            `🆔 Reclamo: ${claimId}\n\n` +
-            `Respondé a tiempo para evitar penalización automática.`;
-
-          await this.whatsAppClient.sendInteractiveButtons({
-            to: phone,
-            bodyText,
-            buttons: [{ id: `claim_ack_${claimId}`, title: "✅ Enterado" }],
-            credentials: creds ?? undefined,
-          });
-
-          if (tenant.settings.whatsappMode === "platform_shared") {
-            tenant.incrementAlertsSent();
-            await this.tenantRepo.save(tenant);
-          }
-
-          claim.markNotified();
-          await this.claimRepo.save(claim);
-
-          await this.eventRepo.log(
-            new EventLog({
-              sellerId,
-              type: "claim_notified",
-              message: `📲 Alerta WhatsApp enviada para reclamo ${claimId}`,
-            })
-          );
-        } else {
-          await this.eventRepo.log(
-            new EventLog({
-              sellerId,
-              type: "WHATSAPP_QUOTA_EXCEEDED",
-              message: `Límite mensual de alertas alcanzado (${tenant.settings.alertsSentThisMonth}/${tenant.settings.monthlyAlertsLimit}). Alerta omitida.`,
-            })
-          );
-        }
-      }
-
-      // Send Telegram alert
-      if (this.telegramClient && tenant?.canSendTelegramAlert() && (channelPref === "telegram" || channelPref === "both")) {
-        const creds = tenant.getTelegramCredentials();
-        if (creds?.chatId) {
-          await this.telegramClient.sendMessage({
-            chatId: creds.chatId,
-            text:
-              `${urgencyEmoji} *NUEVO RECLAMO en Mercado Libre*\n\n` +
-              `📦 *Orden:* #${claim.orderId}\n` +
-              `🔖 *Tipo:* ${typeLabel}\n` +
-              `⏳ *Tiempo restante:* ${claim.getRemainingHours()} horas\n` +
-              `🆔 *Reclamo:* #${claimId}\n\n` +
-              `⚠️ Respondé dentro del plazo para evitar penalizaciones automáticas en tu reputación.`,
-            buttons: [
-              [
-                { text: "✅ Enterado", callbackData: `claim_ack_${claimId}` },
-              ],
+            (claim.itemTitle ? `📦 *Producto:* ${claim.itemTitle}\n` : '') +
+            `🧾 *Orden:* #${claim.orderId}\n` +
+            (claim.buyerNickname ? `👤 *Comprador:* ${claim.buyerNickname}\n` : '') +
+            `⚠️ *Motivo:* ${reasonInfo.code} · ${reasonInfo.categoryLabel}\n` +
+            (claim.complainantMessage ? `💬 *Mensaje del Comprador:* "${claim.complainantMessage}"\n` : `📝 *Detalle:* ${reasonInfo.title}\n`) +
+            `⏳ *Tiempo restante:* ${claim.getRemainingHours()} horas\n` +
+            `🆔 *Reclamo:* #${claimId}\n\n` +
+            `💡 *Recomendación:* ${reasonInfo.recommendation}`,
+          buttons: [{ id: `claim_ack_${claimId}`, title: "✅ Enterado" }],
+          successLog: {
+            type: "claim_notified",
+            message: `📲 Alerta WhatsApp enviada para reclamo ${claimId}`,
+          },
+        },
+        telegram: {
+          text:
+            `${urgencyEmoji} *NUEVO RECLAMO en Mercado Libre*\n\n` +
+            (claim.itemTitle ? `📦 *Producto:* ${claim.itemTitle}\n` : '') +
+            `🧾 *Orden:* #${claim.orderId}\n` +
+            (claim.buyerNickname ? `👤 *Comprador:* ${claim.buyerNickname}\n` : '') +
+            `⚠️ *Motivo:* ${reasonInfo.code} · ${reasonInfo.categoryLabel}\n` +
+            (claim.complainantMessage ? `💬 *Mensaje del Comprador:*\n"${claim.complainantMessage}"\n\n` : `📝 *Detalle:* ${reasonInfo.title}\n`) +
+            `⏳ *Tiempo restante:* ${claim.getRemainingHours()} horas\n` +
+            `🆔 *Reclamo:* #${claimId}\n\n` +
+            `💡 _Consejo:_ ${reasonInfo.recommendation}\n` +
+            `Respondé dentro del plazo para evitar penalizaciones automáticas en tu reputación.`,
+          buttons: [
+            [
+              { text: "✅ Enterado", callbackData: `claim_ack_${claimId}` },
             ],
-            botToken: creds.botToken,
-          }).catch((err) => console.error("[ProcessClaimUseCase] Error Telegram:", err));
-
-          claim.markNotified();
-          await this.claimRepo.save(claim);
-
-          await this.eventRepo.log(
-            new EventLog({
-              sellerId,
-              type: "claim_notified",
-              message: `✈️ Alerta Telegram enviada para reclamo ${claimId} (Chat ID: ${creds.chatId})`,
-            })
-          );
-        }
-      }
-
-      // Send Email alert if tenant has Email enabled & configured
-      if (this.emailClient && tenant?.canSendEmailAlert("claim")) {
-        const emailTo = tenant.getEmailAlertAddress();
-        if (emailTo) {
-          await this.emailClient
-            .sendClaimSlaAlert({
-              to: emailTo,
+          ],
+          successLog: {
+            type: "claim_notified",
+            buildMessage: (chatId) => `✈️ Alerta Telegram enviada para reclamo ${claimId} (Chat ID: ${chatId})`,
+          },
+        },
+        email: {
+          kind: "claim",
+          send: (client, to) =>
+            client.sendClaimSlaAlert({
+              to,
               sellerId,
               claimId: String(claim.id),
               orderId: claim.orderId,
-              reason: typeLabel + " (" + claim.reason + ")",
+              reason: `${reasonInfo.title || "Reclamo"} (${claim.reason || raw.reason_id})`,
               remainingHours: claim.getRemainingHours(),
-              urgency: claim.getUrgency(),
-            })
-            .then(async (res) => {
-              if (res.success) {
-                await this.eventRepo.log(
-                  new EventLog({
-                    sellerId,
-                    type: "email_alert_sent",
-                    message: `📧 Alerta de reclamo urgente enviada por correo a ${emailTo}`,
-                  })
-                );
-              }
-            })
-            .catch((err) => console.error("[ProcessClaimUseCase] Error Email:", err));
-        }
-      }
+              urgency: emailUrgency,
+            }),
+          successLog: {
+            type: "email_alert_sent",
+            buildMessage: (to) => `📧 Alerta de reclamo urgente enviada por correo a ${to}`,
+          },
+        },
+      });
 
       // 5. SSE broadcast
       this.sseNotifier.broadcastToSeller(sellerId, "claim_received", {

@@ -1,6 +1,6 @@
 // src/presentation/controllers/WhatsAppWebhookController.ts
 import { FastifyRequest, FastifyReply } from "fastify";
-import { HandleWhatsAppReplyUseCase } from "../../application/use-cases/HandleWhatsAppReplyUseCase.js";
+import { HandleWhatsAppReplyUseCase } from "../../application/use-cases/channels/HandleWhatsAppReplyUseCase.js";
 
 export class WhatsAppWebhookController {
   constructor(private readonly handleReplyUseCase: HandleWhatsAppReplyUseCase) {}

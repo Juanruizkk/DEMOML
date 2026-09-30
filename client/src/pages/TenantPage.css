@@ -235,7 +235,317 @@
 
 .btn-save:hover { box-shadow: 0 0 14px var(--blue-glow); }
 
-/* Connection */
+/* ── Connection & MELI OAuth Tab ────────────────────────────────────── */
+.meli-connection-container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 680px;
+}
+
+.meli-connection-card {
+  max-width: 680px;
+}
+
+.meli-yellow-box {
+  background: rgba(255, 230, 0, 0.15) !important;
+  color: #eab308 !important;
+  border: 1px solid rgba(255, 230, 0, 0.3) !important;
+}
+
+[data-theme="light"] .meli-yellow-box {
+  background: #fef08a !important;
+  color: #854d0e !important;
+  border-color: #fde047 !important;
+}
+
+.meli-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+}
+
+.meli-status-badge--connected {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.meli-status-badge--disconnected {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.meli-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.meli-info-item {
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border-glass);
+}
+
+.meli-info-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.meli-info-val {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.meli-info-val.highlight {
+  color: var(--blue);
+}
+
+.token-health-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+}
+
+.token-health-badge--healthy {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.token-health-badge--expiring_soon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.token-health-badge--expired {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.meli-action-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.btn-meli-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: var(--r-md);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-meli-sync:hover:not(:disabled) {
+  background: var(--border-glass);
+  color: var(--text-primary);
+}
+
+.btn-meli-reconnect {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: var(--r-md);
+  background: #FFE600;
+  border: 1px solid #eab308;
+  color: #1e293b;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-meli-reconnect:hover:not(:disabled) {
+  box-shadow: 0 0 12px rgba(255, 230, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.meli-connect-promo {
+  padding: 22px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255, 230, 0, 0.25);
+  background: linear-gradient(135deg, rgba(255, 230, 0, 0.04) 0%, rgba(30, 41, 59, 0.4) 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.meli-promo-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+  background: rgba(255, 230, 0, 0.18);
+  color: #eab308;
+}
+
+.meli-connect-promo h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.meli-connect-promo p {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.meli-benefits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.meli-benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
+.meli-check-icon {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.btn-meli-connect-primary {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 24px;
+  border-radius: var(--r-md);
+  background: #FFE600;
+  border: none;
+  color: #111827;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(255, 230, 0, 0.3);
+}
+
+.btn-meli-connect-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 230, 0, 0.45);
+}
+
+.oauth-feedback-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: var(--r-md);
+  animation: slideInDown 0.25s ease-out;
+}
+
+.oauth-feedback-banner--success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.oauth-feedback-banner--error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.oauth-feedback-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.oauth-feedback-body {
+  flex: 1;
+}
+
+.oauth-feedback-body strong {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+  color: inherit;
+}
+
+.oauth-feedback-body p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.oauth-feedback-close {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.oauth-feedback-close:hover {
+  color: var(--text-primary);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .connection-status {
   display: flex;
   align-items: flex-start;

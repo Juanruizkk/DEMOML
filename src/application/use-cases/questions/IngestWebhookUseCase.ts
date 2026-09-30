@@ -1,6 +1,6 @@
-import { IQueueBroker } from "../interfaces/IQueueBroker.js";
-import { IEventRepository } from "../interfaces/IEventRepository.js";
-import { EventLog } from "../../domain/entities/EventLog.js";
+import { IQueueBroker } from "../../interfaces/IQueueBroker.js";
+import { IEventRepository } from "../../interfaces/IEventRepository.js";
+import { EventLog } from "../../../domain/entities/EventLog.js";
 
 export interface WebhookPayload {
   resource?: string;

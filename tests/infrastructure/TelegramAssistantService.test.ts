@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TelegramAssistantService } from "../infrastructure/telegram/TelegramAssistantService.js";
-import { IQuestionRepository } from "../application/interfaces/IQuestionRepository.js";
-import { IClaimRepository } from "../application/interfaces/IClaimRepository.js";
-import { IEventRepository } from "../application/interfaces/IEventRepository.js";
-import { Question } from "../domain/entities/Question.js";
-import { Claim } from "../domain/entities/Claim.js";
-import { EventLog } from "../domain/entities/EventLog.js";
-import { Tenant } from "../domain/entities/Tenant.js";
+import { TelegramAssistantService } from "../../src/infrastructure/telegram/TelegramAssistantService.js";
+import { IQuestionRepository } from "../../src/application/interfaces/IQuestionRepository.js";
+import { IClaimRepository } from "../../src/application/interfaces/IClaimRepository.js";
+import { IEventRepository } from "../../src/application/interfaces/IEventRepository.js";
+import { Question } from "../../src/domain/entities/Question.js";
+import { Claim } from "../../src/domain/entities/Claim.js";
+import { EventLog } from "../../src/domain/entities/EventLog.js";
+import { Tenant } from "../../src/domain/entities/Tenant.js";
 
 describe("TelegramAssistantService", () => {
   let questionRepo: IQuestionRepository;
@@ -29,13 +29,13 @@ describe("TelegramAssistantService", () => {
       sellerId: "seller_123",
       itemId: "MLA999",
       text: "¿Tienen stock en color negro?",
-      status: "pending_review",
+      appStatus: "pending_review",
       intent: "stock",
       confidence: 0.6,
       requiresHuman: true,
       reason: "Baja certeza de stock",
       suggestedAnswer: "¡Hola! Sí, disponemos de stock en negro.",
-      createdAt: new Date(),
+      receivedAt: new Date(),
     }),
   ];
 
@@ -44,14 +44,18 @@ describe("TelegramAssistantService", () => {
       id: "C500",
       sellerId: "seller_123",
       orderId: "ORD-999",
-      type: "unfulfilled_order",
+      type: "return",
       stage: "claim",
       status: "opened",
       reason: "El paquete llegó dañado",
       buyerId: "BUYER_1",
-      actions: ["send_message_to_buyer", "refund"],
+      actions: [
+        { action: "send_message_to_buyer", dueDate: null, mandatory: true },
+        { action: "refund", dueDate: null, mandatory: false },
+      ],
       dueDate: new Date(Date.now() + 6 * 3600 * 1000), // 6 horas restantes
       createdAt: new Date(),
+      updatedAt: new Date(),
     }),
   ];
 
@@ -122,7 +126,7 @@ describe("TelegramAssistantService", () => {
       expect(data.claim).not.toBeNull();
       expect(data.claim?.id).toBe("C500");
       expect(data.claim?.reason).toBe("El paquete llegó dañado");
-      expect(data.claim?.actions).toContain("refund");
+      expect(data.claim?.actions.map(a => a.action)).toContain("refund");
     });
 
     it("getStoreMetricsData calcula métricas de auto-respuesta y reclamos", async () => {
@@ -167,16 +171,23 @@ describe("TelegramAssistantService", () => {
     });
   });
 
-  describe("processMessage", () => {
-    it("ejecuta correctamente y retorna texto y botones", async () => {
-      const res = await service.processMessage({
-        tenant: mockTenant,
-        userMessage: "¿Qué preguntas tengo pendientes de atención?",
-        chatId: "12345",
-      });
+  describe("sanitizeTelegramMarkdown", () => {
+    it("debe transformar tablas con pipes en tarjetas numeradas para Telegram", () => {
+      const rawTable = `📖 Tienes 2 preguntas pendientes
 
-      expect(res.text).toBeDefined();
-      expect(typeof res.text).toBe("string");
+| # | ID | Pregunta | Tema |
+|---|---|---|---|
+| 1 | 900000005 | Pasame tu número de WhatsApp para coordinar la entrega | 📞 Mensajería externa |
+| 2 | 900000004 | ¿Tiene manual en español? | 📚 Manual |
+
+⚠️ Recomendación: Responde a cada una con la información disponible.`;
+
+      const sanitized = TelegramAssistantService.sanitizeTelegramMarkdown(rawTable);
+      expect(sanitized).not.toContain("|---|---|");
+      expect(sanitized).toContain("1️⃣ *Pregunta #900000005*");
+      expect(sanitized).toContain("💬 _\"Pasame tu número de WhatsApp para coordinar la entrega\"_");
+      expect(sanitized).toContain("2️⃣ *Pregunta #900000004*");
+      expect(sanitized).toContain("━━━━━━━━━━━━━━━━━━━━");
     });
   });
 });

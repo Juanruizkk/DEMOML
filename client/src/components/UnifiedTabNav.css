@@ -1,0 +1,162 @@
+/* ── Unified Tab Navigation ── */
+.unified-tab-nav-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.unified-tabs-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 0.35rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.unified-tabs-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Individual Tab Button */
+.unified-tab-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.unified-tab-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-glass-hover);
+}
+
+.unified-tab-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Icons & Dots */
+.tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tab-alert-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+/* Count Pills */
+.tab-count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+/* Active State - Single Unified Brand Color across all tabs */
+.unified-tab-btn.is-active {
+  color: #ffffff !important;
+  font-weight: 600;
+  background: #2563eb !important;
+  border-color: #3b82f6 !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.unified-tab-btn.is-active .tab-icon {
+  color: #ffffff !important;
+}
+
+.unified-tab-btn.is-active .tab-count-pill {
+  background: rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+/* Extra Content */
+.unified-tabs-extra {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ── Light Theme Tweaks ── */
+[data-theme="light"] .unified-tabs-track {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .unified-tab-btn {
+  color: #64748b;
+}
+
+[data-theme="light"] .unified-tab-btn:hover:not(:disabled) {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+[data-theme="light"] .tab-count-pill {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .tab-count-pill.has-count {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+[data-theme="light"] .unified-tab-btn.is-active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .unified-tab-btn.is-active .tab-count-pill {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}

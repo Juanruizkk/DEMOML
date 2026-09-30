@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { IQuestionRepository } from "../interfaces/IQuestionRepository.js";
-import { IGoldenDatasetRepository } from "../interfaces/IGoldenDatasetRepository.js";
-import { IItemCacheRepository } from "../interfaces/IItemCacheRepository.js";
+import { IQuestionRepository } from "../../interfaces/IQuestionRepository.js";
+import { IGoldenDatasetRepository } from "../../interfaces/IGoldenDatasetRepository.js";
+import { IItemCacheRepository } from "../../interfaces/IItemCacheRepository.js";
 import { ApproveAnswerUseCase } from "./ApproveAnswerUseCase.js";
 import { RejectAnswerUseCase } from "./RejectAnswerUseCase.js";
-import { GoldenDatasetEntry, GoldenDecision } from "../../domain/entities/GoldenDatasetEntry.js";
-import { IntentType } from "../../domain/value-objects/Intent.js";
-import { Question } from "../../domain/entities/Question.js";
+import { GoldenDatasetEntry, GoldenDecision } from "../../../domain/entities/GoldenDatasetEntry.js";
+import { IntentType } from "../../../domain/value-objects/Intent.js";
+import { Question } from "../../../domain/entities/Question.js";
 
 export type HumanDecision = GoldenDecision | "rejected";
 

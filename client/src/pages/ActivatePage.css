@@ -3,112 +3,174 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-base, #0f1117);
+  background: #0a0c12;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99, 102, 241, 0.18) 0%, transparent 70%);
   padding: 24px;
 }
 
 .activate-card {
   width: 100%;
   max-width: 420px;
-  background: var(--bg-card, #1a1d27);
-  border: 1px solid var(--border, rgba(255,255,255,0.08));
-  border-radius: 16px;
-  padding: 40px 32px;
+  background: #13151f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 44px 36px 40px;
+  box-shadow:
+    0 0 0 1px rgba(99, 102, 241, 0.08),
+    0 24px 64px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .activate-logo {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
   letter-spacing: -0.5px;
-  color: var(--text-primary, #f0f2f5);
-  margin-bottom: 8px;
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 20px;
 }
 
 .activate-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary, #f0f2f5);
-  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #f0f2f5;
+  margin: 0 0 8px;
+  letter-spacing: -0.3px;
 }
 
 .activate-subtitle {
   font-size: 14px;
-  color: var(--text-muted, #8b90a0);
-  margin: 0 0 28px;
+  color: #8b90a0;
+  margin: 0 0 32px;
+  line-height: 1.5;
 }
 
 .activate-field {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .activate-label {
   display: block;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary, #b0b6c6);
+  color: #b0b6c6;
   margin-bottom: 6px;
 }
 
 .activate-input {
   width: 100%;
-  padding: 10px 14px;
-  background: var(--bg-input, rgba(255,255,255,0.05));
-  border: 1px solid var(--border, rgba(255,255,255,0.08));
-  border-radius: 8px;
-  color: var(--text-primary, #f0f2f5);
+  padding: 11px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #f0f2f5;
   font-size: 14px;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.activate-input::placeholder {
+  color: #4b5162;
 }
 
 .activate-input:focus {
-  border-color: var(--accent, #6366f1);
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.activate-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.activate-input-wrap .activate-input {
+  padding-right: 42px;
+}
+
+.activate-eye {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+
+.activate-eye:hover {
+  color: #9ca3af;
 }
 
 .activate-btn {
   width: 100%;
-  padding: 11px;
-  background: var(--accent, #6366f1);
+  padding: 12px;
+  background: #6366f1;
   color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 8px;
-  transition: opacity 0.15s;
+  margin-top: 10px;
+  transition: background 0.15s, opacity 0.15s;
+  letter-spacing: 0.01em;
+}
+
+.activate-btn:hover:not(:disabled) {
+  background: #5254cc;
 }
 
 .activate-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 .activate-error {
   font-size: 13px;
-  color: #ef4444;
-  margin-top: 12px;
+  color: #f87171;
+  margin-top: 14px;
   text-align: center;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 8px;
+  padding: 10px 14px;
 }
 
 .activate-success {
   text-align: center;
+  padding: 12px 0;
 }
 
 .activate-success-icon {
-  font-size: 40px;
-  margin-bottom: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin: 0 auto 16px;
 }
 
 .activate-success-title {
   font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary, #f0f2f5);
+  font-weight: 700;
+  color: #f0f2f5;
   margin: 0 0 8px;
 }
 
 .activate-success-text {
   font-size: 14px;
-  color: var(--text-muted, #8b90a0);
+  color: #8b90a0;
+  margin: 0;
 }

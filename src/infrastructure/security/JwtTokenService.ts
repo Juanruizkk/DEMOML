@@ -5,7 +5,11 @@ export class JwtTokenService implements ITokenService {
   private readonly secret: string;
 
   constructor(secret?: string) {
-    this.secret = secret || process.env.JWT_SECRET || "default_meli_bot_super_secret_key_123456";
+    const resolved = secret || process.env.JWT_SECRET;
+    if (!resolved) {
+      throw new Error("JWT_SECRET no está configurado. Definí esta variable de entorno antes de iniciar el servidor.");
+    }
+    this.secret = resolved;
   }
 
   private base64UrlEncode(str: string): string {

@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { SimulateQuestionUseCase, SimulateQuestionParams } from "../../application/use-cases/SimulateQuestionUseCase.js";
+import { SimulateQuestionUseCase, SimulateQuestionParams } from "../../application/use-cases/questions/SimulateQuestionUseCase.js";
 
 export class SimulatorController {
   constructor(private readonly simulateUseCase: SimulateQuestionUseCase) {}

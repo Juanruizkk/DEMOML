@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Claim, ClaimProps } from "../domain/entities/Claim.js";
+import { Claim, ClaimProps } from "../../src/domain/entities/Claim.js";
 
 function makeClaim(overrides: Partial<ClaimProps> = {}): Claim {
   const now = new Date("2026-01-01T12:00:00Z");

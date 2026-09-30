@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ResendEmailClient } from "../infrastructure/email/ResendEmailClient.js";
+import { ResendEmailClient } from "../../src/infrastructure/email/ResendEmailClient.js";
 
 describe("ResendEmailClient", () => {
   let emailClient: ResendEmailClient;
@@ -48,4 +48,29 @@ describe("ResendEmailClient", () => {
     expect(res.success).toBe(true);
     expect(res.messageId).toContain("simulated_");
   });
+
+  it("should simulate tenant invitation email successfully", async () => {
+    const res = await emailClient.sendTenantInvitation({
+      to: "vendedor@test.com",
+      name: "Juan Pérez",
+      activationUrl: "https://meli-assistant.com/activate?token=abc-123",
+      temporaryToken: "839-201",
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.messageId).toContain("simulated_");
+  });
+
+  it("should simulate password reset email successfully", async () => {
+    const res = await emailClient.sendPasswordReset({
+      to: "vendedor@test.com",
+      name: "Juan Pérez",
+      resetUrl: "https://meli-assistant.com/reset-password?token=xyz-789",
+      expiresInMinutes: 30,
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.messageId).toContain("simulated_");
+  });
 });
+

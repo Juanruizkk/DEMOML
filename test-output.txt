@@ -1,0 +1,13 @@
+
+ RUN  v5.0.0 C:/JUAN RUIZ/Trabajos/DEMOML
+
+
+ Test Files  58 passed (58)
+      Tests  282 passed (282)
+   Start at  20:21:42
+   Duration  943ms (transform 76%, import 15%, tests 6%, worker 3%)
+
+  Transform  transforming modules took 10.24s · 76% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

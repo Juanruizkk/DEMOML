@@ -9,6 +9,24 @@ import { RequestPasswordResetUseCase } from "../../application/use-cases/auth/Re
 import { ResetPasswordUseCase } from "../../application/use-cases/auth/ResetPasswordUseCase.js";
 import { ITokenService } from "../../application/interfaces/ITokenService.js";
 
+// Mensajes de error de dominio conocidos — seguros para mostrar al cliente
+const SAFE_AUTH_ERRORS = new Set([
+  "Email y contraseña son obligatorios.",
+  "Credenciales inválidas.",
+  "El usuario ya existe.",
+  "El campo email es requerido.",
+  "El campo password es requerido.",
+  "Token de activación inválido o expirado.",
+  "Token de restablecimiento inválido o expirado.",
+  "La contraseña debe tener al menos 8 caracteres.",
+  "Este email ya está registrado.",
+]);
+
+function safeAuthError(err: unknown, fallback: string): string {
+  if (err instanceof Error && SAFE_AUTH_ERRORS.has(err.message)) return err.message;
+  return fallback;
+}
+
 export class AuthController {
   constructor(
     private readonly registerUseCase: RegisterUserUseCase,
@@ -29,8 +47,8 @@ export class AuthController {
     try {
       const response = await this.registerUseCase.execute(request.body);
       return reply.status(201).send(response);
-    } catch (err: any) {
-      return reply.status(400).send({ error: err.message });
+    } catch (err: unknown) {
+      return reply.status(400).send({ error: safeAuthError(err, "No se pudo completar el registro.") });
     }
   };
 
@@ -41,8 +59,8 @@ export class AuthController {
     try {
       const response = await this.loginUseCase.execute(request.body);
       return reply.send(response);
-    } catch (err: any) {
-      return reply.status(401).send({ error: err.message });
+    } catch (err: unknown) {
+      return reply.status(401).send({ error: safeAuthError(err, "Credenciales inválidas.") });
     }
   };
 
@@ -54,8 +72,8 @@ export class AuthController {
     try {
       const profile = await this.getCurrentUserUseCase.execute(user.userId);
       return reply.send(profile);
-    } catch (err: any) {
-      return reply.status(404).send({ error: err.message });
+    } catch (_err: unknown) {
+      return reply.status(404).send({ error: "Usuario no encontrado." });
     }
   };
 
@@ -67,8 +85,8 @@ export class AuthController {
     try {
       const status = await this.getOnboardingStatusUseCase.execute(user.userId);
       return reply.send(status);
-    } catch (err: any) {
-      return reply.status(400).send({ error: err.message });
+    } catch (_err: unknown) {
+      return reply.status(400).send({ error: "No se pudo obtener el estado de onboarding." });
     }
   };
 
@@ -107,9 +125,11 @@ export class AuthController {
       const tokenParam = result.token ? `&token=${encodeURIComponent(result.token)}` : "";
       const nicknameParam = `&nickname=${encodeURIComponent(result.nickname)}`;
       const sellerIdParam = `&sellerId=${encodeURIComponent(result.sellerId)}`;
-      return reply.redirect(`/onboarding.html?status=connected${sellerIdParam}${nicknameParam}${tokenParam}`);
+      const baseUrl = process.env.APP_BASE_URL || "http://localhost:5173";
+      return reply.redirect(`${baseUrl}/config?tab=connection&status=connected${sellerIdParam}${nicknameParam}${tokenParam}`);
     } catch (err: any) {
-      return reply.redirect(`/onboarding.html?status=error&error=${encodeURIComponent(err.message)}`);
+      const baseUrl = process.env.APP_BASE_URL || "http://localhost:5173";
+      return reply.redirect(`${baseUrl}/config?tab=connection&status=error&error=${encodeURIComponent(err.message)}`);
     }
   };
 
@@ -119,8 +139,8 @@ export class AuthController {
     try {
       const result = await this.activateTenantUseCase.execute({ token, password });
       return reply.send(result);
-    } catch (err: any) {
-      return reply.status(400).send({ error: err.message });
+    } catch (err: unknown) {
+      return reply.status(400).send({ error: safeAuthError(err, "Token de activación inválido o expirado.") });
     }
   };
 
@@ -129,10 +149,11 @@ export class AuthController {
     if (!email) {
       return reply.status(400).send({ error: "El campo email es requerido." });
     }
-    const origin = request.headers.origin || process.env.APP_BASE_URL || "http://localhost:5173";
+    // Usar solo APP_BASE_URL del servidor — nunca confiar en el header Origin del cliente
+    const baseUrl = process.env.APP_BASE_URL || "http://localhost:5173";
     await this.requestPasswordResetUseCase
-      .execute({ email, baseUrl: origin as string })
-      .catch((err) => console.error("[AuthController.forgotPassword]", err));
+      .execute({ email, baseUrl })
+      .catch((err) => request.log.error({ err }, "[forgotPassword] Error enviando email"));
     return reply.send({ ok: true });
   };
 
@@ -145,8 +166,8 @@ export class AuthController {
     try {
       const result = await this.resetPasswordUseCase.execute({ token, password });
       return reply.send(result);
-    } catch (err: any) {
-      return reply.status(400).send({ error: err.message });
+    } catch (err: unknown) {
+      return reply.status(400).send({ error: safeAuthError(err, "Token de restablecimiento inválido o expirado.") });
     }
   };
 }

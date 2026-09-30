@@ -2,16 +2,34 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { ITenantRepository } from "../../application/interfaces/ITenantRepository.js";
 import { IEventRepository } from "../../application/interfaces/IEventRepository.js";
 import { ILLMService } from "../../application/interfaces/ILLMService.js";
-import { IEmailClient } from "../../application/interfaces/IEmailClient.js";
-import { EventLog } from "../../domain/entities/EventLog.js";
+import { ListTeamMembersUseCase } from "../../application/use-cases/tenant/ListTeamMembersUseCase.js";
+import { InviteTeamMemberUseCase } from "../../application/use-cases/tenant/InviteTeamMemberUseCase.js";
+import { RemoveTeamMemberUseCase } from "../../application/use-cases/tenant/RemoveTeamMemberUseCase.js";
+import { GetTenantSettingsUseCase } from "../../application/use-cases/tenant/GetTenantSettingsUseCase.js";
+import { UpdateTenantSettingsUseCase } from "../../application/use-cases/tenant/UpdateTenantSettingsUseCase.js";
+import { SendTestEmailUseCase } from "../../application/use-cases/tenant/SendTestEmailUseCase.js";
 
 export class TenantController {
   constructor(
     private readonly tenantRepo: ITenantRepository,
     private readonly eventRepo: IEventRepository,
     private readonly llmService: ILLMService,
-    private readonly emailClient?: IEmailClient
+    private readonly getTenantSettingsUseCase: GetTenantSettingsUseCase,
+    private readonly updateTenantSettingsUseCase: UpdateTenantSettingsUseCase,
+    private readonly sendTestEmailUseCase: SendTestEmailUseCase,
+    private readonly listTeamMembersUseCase?: ListTeamMembersUseCase,
+    private readonly inviteTeamMemberUseCase?: InviteTeamMemberUseCase,
+    private readonly removeTeamMemberUseCase?: RemoveTeamMemberUseCase
   ) {}
+
+  private resolveSellerId(request: FastifyRequest, from: "query" | "body" = "query"): string {
+    const user = (request as any).user;
+    if (user?.role === "tenant") {
+      return user.sellerId || "";
+    }
+    const source = from === "body" ? (request.body as any) : (request.query as any);
+    return source?.seller_id || process.env.ML_SELLER_ID || "";
+  }
 
   public getHealth = async (request: FastifyRequest, reply: FastifyReply) => {
     const sellerId = (request.query as any)?.seller_id || process.env.ML_SELLER_ID || "";
@@ -32,59 +50,44 @@ export class TenantController {
   };
 
   public getSettings = async (request: FastifyRequest, reply: FastifyReply) => {
-    const user = (request as any).user;
-    const sellerId = user?.sellerId || (request.query as any)?.seller_id || process.env.ML_SELLER_ID || "";
-
+    const sellerId = this.resolveSellerId(request);
     if (!sellerId) {
       return reply.status(400).send({ error: "No hay una tienda vinculada a este usuario." });
     }
 
-    const tenant = await this.tenantRepo.findBySellerId(sellerId);
-    if (!tenant) {
+    const view = await this.getTenantSettingsUseCase.execute(sellerId);
+    if (!view) {
       return reply.status(404).send({ error: `Vendedor ${sellerId} no encontrado.` });
     }
 
-    let tokenHealth: "healthy" | "expiring_soon" | "expired" = "healthy";
-    const remainingMs = tenant.expiresAt - Date.now();
-    if (remainingMs <= 0) {
-      tokenHealth = "expired";
-    } else if (remainingMs < 15 * 60 * 1000) {
-      tokenHealth = "expiring_soon";
-    }
-
-    return reply.send({
-      sellerId: tenant.sellerId,
-      nickname: tenant.nickname,
-      email: tenant.email,
-      tokenHealth,
-      expiresInMinutes: Math.max(0, Math.round(remainingMs / (60 * 1000))),
-      settings: tenant.settings,
-    });
+    return reply.send(view);
   };
 
   public updateSettings = async (request: FastifyRequest, reply: FastifyReply) => {
-    const user = (request as any).user;
-    const sellerId = user?.sellerId || (request.query as any)?.seller_id || process.env.ML_SELLER_ID || "";
-
+    const sellerId = this.resolveSellerId(request);
     if (!sellerId) {
       return reply.status(400).send({ error: "No hay una tienda vinculada a este usuario." });
     }
 
-    const tenant = await this.tenantRepo.findBySellerId(sellerId);
-    if (!tenant) {
+    const result = await this.updateTenantSettingsUseCase.execute({
+      sellerId,
+      settings: (request.body as any) || {},
+    });
+    if (!result) {
       return reply.status(404).send({ error: `Vendedor ${sellerId} no encontrado.` });
     }
 
-    const body = (request.body as any) || {};
-    tenant.updateSettings(body);
-    await this.tenantRepo.save(tenant);
-
-    return reply.send({ ok: true, settings: tenant.settings });
+    return reply.send({
+      ok: true,
+      message: "Configuración actualizada correctamente.",
+      settings: result.settings,
+      permissions: result.permissions,
+    });
   };
 
   public getEvents = async (request: FastifyRequest, reply: FastifyReply) => {
     const since = Number((request.query as any)?.since) || 0;
-    const sellerId = (request.query as any)?.seller_id || (request as any).user?.sellerId;
+    const sellerId = this.resolveSellerId(request);
     const events = sellerId
       ? await this.eventRepo.getRecentBySellerId(sellerId, since)
       : await this.eventRepo.getRecent(since);
@@ -95,42 +98,98 @@ export class TenantController {
   public sendTestEmail = async (request: FastifyRequest, reply: FastifyReply) => {
     const user = (request as any).user;
     const body = (request.body as any) || {};
-    const sellerId = user?.sellerId || body.seller_id || process.env.ML_SELLER_ID || "";
+    const sellerId = this.resolveSellerId(request, "body");
 
-    const tenant = sellerId ? await this.tenantRepo.findBySellerId(sellerId) : null;
-    const targetEmail = body.email || tenant?.settings.emailAlertAddress || tenant?.email || user?.email;
-
-    if (!targetEmail) {
-      return reply.status(400).send({ error: "Dirección de correo requerida para la prueba." });
-    }
-
-    if (!this.emailClient) {
-      return reply.status(500).send({ error: "Cliente de correo no configurado en el servidor." });
-    }
-
-    const result = await this.emailClient.sendTestEmail({
-      to: targetEmail,
-      tenantName: tenant?.nickname || user?.name || "Vendedor",
+    const result = await this.sendTestEmailUseCase.execute({
+      sellerId,
+      requestedEmail: body.email,
+      fallbackEmail: user?.email,
+      fallbackName: user?.name,
     });
 
-    if (!result.success) {
-      return reply.status(400).send({ error: result.error || "Fallo al enviar correo de prueba." });
-    }
-
-    if (sellerId) {
-      await this.eventRepo.log(
-        new EventLog({
-          sellerId,
-          type: "email_test_sent",
-          message: `📧 Email de prueba enviado exitosamente a ${targetEmail}`,
-        })
-      );
+    if (!result.ok) {
+      return reply.status(result.status).send({ error: result.error });
     }
 
     return reply.send({
       ok: true,
-      message: `Email de prueba enviado exitosamente a ${targetEmail}`,
+      message: `Email de prueba enviado exitosamente a ${result.targetEmail}`,
       messageId: result.messageId,
     });
+  };
+
+  public getTeamMembers = async (request: FastifyRequest, reply: FastifyReply) => {
+    const sellerId = this.resolveSellerId(request);
+    if (!sellerId) {
+      return reply.status(400).send({ error: "No hay una tienda vinculada a este usuario." });
+    }
+
+    if (!this.listTeamMembersUseCase) {
+      return reply.status(500).send({ error: "Caso de uso no inicializado." });
+    }
+
+    try {
+      const result = await this.listTeamMembersUseCase.execute(sellerId);
+      return reply.send(result);
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  };
+
+  public inviteTeamMember = async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = (request as any).user;
+    const sellerId = this.resolveSellerId(request, "body");
+    if (!sellerId) {
+      return reply.status(400).send({ error: "No hay una tienda vinculada a este usuario." });
+    }
+
+    const { name, email } = (request.body as any) || {};
+    if (!name || !email) {
+      return reply.status(400).send({ error: "Nombre y correo electrónico son obligatorios." });
+    }
+
+    if (!this.inviteTeamMemberUseCase) {
+      return reply.status(500).send({ error: "Caso de uso no inicializado." });
+    }
+
+    const originUrl = request.headers.origin || process.env.APP_BASE_URL || "http://localhost:5173";
+
+    try {
+      const result = await this.inviteTeamMemberUseCase.execute({
+        sellerId,
+        name,
+        email,
+        originUrl: originUrl as string,
+        invitedByUserId: user?.userId,
+      });
+      return reply.status(201).send(result);
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  };
+
+  public removeTeamMember = async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = (request as any).user;
+    const sellerId = this.resolveSellerId(request);
+    const { memberId } = request.params as { memberId: string };
+
+    if (!sellerId) {
+      return reply.status(400).send({ error: "No hay una tienda vinculada a este usuario." });
+    }
+
+    if (!this.removeTeamMemberUseCase) {
+      return reply.status(500).send({ error: "Caso de uso no inicializado." });
+    }
+
+    try {
+      const result = await this.removeTeamMemberUseCase.execute({
+        sellerId,
+        memberId,
+        requesterUserId: user?.userId,
+      });
+      return reply.send(result);
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
   };
 }

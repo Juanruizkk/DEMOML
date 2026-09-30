@@ -42,6 +42,13 @@ export class PostgresUserRepository implements IUserRepository {
     return rows.map(r => this.map(r));
   }
 
+  public async findActiveUnconnectedTenants(): Promise<User[]> {
+    const rows = await this.db.select().from(users)
+      .where(and(eq(users.role, 'tenant'), eq(users.status, 'active'), sql`${users.sellerId} IS NULL`))
+      .orderBy(desc(users.createdAt));
+    return rows.map(r => this.map(r));
+  }
+
   public async save(user: User): Promise<void> {
     await this.db.insert(users).values({
       id: user.id,

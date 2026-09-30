@@ -28,6 +28,10 @@ export interface TenantOverviewDTO {
   autoAnsweredQuestions: number;
   createdAt: string;
   updatedAt: string;
+  planId: string;
+  billingStatus: string;
+  llmResponsesThisMonth: number;
+  monthlyLLMLimit: number;
 }
 
 export interface TenantDetailDTO {

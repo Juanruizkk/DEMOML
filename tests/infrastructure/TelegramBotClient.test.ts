@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { TelegramBotClient } from "../infrastructure/telegram/TelegramBotClient.js";
+import { TelegramBotClient } from "../../src/infrastructure/telegram/TelegramBotClient.js";
 
 describe("TelegramBotClient", () => {
   const originalFetch = globalThis.fetch;

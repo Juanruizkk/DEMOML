@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { GoldenDatasetEntry } from "../../domain/entities/GoldenDatasetEntry.js";
+import { GoldenDatasetEntry } from "../../src/domain/entities/GoldenDatasetEntry.js";
 
 describe("GoldenDatasetEntry", () => {
   it("construye correctamente y expone sus campos", () => {
@@ -49,8 +49,8 @@ describe("GoldenDatasetEntry", () => {
   });
 });
 
-import { SaveHumanDecisionUseCase } from "../../application/use-cases/SaveHumanDecisionUseCase.js";
-import { Question } from "../../domain/entities/Question.js";
+import { SaveHumanDecisionUseCase } from "../../src/application/use-cases/questions/SaveHumanDecisionUseCase.js";
+import { Question } from "../../src/domain/entities/Question.js";
 
 function makeQuestion(overrides: Partial<ConstructorParameters<typeof Question>[0]> = {}): Question {
   return new Question({

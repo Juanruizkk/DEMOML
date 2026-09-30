@@ -10,11 +10,13 @@ const QuestionsPage   = lazy(() => import('./pages/QuestionsPage'))
 const OrderMessagesPage = lazy(() => import('./pages/OrderMessagesPage'))
 const ClaimsPage      = lazy(() => import('./pages/ClaimsPage'))
 const ProductsPage    = lazy(() => import('./pages/ProductsPage'))
-const AdminPage       = lazy(() => import('./pages/AdminPage'))
+const AdminPage             = lazy(() => import('./pages/AdminPage'))
+const AdminTenantDetailPage = lazy(() => import('./pages/AdminTenantDetailPage'))
 const TenantPage      = lazy(() => import('./pages/TenantPage'))
 const OnboardingPage  = lazy(() => import('./pages/OnboardingPage'))
 const DemoPage        = lazy(() => import('./pages/DemoPage'))
 const ActivatePage    = lazy(() => import('./pages/ActivatePage'))
+const LandingPage     = lazy(() => import('./pages/LandingPage'))
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
 const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'))
 
@@ -53,7 +55,12 @@ export default function App() {
     <NotificationProvider>
       <Suspense fallback={<PageLoading />}>
       <Routes>
-        {/* Public */}
+        {/* Landing and Public */}
+        <Route
+          path="/"
+          element={user ? <Navigate to={defaultRoute(user.role)} replace /> : <LandingPage />}
+        />
+        <Route path="/landing" element={<LandingPage />} />
         <Route
           path="/login"
           element={user ? <Navigate to={defaultRoute(user.role)} replace /> : <LoginPage />}
@@ -114,6 +121,11 @@ export default function App() {
         <Route path="/admin" element={
           <PrivateRoute roles={['super_admin']}>
             <Layout><AdminPage /></Layout>
+          </PrivateRoute>
+        } />
+        <Route path="/admin/tenants/:sellerId" element={
+          <PrivateRoute roles={['super_admin']}>
+            <Layout><AdminTenantDetailPage /></Layout>
           </PrivateRoute>
         } />
 

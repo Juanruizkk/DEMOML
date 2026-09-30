@@ -97,10 +97,14 @@ El usuario Super Admin se inicializa automáticamente al primer inicio:
 * **Contraseña:** `Admin123456!`
 
 ### 5.2 Usuarios de Prueba Mercado Libre (Sandbox)
-| Rol | User ID | Nickname | Password |
-|---|---|---|---|
-| **Vendedor** | `3680586616` | `TESTUSER4327702539223624795` | `QFxIljwqcj` |
-| **Comprador** | `3677130936` | `TESTUSER2533156973119126771` | `0PZfM1kGU1` |
+| Rol | User ID | Nickname | Password | Email |
+|---|---|---|---|---|
+| **Vendedor** | `3683312128` | `TESTUSER4803001026556945644` | `VXWe8yHVsI` | `test_user_4803001026556945644@testuser.com` |
+| **Comprador** | `3693647110` | `TESTUSER1491864555385308323` | `ZMHT5PqWv8` | `test_user_1491864555385308323@testuser.com` |
+
+> 🔑 **Cómo iniciar sesión en MELI:**
+> 1. Abrí una ventana de **incógnito** en [mercadolibre.com.ar](https://www.mercadolibre.com.ar).
+> 2. Hacé clic en *Ingresar*, escribí el Nickname o Email de la tabla y luego la contraseña.
 
 ### 5.3 Tarjetas de Crédito de Prueba (Sandbox)
 
@@ -121,7 +125,12 @@ Usá estas tarjetas logueado como el **usuario comprador** para simular pagos ap
 
 > ℹ️ **No uses Pago Fácil / Rapipago en tests** — son pagos en efectivo y quedan en estado `pending` indefinidamente en sandbox. Usá tarjeta para obtener aprobación inmediata.
 
-> ℹ️ **Nota sobre usuarios de test de MELI:** Expiran a los 60 días sin actividad. Si necesitás regenerarlos, podés crearlos desde la API de MELI:
+> ℹ️ **Generar nuevos usuarios de test de MELI:**
+> Podés generarlos automáticamente con el script integrado:
+> ```powershell
+> npm run meli:test-users
+> ```
+> O directamente con PowerShell / cURL contra el endpoint de MELI:
 > ```powershell
 > Invoke-RestMethod -Method Post -Uri "https://api.mercadolibre.com/users/test_user" `
 >   -Headers @{ "Authorization" = "Bearer $TU_TOKEN_REAL"; "Content-Type" = "application/json" } `

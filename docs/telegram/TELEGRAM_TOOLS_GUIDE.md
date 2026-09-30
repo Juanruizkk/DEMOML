@@ -216,50 +216,104 @@ Para garantizar **disponibilidad del 100%**:
 
 ---
 
-## 6. Cómo Vincular una Tienda al Chat de Telegram
+## 6. Cómo Vincular una Tienda al Chat de Telegram (Multi-Tenant)
 
-1. Abrí el chat con tu bot en Telegram (ej: `@TuBotDeMeliBot`).
-2. Obtené tu **Seller ID** de Mercado Libre (ej: `3680586616`).
-3. Enviá el comando:
+El sistema soporta una arquitectura **Multi-Tenant estricta**, permitiendo que cada nuevo vendedor/tienda vincule su propio chat privado o grupo de atención de Telegram sin colisionar con otros clientes.
+
+Existen **dos métodos de vinculación**:
+
+---
+
+### 🚀 Método 1: Vinculación Automática en 1-Click (Deep Link) — *Recomendado*
+
+Cada organización cuenta con un enlace único de conexión directa generado por el backend:
+
+```
+https://t.me/<TELEGRAM_BOT_USERNAME>?start=tenant_<SELLER_ID>
+```
+
+#### Flujo de Onboarding:
+1. El vendedor ingresa a su panel web en la pestaña **[Canales & Alertas](http://localhost:5173/channels)**.
+2. Hace clic en el botón de **"Conectar Telegram"**.
+3. La aplicación de Telegram se abre automáticamente en su smartphone o desktop con el botón **"Iniciar"** (Start).
+4. Al tocar **"Iniciar"**, Telegram envía en segundo plano:
    ```
    /start tenant_3680586616
    ```
-4. El bot responderá:
+5. **Acción del Backend ([`HandleTelegramWebhookUseCase.ts`](file:///c:/JUAN%20RUIZ/Trabajos/DEMOML/src/application/use-cases/HandleTelegramWebhookUseCase.ts)):**
+   - Extrae el `SELLER_ID` del payload.
+   - Captura el `chat_id` del usuario/grupo.
+   - Actualiza automáticamente `telegramAlertChatId: chatId` y `telegramEnabled: true` en la base de datos de esa tienda.
+   - Responde inmediatamente con un mensaje de bienvenida:
+     ```markdown
+     🎉 ¡Conexión Exitosa con MELI AI Assistant!
+     Tu cuenta de Mercado Libre (Tienda XYZ) quedó vinculada a este chat.
+     
+     🔔 A partir de ahora recibirás acá:
+     • ❓ Preguntas pre-venta que requieran tu revisión humana
+     • ⚖️ Reclamos urgentes con cuenta regresiva de SLA
+     • ⚡ Botones de acción directa en 1-click
+     ```
+
+---
+
+### 🛠️ Método 2: Vinculación Manual (con Chat ID o `/start`)
+
+Si el vendedor prefiere configurar el bot manualmente o vincular un grupo de Telegram:
+
+1. El vendedor abre el bot en Telegram y envía:
    ```
-   🎉 ¡Conexión Exitosa con MELI AI Assistant!
-   Tu cuenta de Mercado Libre (TiendaTest) quedó vinculada a este chat.
+   /start
    ```
+2. El bot responderá con su identificador único:
+   ```markdown
+   👋 ¡Hola! Soy el Bot de Alertas de MELI AI Assistant.
+   
+   Tu Chat ID actual es: `1151233818`
+   ```
+3. El vendedor copia ese número, va a su panel en **Canales & Alertas**, lo pega en el campo **Telegram Chat ID** y presiona **"Guardar cambios"**.
+4. *Alternativa:* Puede enviar directamente en el chat el comando:
+   ```
+   /start tenant_<su_seller_id>
+   ```
+
+---
+
+### 👥 Aislamiento y Resolución Multi-Tenant
+
+* **Identificación por Chat ID:** Cada mensaje entrante es ruteado por su `message.chat.id` único.
+* **Privacidad de Datos:** Si el vendedor A pregunta *"¿Qué preguntas tengo pendientes?"*, el bot invoca las tools filtrando **únicamente por el `seller_id` de la tienda A**.
+* **Alertas Dirigidas:** Las alertas de moderación o reclamos de la tienda B se despachan **exclusivamente al chat vinculado a la tienda B**.
+
+---
+
+### 🛡️ Resiliencia y Auto-Recuperación de Mensajes
+* **Fallback de Formato:** Si un mensaje generado por la IA contiene caracteres Markdown no estándar que Telegram rechaza (`can't parse entities`), el [`TelegramBotClient`](file:///c:/JUAN%20RUIZ/Trabajos/DEMOML/src/infrastructure/telegram/TelegramBotClient.ts) reintenta automáticamente el envío en texto plano sin `parse_mode`, asegurando que el vendedor **nunca quede sin respuesta**.
+* **Sanitización de Corchetes:** Se transforman corchetes aislados `[texto]` en paréntesis `(texto)` para evitar colisiones con el parser de enlaces de Telegram.
 
 ---
 
 ## 7. Variables de Entorno
 
-En tu archivo `.env`:
-
 ```ini
-# Token del Bot de Telegram (obtenido de @BotFather)
+# Configuración del Bot de Telegram
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
-
-# Proveedor de Inteligencia Artificial para el Asistente
-LLM_PROVIDER=groq
-GROQ_API_KEY=gsk_tu_api_key_aqui
-LLM_MODEL=openai/gpt-oss-120b
+TELEGRAM_BOT_USERNAME=MeliBotAlertsBot
 ```
 
 ---
 
 ## 8. Pruebas Automatizadas y Verificación
 
-El asistente cuenta con una suite completa de pruebas unitarias en **Vitest**:
+La suite de pruebas en [`src/tests/TelegramAssistantService.test.ts`](file:///c:/JUAN%20RUIZ/Trabajos/DEMOML/src/tests/TelegramAssistantService.test.ts) y [`src/tests/HandleTelegramWebhookUseCase.test.ts`](file:///c:/JUAN%20RUIZ/Trabajos/DEMOML/src/tests/HandleTelegramWebhookUseCase.test.ts) valida:
+* Vinculación automática vía `/start tenant_<sellerId>`.
+* Invocación de tools para preguntas pendientes, reclamos y métricas.
+* Formateo de tarjetas limpias sin tablas rotas.
+* Aprobación y rechazo vía callback queries (`approve_<id>`, `reject_<id>`).
 
 ```powershell
-# Ejecutar todas las pruebas del Asistente y Webhook de Telegram
+# Ejecutar pruebas del Asistente y Webhook de Telegram
 npx vitest run src/tests/TelegramAssistantService.test.ts src/tests/HandleTelegramWebhookUseCase.test.ts
-```
-
-### Casos de Prueba Validados:
-* ✅ Extracción de preguntas en `pending_review` y serialización de fechas.
-* ✅ Cálculo de SLA y asignación de nivel de criticidad en reclamos.
 * ✅ Búsqueda insensible a mayúsculas/minúsculas de reclamos por ID.
 * ✅ Generación de botones interactivos para aprobación y detalle.
 * ✅ Ejecución resiliente en modo Fallback Determinístico sin API Key.

@@ -19,28 +19,38 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
+function resolveStoredToken(): string | null {
+  return localStorage.getItem('meli_jwt') || localStorage.getItem('token')
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
+  const [token, setToken] = useState<string | null>(resolveStoredToken)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!token) { setLoading(false); return }
     api.get<User>('/auth/me')
       .then(setUser)
-      .catch(() => { localStorage.removeItem('token'); setToken(null) })
+      .catch(() => {
+        localStorage.removeItem('token')
+        localStorage.removeItem('meli_jwt')
+        setToken(null)
+      })
       .finally(() => setLoading(false))
   }, [token])
 
   const login = async (email: string, password: string) => {
     const data = await api.post<{ token: string; user: User }>('/auth/login', { email, password })
     localStorage.setItem('token', data.token)
+    localStorage.setItem('meli_jwt', data.token)
     setToken(data.token)
     setUser(data.user)
   }
 
   const logout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('meli_jwt')
     setToken(null)
     setUser(null)
   }

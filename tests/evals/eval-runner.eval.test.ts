@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { runEval, EvalInput } from "../../infrastructure/eval/EvalRunner.js";
-import { GoldenDatasetEntry } from "../../domain/entities/GoldenDatasetEntry.js";
+import { runEval, EvalInput } from "../../src/infrastructure/eval/EvalRunner.js";
+import { GoldenDatasetEntry } from "../../src/domain/entities/GoldenDatasetEntry.js";
 
 function makeGoldenEntry(overrides: Partial<ConstructorParameters<typeof GoldenDatasetEntry>[0]> = {}): GoldenDatasetEntry {
   return new GoldenDatasetEntry({

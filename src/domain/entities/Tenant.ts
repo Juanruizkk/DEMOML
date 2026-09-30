@@ -141,7 +141,15 @@ export class Tenant {
     this._accessToken = props.accessToken;
     this._refreshToken = props.refreshToken;
     this._expiresAt = props.expiresAt;
-    this.settings = props.settings;
+    const planId = props.settings.planId || "starter";
+    this.settings = {
+      ...props.settings,
+      planId,
+      billingStatus: props.settings.billingStatus ?? "active",
+      monthlyLLMLimit: props.settings.monthlyLLMLimit ?? PLAN_LIMITS[planId]?.llmResponsesPerMonth ?? 300,
+      llmResponsesThisMonth: props.settings.llmResponsesThisMonth ?? 0,
+      llmQuotaExhaustedAt: props.settings.llmQuotaExhaustedAt ?? null,
+    };
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }
@@ -234,9 +242,10 @@ export class Tenant {
   }
 
   public incrementLLMResponses(): void {
-    const newCount = this.settings.llmResponsesThisMonth + 1;
+    const limit = this.settings.monthlyLLMLimit ?? PLAN_LIMITS[this.settings.planId || "starter"]?.llmResponsesPerMonth ?? 300;
+    const newCount = (this.settings.llmResponsesThisMonth ?? 0) + 1;
     const justExhausted =
-      newCount >= this.settings.monthlyLLMLimit &&
+      newCount >= limit &&
       !this.settings.llmQuotaExhaustedAt;
 
     this.settings = {
@@ -244,21 +253,22 @@ export class Tenant {
       llmResponsesThisMonth: newCount,
       llmQuotaExhaustedAt: justExhausted
         ? new Date().toISOString()
-        : this.settings.llmQuotaExhaustedAt,
+        : this.settings.llmQuotaExhaustedAt ?? null,
     };
     this.updatedAt = new Date();
   }
 
   public isLLMQuotaAtWarning(): boolean {
     if (this.settings.llmQuotaExhaustedAt) return false;
-    if (!this.settings.monthlyLLMLimit || !isFinite(this.settings.monthlyLLMLimit)) return false;
-    return (
-      this.settings.llmResponsesThisMonth / this.settings.monthlyLLMLimit >= 0.8
-    );
+    const limit = this.settings.monthlyLLMLimit ?? PLAN_LIMITS[this.settings.planId || "starter"]?.llmResponsesPerMonth ?? 300;
+    if (!limit || !isFinite(limit)) return false;
+    const count = this.settings.llmResponsesThisMonth ?? 0;
+    return count / limit >= 0.8;
   }
 
   public canAutoAnswer(): boolean {
-    if (this.settings.billingStatus !== "active") return false;
+    const status = this.settings.billingStatus ?? "active";
+    if (status !== "active") return false;
     if (!this.settings.llmQuotaExhaustedAt) return true;
 
     const exhaustedAt = new Date(this.settings.llmQuotaExhaustedAt).getTime();
@@ -266,7 +276,8 @@ export class Tenant {
   }
 
   public canAccessClaims(): boolean {
-    return PLAN_LIMITS[this.settings.planId]?.claimsEnabled ?? false;
+    const planId = this.settings.planId || "starter";
+    return PLAN_LIMITS[planId]?.claimsEnabled ?? false;
   }
 
   public canAccessWhatsApp(): boolean {

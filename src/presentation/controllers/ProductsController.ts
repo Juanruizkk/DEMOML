@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { GetSellerProductsUseCase } from "../../application/use-cases/products/GetSellerProductsUseCase.js";
 import { SaveItemKnowledgeUseCase } from "../../application/use-cases/products/SaveItemKnowledgeUseCase.js";
+import { SuggestItemFaqsUseCase } from "../../application/use-cases/products/SuggestItemFaqsUseCase.js";
 import { IItemKnowledgeRepository } from "../../application/interfaces/IItemKnowledgeRepository.js";
 import { IMeliClient } from "../../application/interfaces/IMeliClient.js";
 import { ILLMService } from "../../application/interfaces/ILLMService.js";
@@ -8,14 +9,19 @@ import { ITenantRepository } from "../../application/interfaces/ITenantRepositor
 import { paginateArray } from "../../domain/value-objects/Pagination.js";
 
 export class ProductsController {
+  private readonly suggestFaqsUseCase: SuggestItemFaqsUseCase;
+
   constructor(
     private readonly getProductsUseCase: GetSellerProductsUseCase,
     private readonly saveKnowledgeUseCase: SaveItemKnowledgeUseCase,
     private readonly itemKnowledgeRepo: IItemKnowledgeRepository,
     private readonly meliClient: IMeliClient,
     private readonly llmService: ILLMService,
-    private readonly tenantRepo: ITenantRepository
-  ) {}
+    private readonly tenantRepo: ITenantRepository,
+    suggestFaqsUseCase?: SuggestItemFaqsUseCase
+  ) {
+    this.suggestFaqsUseCase = suggestFaqsUseCase || new SuggestItemFaqsUseCase(this.meliClient);
+  }
 
   private extractSellerId(request: FastifyRequest): string {
     const user = (request as any).user;
@@ -75,7 +81,11 @@ export class ProductsController {
     }
 
     try {
-      const knowledge = await this.itemKnowledgeRepo.findByItemId(sellerId, itemId);
+      const [knowledge, item] = await Promise.all([
+        this.itemKnowledgeRepo.findByItemId(sellerId, itemId).catch(() => null),
+        this.meliClient.getItem(sellerId, itemId).catch(() => null),
+      ]);
+
       return reply.send({
         ok: true,
         sellerId,
@@ -86,6 +96,39 @@ export class ProductsController {
           faqs: [],
           isActive: true,
         },
+        item: item
+          ? {
+              id: item.id,
+              title: item.title,
+              price: item.price,
+              currencyId: item.currencyId,
+              availableQuantity: item.availableQuantity,
+              condition: item.condition,
+              permalink: item.permalink,
+              attributes: item.attributes || [],
+              descriptionText: item.descriptionText || "",
+            }
+          : null,
+      });
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
+  };
+
+  public suggestFaqs = async (request: FastifyRequest, reply: FastifyReply) => {
+    const sellerId = this.extractSellerId(request);
+    const { itemId } = request.params as { itemId: string };
+
+    if (!sellerId || !itemId) {
+      return reply.status(400).send({ error: "sellerId e itemId son requeridos." });
+    }
+
+    try {
+      const result = await this.suggestFaqsUseCase.execute(sellerId, itemId);
+      return reply.send({
+        ok: true,
+        sellerId,
+        ...result,
       });
     } catch (err: any) {
       return reply.status(500).send({ error: err.message });

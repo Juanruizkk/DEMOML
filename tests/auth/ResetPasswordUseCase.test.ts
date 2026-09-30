@@ -1,10 +1,10 @@
 // src/tests/ResetPasswordUseCase.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ResetPasswordUseCase } from "../application/use-cases/auth/ResetPasswordUseCase.js";
-import { IUserRepository } from "../application/interfaces/IUserRepository.js";
-import { IPasswordHasher } from "../application/interfaces/IPasswordHasher.js";
-import { ITokenService, UserTokenPayload } from "../application/interfaces/ITokenService.js";
-import { User } from "../domain/entities/User.js";
+import { ResetPasswordUseCase } from "../../src/application/use-cases/auth/ResetPasswordUseCase.js";
+import { IUserRepository } from "../../src/application/interfaces/IUserRepository.js";
+import { IPasswordHasher } from "../../src/application/interfaces/IPasswordHasher.js";
+import { ITokenService, UserTokenPayload } from "../../src/application/interfaces/ITokenService.js";
+import { User } from "../../src/domain/entities/User.js";
 
 const FUTURE = Date.now() + 60 * 60 * 1000;
 const PAST = Date.now() - 1000;
@@ -33,7 +33,10 @@ describe("ResetPasswordUseCase", () => {
       findByEmail: vi.fn(),
       findById: vi.fn(),
       findBySellerId: vi.fn(),
+      findAllBySellerId: vi.fn().mockResolvedValue([]),
       findPendingTenants: vi.fn(),
+      findActiveUnconnectedTenants: vi.fn().mockResolvedValue([]),
+      delete: vi.fn().mockResolvedValue(undefined),
       getAll: vi.fn(),
       count: vi.fn(),
     };

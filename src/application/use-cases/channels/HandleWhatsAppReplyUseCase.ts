@@ -1,8 +1,8 @@
-import { IWhatsAppClient } from "../interfaces/IWhatsAppClient.js";
-import { IEventRepository } from "../interfaces/IEventRepository.js";
-import { ApproveAnswerUseCase } from "./ApproveAnswerUseCase.js";
-import { RejectAnswerUseCase } from "./RejectAnswerUseCase.js";
-import { EventLog } from "../../domain/entities/EventLog.js";
+import { IWhatsAppClient } from "../../interfaces/IWhatsAppClient.js";
+import { IEventRepository } from "../../interfaces/IEventRepository.js";
+import { ApproveAnswerUseCase } from "../questions/ApproveAnswerUseCase.js";
+import { RejectAnswerUseCase } from "../questions/RejectAnswerUseCase.js";
+import { EventLog } from "../../../domain/entities/EventLog.js";
 
 export interface IncomingWhatsAppMessage {
   from: string;          // phone number E.164

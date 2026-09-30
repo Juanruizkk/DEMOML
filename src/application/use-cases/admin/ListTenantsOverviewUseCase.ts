@@ -39,6 +39,10 @@ export class ListTenantsOverviewUseCase {
         autoAnsweredQuestions: stats.autoAnswered,
         createdAt: tenant.createdAt.toISOString(),
         updatedAt: tenant.updatedAt.toISOString(),
+        planId: tenant.settings.planId ?? "starter",
+        billingStatus: tenant.settings.billingStatus ?? "active",
+        llmResponsesThisMonth: tenant.settings.llmResponsesThisMonth ?? 0,
+        monthlyLLMLimit: tenant.settings.monthlyLLMLimit ?? 300,
       });
     }
 

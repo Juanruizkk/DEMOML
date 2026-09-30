@@ -19,13 +19,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             <span className="platform-tag">MERCADO LIBRE AI AUTOMATION</span>
           </div>
           <div className="top-nav-right">
-            {user?.role === 'tenant' && (
-              <div className="seller-status-chip">
-                <span className="pulse-dot emerald" />
-                <span>Tienda Activa</span>
-              </div>
-            )}
-
             <button
               className="theme-toggle-btn"
               onClick={toggleTheme}

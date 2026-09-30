@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import './ActivatePage.css'
 
 export default function ActivatePage() {
@@ -7,6 +8,8 @@ export default function ActivatePage() {
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -34,9 +37,14 @@ export default function ActivatePage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error al activar la cuenta.')
 
+      // Limpiar cualquier sesión previa (ej: super admin) antes de guardar el nuevo token
+      localStorage.removeItem('meli_jwt')
+      localStorage.removeItem('token')
+      localStorage.setItem('meli_jwt', data.token)
       localStorage.setItem('token', data.token)
       setDone(true)
-      setTimeout(() => navigate('/onboarding'), 2000)
+      // Hard reload para que AuthContext reinicie con el nuevo usuario
+      setTimeout(() => { window.location.replace('/onboarding') }, 1500)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -64,24 +72,34 @@ export default function ActivatePage() {
             <form onSubmit={handleSubmit}>
               <div className="activate-field">
                 <label className="activate-label">Contraseña</label>
-                <input
-                  type="password"
-                  className="activate-input"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  autoFocus
-                />
+                <div className="activate-input-wrap">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="activate-input"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    autoFocus
+                  />
+                  <button type="button" className="activate-eye" onClick={() => setShowPassword(v => !v)}>
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
               <div className="activate-field">
                 <label className="activate-label">Repetir contraseña</label>
-                <input
-                  type="password"
-                  className="activate-input"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  placeholder="Repetí la contraseña"
-                />
+                <div className="activate-input-wrap">
+                  <input
+                    type={showConfirm ? 'text' : 'password'}
+                    className="activate-input"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    placeholder="Repetí la contraseña"
+                  />
+                  <button type="button" className="activate-eye" onClick={() => setShowConfirm(v => !v)}>
+                    {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
               <button type="submit" className="activate-btn" disabled={loading}>
                 {loading ? 'Activando…' : 'Activar cuenta'}

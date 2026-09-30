@@ -46,9 +46,10 @@ export class TelegramBotClient implements ITelegramClient {
 
     try {
       const url = `${TELEGRAM_API_BASE}/bot${token}/sendMessage`;
+      const text = dto.text.length > 4000 ? dto.text.slice(0, 3990) + "\n..." : dto.text;
       const body: Record<string, any> = {
         chat_id: dto.chatId,
-        text: dto.text,
+        text,
         parse_mode: dto.parseMode || "Markdown",
       };
 
@@ -57,13 +58,29 @@ export class TelegramBotClient implements ITelegramClient {
         body.reply_markup = replyMarkup;
       }
 
-      const res = await fetch(url, {
+      let res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
-      const data = (await res.json()) as any;
+      let data = (await res.json()) as any;
+
+      // Si falló por formato de entidades Markdown, reintentar automáticamente como texto plano
+      if (!res.ok || !data.ok) {
+        const desc = (data?.description || "").toLowerCase();
+        if (desc.includes("can't parse entities") || desc.includes("entity") || desc.includes("parse_mode")) {
+          console.warn(`[TelegramBotClient] Reintentando envío en texto plano debido a error de parseo: ${data?.description}`);
+          delete body.parse_mode;
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          data = (await res.json()) as any;
+        }
+      }
+
       if (!res.ok || !data.ok) {
         console.error(`[TelegramBotClient] Error enviando mensaje (${res.status}):`, data?.description || data);
         return { ok: false };
@@ -105,10 +122,11 @@ export class TelegramBotClient implements ITelegramClient {
 
     try {
       const url = `${TELEGRAM_API_BASE}/bot${token}/editMessageText`;
+      const text = dto.text.length > 4000 ? dto.text.slice(0, 3990) + "\n..." : dto.text;
       const body: Record<string, any> = {
         chat_id: dto.chatId,
         message_id: dto.messageId,
-        text: dto.text,
+        text,
         parse_mode: dto.parseMode || "Markdown",
       };
 
@@ -117,15 +135,28 @@ export class TelegramBotClient implements ITelegramClient {
         body.reply_markup = replyMarkup;
       }
 
-      const res = await fetch(url, {
+      let res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error(`[TelegramBotClient] Error editando mensaje: ${errText}`);
+      let data = (await res.json()) as any;
+      if (!res.ok || !data.ok) {
+        const desc = (data?.description || "").toLowerCase();
+        if (desc.includes("can't parse entities") || desc.includes("entity") || desc.includes("parse_mode")) {
+          delete body.parse_mode;
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          data = (await res.json()) as any;
+        }
+      }
+
+      if (!res.ok || !data.ok) {
+        console.error(`[TelegramBotClient] Error editando mensaje:`, data?.description || data);
       }
     } catch (err) {
       console.error("[TelegramBotClient] Excepción al editar mensaje:", err);

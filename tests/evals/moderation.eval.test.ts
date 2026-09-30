@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ModerationService } from "../../domain/services/ModerationService.js";
+import { ModerationService } from "../../src/domain/services/ModerationService.js";
 
 describe("ModerationService — eval suite (regresión)", () => {
   describe("bloquea contenido prohibido", () => {

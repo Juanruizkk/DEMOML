@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { QuestionsController } from "../../src/presentation/controllers/QuestionsController.js";
 import { ClaimsController } from "../../src/presentation/controllers/ClaimsController.js";
 import { ProductsController } from "../../src/presentation/controllers/ProductsController.js";
+import { ListQuestionsUseCase } from "../../src/application/use-cases/questions/ListQuestionsUseCase.js";
+import { ListClaimsUseCase } from "../../src/application/use-cases/claims/ListClaimsUseCase.js";
 import { Question } from "../../src/domain/entities/Question.js";
 import { Claim } from "../../src/domain/entities/Claim.js";
 
@@ -28,7 +30,8 @@ describe("Backend Pagination across Controllers", () => {
       const controller = new QuestionsController(
         mockRepo as any,
         {} as any,
-        {} as any
+        {} as any,
+        new ListQuestionsUseCase(mockRepo as any)
       );
 
       const request = {
@@ -89,11 +92,7 @@ describe("Backend Pagination across Controllers", () => {
       };
 
       const controller = new ClaimsController(
-        mockClaimRepo as any,
-        {} as any,
-        {} as any,
-        {} as any,
-        {} as any,
+        new ListClaimsUseCase(mockClaimRepo as any, {} as any, {} as any),
         {} as any,
         {} as any
       );
@@ -155,7 +154,7 @@ describe("Backend Pagination across Controllers", () => {
       );
 
       const request = {
-        user: { sellerId: "seller_123" },
+        user: { role: "tenant", sellerId: "seller_123" },
         query: { page: "2", limit: "10" },
       };
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { User } from "../domain/entities/User.js";
+import { User } from "../../src/domain/entities/User.js";
 
 describe("User.setResetToken", () => {
   const makeUser = () =>

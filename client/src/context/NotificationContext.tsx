@@ -130,53 +130,93 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const es = new EventSource(url)
     eventSourceRef.current = es
 
-    const handleEvent = (type: 'question' | 'claim', data: any) => {
-      // Check if notifications are disabled in settings
+    const notifiedSet = new Set<string>()
+
+    const handleQuestionEvent = (data: any) => {
       if (!webSettings.enabled) return
+      if (webSettings.scope === 'claims_only') return
 
-      // Check scope filter
-      if (webSettings.scope === 'questions_only' && type !== 'question') return
-      if (webSettings.scope === 'claims_only' && type !== 'claim') return
+      const qId = data.id || data.questionId
+      const status = data.appStatus || data.app_status
+      const dedupeKey = `${qId}_${status}`
+      if (notifiedSet.has(dedupeKey)) return
+      notifiedSet.add(dedupeKey)
 
-      let newItem: NotificationItem
+      const text = data.text || data.questionText || 'Nueva consulta recibida'
+      const isAuto = status === 'auto_answered'
+      const isReview = status === 'pending_review'
 
-      if (type === 'question') {
-        const text = data.text || data.questionText || 'Nueva consulta recibida'
-        const itemId = data.itemId || data.item_id || ''
-        newItem = {
-          id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          type: 'question',
-          title: '💬 Nueva Pregunta en Mercado Libre',
-          message: text.length > 80 ? `${text.slice(0, 80)}...` : text,
-          timestamp: new Date().toISOString(),
-          read: false,
-          link: itemId ? `/questions` : '/questions',
-          urgency: 'normal',
-        }
-      } else {
-        const reason = data.reason || 'Nuevo reclamo iniciado'
-        const hours = data.remaining_hours || data.remainingHours
-        const urgency = data.urgency || (hours && hours <= 12 ? 'critical' : 'warning')
-        newItem = {
-          id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          type: 'claim',
-          title: urgency === 'critical' ? '🔴 RECLAMO CRÍTICO (<12h SLA)' : '⚖️ Nuevo Reclamo Recibido',
-          message: `${reason}${hours ? ` · SLA restante: ${hours}hs` : ''}`,
-          timestamp: new Date().toISOString(),
-          read: false,
-          link: '/claims',
-          urgency: urgency as any,
-        }
+      let title = '💬 Nueva Pregunta'
+      let urgency: 'normal' | 'warning' | 'critical' = 'normal'
+
+      if (isAuto) {
+        title = '⚡ Pregunta Auto-Respondida'
+        urgency = 'normal'
+      } else if (isReview) {
+        title = '🤔 Pregunta Requiere Aprobación'
+        urgency = 'warning'
       }
 
-      setNotifications((prev) => [newItem, ...prev])
+      const newItem: NotificationItem = {
+        id: `q_${qId || Date.now()}_${status || 'rec'}`,
+        type: 'question',
+        title,
+        message: text.length > 90 ? `${text.slice(0, 90)}...` : text,
+        timestamp: new Date().toISOString(),
+        read: false,
+        link: '/questions',
+        urgency,
+      }
 
-      // Play sound
+      setNotifications((prev) => [newItem, ...prev.filter((n) => n.id !== newItem.id)])
+
+      // Play chime
       if (webSettings.soundEnabled) {
         playChime(newItem.urgency)
       }
 
-      // Browser Desktop Push Notification
+      // Desktop notification
+      if (
+        webSettings.desktopPushEnabled &&
+        typeof window !== 'undefined' &&
+        'Notification' in window &&
+        Notification.permission === 'granted'
+      ) {
+        try {
+          new Notification(newItem.title, {
+            body: newItem.message,
+            icon: '/favicon.ico',
+          })
+        } catch {}
+      }
+    }
+
+    const handleClaimEvent = (data: any) => {
+      if (!webSettings.enabled) return
+      if (webSettings.scope === 'questions_only') return
+
+      const cId = data.id || data.claimId
+      const reason = data.reason || 'Nuevo reclamo iniciado'
+      const hours = data.remaining_hours || data.remainingHours
+      const urgency = data.urgency || (hours && hours <= 12 ? 'critical' : 'warning')
+
+      const newItem: NotificationItem = {
+        id: `c_${cId || Date.now()}`,
+        type: 'claim',
+        title: urgency === 'critical' ? '🔴 RECLAMO CRÍTICO (<12h SLA)' : '⚖️ Nuevo Reclamo Recibido',
+        message: `${reason}${hours ? ` · SLA restante: ${hours}hs` : ''}`,
+        timestamp: new Date().toISOString(),
+        read: false,
+        link: '/claims',
+        urgency: urgency as any,
+      }
+
+      setNotifications((prev) => [newItem, ...prev.filter((n) => n.id !== newItem.id)])
+
+      if (webSettings.soundEnabled) {
+        playChime(newItem.urgency)
+      }
+
       if (
         webSettings.desktopPushEnabled &&
         typeof window !== 'undefined' &&
@@ -194,19 +234,91 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     es.addEventListener('question_received', (e) => {
       try {
-        handleEvent('question', JSON.parse(e.data))
+        handleQuestionEvent(JSON.parse(e.data))
       } catch {}
     })
 
     es.addEventListener('question_pending_review', (e) => {
       try {
-        handleEvent('question', JSON.parse(e.data))
+        handleQuestionEvent(JSON.parse(e.data))
+      } catch {}
+    })
+
+    es.addEventListener('question_updated', (e) => {
+      try {
+        handleQuestionEvent(JSON.parse(e.data))
+      } catch {}
+    })
+
+    const handleOrderMessageEvent = (data: any) => {
+      if (!webSettings.enabled) return
+
+      const msgId = data.message_id || data.id
+      const buyer = data.buyer_nickname || 'Comprador'
+      const isAuto = Boolean(data.answer)
+      const intent = data.intent
+      const isClaimRisk = intent === 'reclamo_potencial'
+
+      let title = isClaimRisk
+        ? '🚨 Mensaje Post-Venta (Riesgo Reclamo)'
+        : isAuto
+        ? '⚡ Mensaje Post-Venta Auto-Respondido'
+        : '💬 Nuevo Mensaje Post-Venta'
+      let urgency: 'normal' | 'warning' | 'critical' = isClaimRisk ? 'critical' : isAuto ? 'normal' : 'warning'
+
+      const newItem: NotificationItem = {
+        id: `msg_${msgId || Date.now()}`,
+        type: 'question',
+        title,
+        message: `${buyer}: ${data.message_text || data.answer || 'Nuevo mensaje en orden de compra'}`,
+        timestamp: new Date().toISOString(),
+        read: false,
+        link: '/order-messages',
+        urgency,
+      }
+
+      setNotifications((prev) => [newItem, ...prev.filter((n) => n.id !== newItem.id)])
+
+      if (webSettings.soundEnabled) {
+        playChime(newItem.urgency)
+      }
+
+      if (
+        webSettings.desktopPushEnabled &&
+        typeof window !== 'undefined' &&
+        'Notification' in window &&
+        Notification.permission === 'granted'
+      ) {
+        try {
+          new Notification(newItem.title, {
+            body: newItem.message,
+            icon: '/favicon.ico',
+          })
+        } catch {}
+      }
+    }
+
+    es.addEventListener('order_message_received', (e) => {
+      try {
+        handleOrderMessageEvent(JSON.parse(e.data))
+      } catch {}
+    })
+
+    es.addEventListener('order_message_auto_answered', (e) => {
+      try {
+        handleOrderMessageEvent(JSON.parse(e.data))
       } catch {}
     })
 
     es.addEventListener('claim_received', (e) => {
       try {
-        handleEvent('claim', JSON.parse(e.data))
+        handleClaimEvent(JSON.parse(e.data))
+      } catch {}
+    })
+
+    es.addEventListener('claim_updated', (e) => {
+      try {
+        handleClaimEvent(JSON.parse(e.data))
       } catch {}
     })
 

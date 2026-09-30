@@ -2,25 +2,25 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28px 32px 20px;
+  padding: 20px 28px 16px;
   border-bottom: 1px solid var(--border-glass);
-  gap: 16px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
 .page-header-left {}
 
 .page-title {
-  font-size: 1.35rem;
+  font-size: 1.18rem;
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
 .page-subtitle {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: var(--text-dim);
-  margin-top: 3px;
+  margin-top: 2px;
   letter-spacing: 0.01em;
 }
 
@@ -36,22 +36,22 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 14px;
-  border-radius: var(--r-full);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--border-glass);
   background: var(--bg-glass);
   backdrop-filter: blur(8px);
-  min-width: 56px;
+  min-width: 48px;
 }
 
 .stat-value {
-  font-size: 1.05rem;
+  font-size: 0.88rem;
   font-weight: 700;
   line-height: 1;
 }
 
 .stat-label {
-  font-size: 0.58rem;
+  font-size: 0.55rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-top: 2px;

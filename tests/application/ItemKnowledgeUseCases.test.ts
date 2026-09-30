@@ -95,4 +95,49 @@ describe("Item Knowledge Use Cases", () => {
     const prod200 = products.find((p) => p.id === "MLA200");
     expect(prod200?.hasCustomKnowledge).toBe(false);
   });
+
+  it("SuggestItemFaqsUseCase debe extraer atributos del producto y generar FAQs sugeridas", async () => {
+    const { SuggestItemFaqsUseCase } = await import("../../src/application/use-cases/products/SuggestItemFaqsUseCase.js");
+
+    const mockMeliClient: any = {
+      getItem: vi.fn(async (sellerId: string, itemId: string) => {
+        return new Item({
+          id: itemId,
+          sellerId,
+          title: "Auriculares Sony WH-1000XM5",
+          price: 250000,
+          currencyId: "ARS",
+          availableQuantity: 5,
+          condition: "new",
+          attributes: [
+            { name: "Marca", value_name: "Sony" },
+            { name: "Modelo", value_name: "WH-1000XM5" },
+            { name: "Garantía", value_name: "12 meses" },
+            { name: "Color", value_name: "Negro" },
+            { name: "Conectividad", value_name: "Bluetooth 5.2" },
+            { name: "Es inalámbrico", value_name: "Sí" },
+          ],
+          descriptionText: "Cancelación de ruido líder en la industria y 30h de batería.",
+        });
+      }),
+    };
+
+    const useCase = new SuggestItemFaqsUseCase(mockMeliClient);
+    const result = await useCase.execute("seller-123", "MLA-SONY");
+
+    expect(result.itemId).toBe("MLA-SONY");
+    expect(result.attributes.length).toBe(6);
+    expect(result.suggestedFaqs.length).toBeGreaterThanOrEqual(4);
+
+    const garantiaFaq = result.suggestedFaqs.find((f) => f.question.includes("garantía"));
+    expect(garantiaFaq).toBeDefined();
+    expect(garantiaFaq?.answer).toContain("12 meses");
+
+    const marcaFaq = result.suggestedFaqs.find((f) => f.question.includes("marca"));
+    expect(marcaFaq).toBeDefined();
+    expect(marcaFaq?.answer).toContain("Sony");
+
+    const stockFaq = result.suggestedFaqs.find((f) => f.question.includes("stock"));
+    expect(stockFaq).toBeDefined();
+  });
 });

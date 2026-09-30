@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Tenant, TenantSettings } from "../domain/entities/Tenant.js";
+import { Tenant, TenantSettings } from "../../src/domain/entities/Tenant.js";
 
 function makeTenant(overrides: Partial<TenantSettings> = {}): Tenant {
   return Tenant.createDefault({

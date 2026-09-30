@@ -1,10 +1,10 @@
-import { IQuestionRepository } from "../interfaces/IQuestionRepository.js";
-import { IMeliClient } from "../interfaces/IMeliClient.js";
-import { IEventRepository } from "../interfaces/IEventRepository.js";
-import { IRealtimeNotifier } from "../interfaces/IRealtimeNotifier.js";
-import { ModerationService } from "../../domain/services/ModerationService.js";
-import { EventLog } from "../../domain/entities/EventLog.js";
-import { Question } from "../../domain/entities/Question.js";
+import { IQuestionRepository } from "../../interfaces/IQuestionRepository.js";
+import { IMeliClient } from "../../interfaces/IMeliClient.js";
+import { IEventRepository } from "../../interfaces/IEventRepository.js";
+import { IRealtimeNotifier } from "../../interfaces/IRealtimeNotifier.js";
+import { ModerationService } from "../../../domain/services/ModerationService.js";
+import { EventLog } from "../../../domain/entities/EventLog.js";
+import { Question } from "../../../domain/entities/Question.js";
 
 export class ApproveAnswerUseCase {
   constructor(
@@ -38,7 +38,11 @@ export class ApproveAnswerUseCase {
     }
 
     const startedAt = Date.now();
-    const isSimulated = question.itemId === "SIMULATED" || question.buyerId === "simulador" || Number(questionId) >= 900000000;
+    const isSimulated =
+      question.itemId === "SIMULATED" ||
+      question.buyerId === "simulador" ||
+      question.sellerId === "demo" ||
+      question.id.startsWith("sim_");
 
     // 2. Publicar en Mercado Libre API si es real
     if (!isSimulated) {

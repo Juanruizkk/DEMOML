@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { HandleTelegramWebhookUseCase } from "../application/use-cases/HandleTelegramWebhookUseCase.js";
-import { ITelegramClient } from "../application/interfaces/ITelegramClient.js";
-import { ITenantRepository } from "../application/interfaces/ITenantRepository.js";
-import { IEventRepository } from "../application/interfaces/IEventRepository.js";
-import { ITelegramAssistantService } from "../application/interfaces/ITelegramAssistantService.js";
-import { ApproveAnswerUseCase } from "../application/use-cases/ApproveAnswerUseCase.js";
-import { RejectAnswerUseCase } from "../application/use-cases/RejectAnswerUseCase.js";
-import { Tenant } from "../domain/entities/Tenant.js";
+import { HandleTelegramWebhookUseCase } from "../../src/application/use-cases/channels/HandleTelegramWebhookUseCase.js";
+import { ITelegramClient } from "../../src/application/interfaces/ITelegramClient.js";
+import { ITenantRepository } from "../../src/application/interfaces/ITenantRepository.js";
+import { IEventRepository } from "../../src/application/interfaces/IEventRepository.js";
+import { ITelegramAssistantService } from "../../src/application/interfaces/ITelegramAssistantService.js";
+import { ApproveAnswerUseCase } from "../../src/application/use-cases/questions/ApproveAnswerUseCase.js";
+import { RejectAnswerUseCase } from "../../src/application/use-cases/questions/RejectAnswerUseCase.js";
+import { Tenant } from "../../src/domain/entities/Tenant.js";
 
 describe("HandleTelegramWebhookUseCase", () => {
   let telegramClient: ITelegramClient;

@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ProcessClaimUseCase } from "../application/use-cases/ProcessClaimUseCase.js";
-import { IClaimRepository } from "../application/interfaces/IClaimRepository.js";
-import { ITenantRepository } from "../application/interfaces/ITenantRepository.js";
-import { IEventRepository } from "../application/interfaces/IEventRepository.js";
-import { IMeliClient, MeliClaimDTO } from "../application/interfaces/IMeliClient.js";
-import { IWhatsAppClient } from "../application/interfaces/IWhatsAppClient.js";
-import { IRealtimeNotifier } from "../application/interfaces/IRealtimeNotifier.js";
-import { Tenant } from "../domain/entities/Tenant.js";
+import { ProcessClaimUseCase } from "../../src/application/use-cases/claims/ProcessClaimUseCase.js";
+import { IClaimRepository } from "../../src/application/interfaces/IClaimRepository.js";
+import { ITenantRepository } from "../../src/application/interfaces/ITenantRepository.js";
+import { IEventRepository } from "../../src/application/interfaces/IEventRepository.js";
+import { IMeliClient, MeliClaimDTO } from "../../src/application/interfaces/IMeliClient.js";
+import { IWhatsAppClient } from "../../src/application/interfaces/IWhatsAppClient.js";
+import { IRealtimeNotifier } from "../../src/application/interfaces/IRealtimeNotifier.js";
+import { TenantNotificationService } from "../../src/application/services/TenantNotificationService.js";
+import { Tenant } from "../../src/domain/entities/Tenant.js";
 
 function makeMockClaim(): MeliClaimDTO {
   return {
@@ -52,6 +53,7 @@ function makeUseCase() {
   const tenantRepo: ITenantRepository = {
     findById: vi.fn().mockResolvedValue(null),
     findBySellerId: vi.fn().mockResolvedValue(null),
+    findByTelegramChatId: vi.fn().mockResolvedValue(null),
     save: vi.fn().mockResolvedValue(undefined),
     getAll: vi.fn().mockResolvedValue([]),
   };
@@ -86,13 +88,18 @@ function makeUseCase() {
     broadcastToSeller: vi.fn(),
   };
 
-  const useCase = new ProcessClaimUseCase(
-    claimRepo,
+  const notificationService = new TenantNotificationService(
     tenantRepo,
     eventRepo,
+    whatsAppClient
+  );
+
+  const useCase = new ProcessClaimUseCase(
+    claimRepo,
+    eventRepo,
     meliClient,
-    whatsAppClient,
-    sseNotifier
+    sseNotifier,
+    notificationService
   );
 
   return { useCase, claimRepo, tenantRepo, meliClient, whatsAppClient, sseNotifier, eventRepo };

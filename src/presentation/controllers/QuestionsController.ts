@@ -1,10 +1,10 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { IQuestionRepository } from "../../application/interfaces/IQuestionRepository.js";
-import { IItemCacheRepository } from "../../application/interfaces/IItemCacheRepository.js";
-import { ApproveAnswerUseCase } from "../../application/use-cases/ApproveAnswerUseCase.js";
-import { RejectAnswerUseCase } from "../../application/use-cases/RejectAnswerUseCase.js";
+import { ApproveAnswerUseCase } from "../../application/use-cases/questions/ApproveAnswerUseCase.js";
+import { RejectAnswerUseCase } from "../../application/use-cases/questions/RejectAnswerUseCase.js";
+import { ListQuestionsUseCase } from "../../application/use-cases/questions/ListQuestionsUseCase.js";
 import { paginateArray } from "../../domain/value-objects/Pagination.js";
-import { SaveHumanDecisionUseCase } from "../../application/use-cases/SaveHumanDecisionUseCase.js";
+import { SaveHumanDecisionUseCase } from "../../application/use-cases/questions/SaveHumanDecisionUseCase.js";
 import { IGoldenDatasetRepository } from "../../application/interfaces/IGoldenDatasetRepository.js";
 import { IntentType } from "../../domain/value-objects/Intent.js";
 
@@ -13,7 +13,7 @@ export class QuestionsController {
     private readonly questionRepo: IQuestionRepository,
     private readonly approveUseCase: ApproveAnswerUseCase,
     private readonly rejectUseCase: RejectAnswerUseCase,
-    private readonly itemCacheRepo?: IItemCacheRepository,
+    private readonly listQuestionsUseCase: ListQuestionsUseCase,
     private readonly saveHumanDecisionUseCase?: SaveHumanDecisionUseCase,
     private readonly goldenDatasetRepo?: IGoldenDatasetRepository,
   ) {}
@@ -45,57 +45,14 @@ export class QuestionsController {
     const query = (request.query as any) || {};
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 20;
-    const filterStatus = query.status as string | undefined;
-    const filterItemId = query.item_id as string | undefined;
 
-    let questions = sellerId
-      ? await this.questionRepo.findBySellerId(sellerId, 500)
-      : await this.questionRepo.findByStatus("pending_review", 500);
-
-    if (filterItemId) {
-      questions = questions.filter((q) => q.itemId === filterItemId);
-    }
-    if (filterStatus && filterStatus !== "all") {
-      questions = questions.filter((q) => q.appStatus === filterStatus);
-    }
-
-    const itemTitles = new Map<string, string>();
-    if (this.itemCacheRepo) {
-      const itemIds = Array.from(new Set(questions.map((q) => q.itemId).filter(Boolean)));
-      await Promise.all(
-        itemIds.map(async (itemId) => {
-          try {
-            const item = await this.itemCacheRepo!.getItem(itemId);
-            if (item) itemTitles.set(itemId, item.title);
-          } catch {}
-        })
-      );
-    }
-
-    const formatQuestion = (q: any) => ({
-      ...q,
-      itemTitle: itemTitles.get(q.itemId) || q.itemTitle || (q.itemId ? `Producto ${q.itemId.slice(-4)}` : undefined),
+    const { questions, grouped } = await this.listQuestionsUseCase.execute({
+      sellerId: sellerId || undefined,
+      status: query.status as string | undefined,
+      itemId: query.item_id as string | undefined,
     });
 
-    const formattedAll = questions.map(formatQuestion);
-
-    const grouped = {
-      pending_review: [] as any[],
-      auto_answered: [] as any[],
-      other: [] as any[],
-    };
-
-    for (const q of formattedAll) {
-      if (q.appStatus === "pending_review") {
-        grouped.pending_review.push(q);
-      } else if (q.appStatus === "auto_answered" || q.appStatus === "approved") {
-        grouped.auto_answered.push(q);
-      } else {
-        grouped.other.push(q);
-      }
-    }
-
-    const { data: paginatedQuestions, pagination } = paginateArray(formattedAll, page, limit);
+    const { data: paginatedQuestions, pagination } = paginateArray(questions, page, limit);
 
     return reply.send({
       ok: true,

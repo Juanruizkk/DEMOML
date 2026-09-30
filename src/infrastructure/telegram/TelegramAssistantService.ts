@@ -8,6 +8,7 @@ import {
 import { IQuestionRepository } from "../../application/interfaces/IQuestionRepository.js";
 import { IClaimRepository } from "../../application/interfaces/IClaimRepository.js";
 import { IEventRepository } from "../../application/interfaces/IEventRepository.js";
+import { IOrderMessageRepository } from "../../application/interfaces/IOrderMessageRepository.js";
 import { Tenant } from "../../domain/entities/Tenant.js";
 import { TelegramInlineButton } from "../../application/interfaces/ITelegramClient.js";
 
@@ -15,8 +16,10 @@ export class TelegramAssistantService implements ITelegramAssistantService {
   constructor(
     private readonly questionRepo: IQuestionRepository,
     private readonly claimRepo: IClaimRepository,
-    private readonly eventRepo: IEventRepository
+    private readonly eventRepo: IEventRepository,
+    private readonly orderMessageRepo?: IOrderMessageRepository
   ) {}
+
 
   private async buildModel(): Promise<any> {
     const provider = process.env.LLM_PROVIDER || "groq";
@@ -174,10 +177,49 @@ export class TelegramAssistantService implements ITelegramAssistantService {
       }
     );
 
+    const getOrderMessagesTool = tool(
+      async ({ status, limit }) => {
+        if (!this.orderMessageRepo) return JSON.stringify({ messages: [] });
+        const msgs = await this.orderMessageRepo.listBySeller(sellerId, {
+          status: status || "pending_review",
+          limit: limit || 5,
+        });
+        msgs.forEach((m) => {
+          if (m.status === "pending_review" && m.suggestedAnswer) {
+            const labelId = (m.orderId || m.packId).slice(-4);
+            collectedButtons.push([
+              { text: `✅ Aprobar Mensaje #${labelId}`, callbackData: `msg_approve_${m.id}` },
+            ]);
+          }
+        });
+        return JSON.stringify({
+          messages: msgs.map((m) => ({
+            id: m.id,
+            orderId: m.orderId,
+            buyerNickname: m.buyerNickname,
+            intent: m.intent,
+            messageText: m.messageText,
+            suggestedAnswer: m.suggestedAnswer,
+            status: m.status,
+            aiConfidence: m.aiConfidence,
+          })),
+        });
+      },
+      {
+        name: "get_order_messages",
+        description: "Obtiene los mensajes de post-venta recibidos en los paquetes/órdenes de compra de Mercado Libre.",
+        schema: z.object({
+          status: z.enum(["pending_review", "unread", "replied", "auto_answered", "all"]).optional(),
+          limit: z.number().optional(),
+        }),
+      }
+    );
+
     const tools = [
       getPendingQuestionsTool,
       getClaimsTool,
       getClaimDetailTool,
+      getOrderMessagesTool,
       getRecentAlertsTool,
       getStoreMetricsTool,
     ];
@@ -189,31 +231,32 @@ export class TelegramAssistantService implements ITelegramAssistantService {
 Tu función es consultar el estado de la tienda utilizando tus herramientas (tools) y responder al vendedor de manera clara, visualmente atractiva y muy legible.
 
 REGLAS CRÍTICAS DE FORMATO EN TELEGRAM (¡OBLIGATORIO!):
-1. ⚠️ NUNCA USES TABLAS MARKDOWN (NO uses '| Columna | Columna |' ni líneas divisoras '|---|---|'). Telegram no soporta tablas y se renderizan rotas, desalineadas e ilegibles en pantallas móviles.
-2. 📱 Formateá SIEMPRE la información como TARJETAS O LISTAS NUMERADAS con emojis, negritas y saltos de línea claros:
+1. ⚠️ NUNCA USES TABLAS MARKDOWN (NO uses '| Columna | Columna |' ni líneas divisoras '|---|---|'). Telegram no soporta tablas.
+2. ⚠️ NO USES CORCHETES AISLADOS '[' o ']' (Telegram los interpreta como enlaces rotos y falla). Usá paréntesis o comillas.
+3. 📱 Formateá SIEMPRE la información como TARJETAS O LISTAS NUMERADAS con emojis, negritas y saltos de línea claros:
    - Para Preguntas pendientes:
-     1️⃣ *Pregunta #ID* · 🏷️ _[Tema/Intención]_
-     📦 *Ítem:* [Título de la publicación]
-     💬 _"[Texto exacto de la pregunta]"_
-     💡 *Sugerencia IA:* "[Respuesta sugerida si existe]"
-     🔍 *Motivo:* [Razón de derivación]
+     1️⃣ *Pregunta #ID* · 🏷️ _(Tema o Intención)_
+     📦 *Ítem:* Título de la publicación
+     💬 _"Texto exacto de la pregunta"_
+     💡 *Sugerencia IA:* "Respuesta sugerida"
+     🔍 *Motivo:* Razón de derivación
 
      ━━━━━━━━━━━━━━━━━━━━
 
    - Para Reclamos:
-     1️⃣ 🚨 *Reclamo #ID* (Orden: \`[ORD-ID]\`)
-     👤 *Comprador ID:* \`[BUYER-ID]\`
-     💬 *Motivo:* [Motivo del reclamo]
-     ⏳ *Tiempo restante:* *[X] horas* (Vence: [Fecha/Hora])
-     🛠️ *Acciones:* [Acciones sugeridas]
+     1️⃣ 🚨 *Reclamo #ID* (Orden: \`ORD-ID\`)
+     👤 *Comprador ID:* \`BUYER-ID\`
+     💬 *Motivo:* Motivo del reclamo
+     ⏳ *Tiempo restante:* *X horas* (Vence: Fecha/Hora)
+     🛠️ *Acciones:* Acciones sugeridas
 
      ━━━━━━━━━━━━━━━━━━━━
 
-3. Respondé SIEMPRE en Español rioplatense cordial, prolijo y directo.
-4. Mantené la lectura cómoda y limpia en pantallas de smartphones.
-5. Al final de la lista de preguntas, agregá:
+4. Respondé SIEMPRE en Español rioplatense cordial, prolijo y directo.
+5. Mantené la lectura cómoda y limpia en pantallas de smartphones.
+6. Al final de la lista de preguntas, agregá:
    "👇 _Podés aprobar o rechazar directamente tocando los botones inferiores:_"
-6. Si no hay elementos pendientes o reclamos, respondé con un mensaje positivo y amigable (ej: "🎉 *¡Al día!* No tenés preguntas pendientes en este momento.").`;
+7. Si no hay elementos pendientes o reclamos, respondé con un mensaje positivo y amigable (ej: "🎉 *¡Al día!* No tenés preguntas pendientes en este momento.").`;
 
     const messages: any[] = [
       new SystemMessage(systemPrompt),
@@ -273,74 +316,81 @@ REGLAS CRÍTICAS DE FORMATO EN TELEGRAM (¡OBLIGATORIO!):
    * Sanitiza y transforma cualquier tabla Markdown accidental en elegantes tarjetas para Telegram
    */
   public static sanitizeTelegramMarkdown(text: string): string {
-    const lines = text.split("\n");
+    let processed = text;
+    const lines = processed.split("\n");
     const hasTable = lines.some((l) => l.trim().startsWith("|") && l.includes("|"));
-    if (!hasTable) return text;
 
-    const result: string[] = [];
-    let insideTable = false;
-    let headers: string[] = [];
-    let cardIndex = 1;
-    const numEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+    if (hasTable) {
+      const result: string[] = [];
+      let insideTable = false;
+      let headers: string[] = [];
+      let cardIndex = 1;
+      const numEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
 
-      if (line.startsWith("|") && line.endsWith("|")) {
-        // Ignorar fila divisoria |--|---|
-        if (/^\|[-:\s|]+\|$/.test(line)) {
-          continue;
-        }
+        if (line.startsWith("|") && line.endsWith("|")) {
+          // Ignorar fila divisoria |--|---|
+          if (/^\|[-:\s|]+\|$/.test(line)) {
+            continue;
+          }
 
-        const cells = line
-          .split("|")
-          .map((c) => c.trim())
-          .filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+          const cells = line
+            .split("|")
+            .map((c) => c.trim())
+            .filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
 
-        if (!insideTable) {
-          insideTable = true;
-          headers = cells;
-          continue;
-        }
+          if (!insideTable) {
+            insideTable = true;
+            headers = cells;
+            continue;
+          }
 
-        // Fila de datos convertida a tarjeta limpia
-        const numIcon = numEmojis[cardIndex - 1] || `[${cardIndex}]`;
-        cardIndex++;
+          // Fila de datos convertida a tarjeta limpia
+          const numIcon = numEmojis[cardIndex - 1] || `(${cardIndex})`;
+          cardIndex++;
 
-        // Buscar ID, pregunta y tema en las celdas
-        const id = cells.find((c) => /^\d{4,}$/.test(c) || /^C\d+$/i.test(c) || /^Q\d+$/i.test(c));
-        const questionText = cells.find((c) => c.length > 12 && !/^\d+$/.test(c));
-        const otherCells = cells.filter((c) => c !== id && c !== questionText && !/^\d+$/.test(c) && c.length > 0);
+          // Buscar ID, pregunta y tema en las celdas
+          const id = cells.find((c) => /^\d{4,}$/.test(c) || /^C\d+$/i.test(c) || /^Q\d+$/i.test(c));
+          const questionText = cells.find((c) => c.length > 12 && !/^\d+$/.test(c));
+          const otherCells = cells.filter((c) => c !== id && c !== questionText && !/^\d+$/.test(c) && c.length > 0);
 
-        let card = `${numIcon} ${id ? `*Pregunta #${id}*` : "*Elemento*"}`;
-        if (otherCells.length > 0) {
-          card += ` · _${otherCells[0]}_`;
-        }
-        if (questionText) {
-          card += `\n💬 _"${questionText}"_`;
+          let card = `${numIcon} ${id ? `*Pregunta #${id}*` : "*Elemento*"}`;
+          if (otherCells.length > 0) {
+            card += ` · _${otherCells[0]}_`;
+          }
+          if (questionText) {
+            card += `\n💬 _"${questionText}"_`;
+          } else {
+            // Fallback a listado de celdas
+            const details = cells
+              .map((c, idx) => (headers[idx] ? `*${headers[idx]}:* ${c}` : c))
+              .join("\n");
+            card += `\n${details}`;
+          }
+
+          result.push(card);
+          result.push(`\n━━━━━━━━━━━━━━━━━━━━\n`);
         } else {
-          // Fallback a listado de celdas
-          const details = cells
-            .map((c, idx) => (headers[idx] ? `*${headers[idx]}:* ${c}` : c))
-            .join("\n");
-          card += `\n${details}`;
+          if (insideTable) {
+            insideTable = false;
+            headers = [];
+          }
+          result.push(lines[i]);
         }
-
-        result.push(card);
-        result.push(`\n━━━━━━━━━━━━━━━━━━━━\n`);
-      } else {
-        if (insideTable) {
-          insideTable = false;
-          headers = [];
-        }
-        result.push(lines[i]);
       }
+
+      processed = result
+        .join("\n")
+        .replace(/(\n━━━━━━━━━━━━━━━━━━━━\n\s*)+$/g, "")
+        .replace(/\n{3,}/g, "\n\n");
     }
 
-    return result
-      .join("\n")
-      .replace(/(\n━━━━━━━━━━━━━━━━━━━━\n\s*)+$/g, "")
-      .replace(/\n{3,}/g, "\n\n");
+    // Convertir corchetes aislados que no formen enlaces markdown válidos [texto](url) en paréntesis (texto)
+    processed = processed.replace(/\[([^\]\n]+)\](?!\([^\)\n\s]+\))/g, "($1)");
+
+    return processed;
   }
 
   /**

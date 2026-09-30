@@ -28,7 +28,10 @@ import {
   ArrowRight,
   Sliders,
   Radio,
-  RefreshCw
+  RefreshCw,
+  ShoppingBag,
+  Zap,
+  ExternalLink
 } from 'lucide-react'
 import './TenantPage.css'
 
@@ -40,6 +43,14 @@ interface TeamMember {
   status: 'active' | 'pending'
   createdAt: string
   activationToken?: string | null
+}
+
+interface TenantMeta {
+  sellerId?: string
+  nickname?: string
+  email?: string
+  tokenHealth?: 'healthy' | 'expiring_soon' | 'expired'
+  expiresInMinutes?: number
 }
 
 type AutomationMode = 'always_auto' | 'smart_hybrid' | 'always_manual' | 'schedule'
@@ -118,6 +129,7 @@ export default function TenantPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'settings'
   const [settings, setSettings] = useState<TenantSettings | null>(null)
+  const [tenantMeta, setTenantMeta] = useState<TenantMeta | null>(null)
   const [permissions, setPermissions] = useState<TenantPermissionsState>({
     whatsappEnabled: true,
     telegramEnabled: true,
@@ -128,12 +140,30 @@ export default function TenantPage() {
   })
   const [loading, setLoading]   = useState(true)
   const [saved, setSaved]       = useState(false)
+  const [oauthBanner, setOauthBanner] = useState<{
+    type: 'success' | 'error'
+    message: string
+    sellerId?: string
+    nickname?: string
+  } | null>(null)
+  const [connectingMeli, setConnectingMeli] = useState(false)
+  const [connectError, setConnectError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<{ ok: boolean; message: string } | null>(null)
   const { requestDesktopPermission, updateWebSettings } = useNotifications()
 
-  useEffect(() => {
+  const fetchSettings = () => {
+    setLoading(true)
     api.get<any>('/tenant/settings')
       .then((res) => {
         const data = res.settings || res
+        setTenantMeta({
+          sellerId: res.sellerId,
+          nickname: res.nickname,
+          email: res.email,
+          tokenHealth: res.tokenHealth,
+          expiresInMinutes: res.expiresInMinutes,
+        })
         if (res.permissions) {
           setPermissions(res.permissions)
         } else if (data.permissions) {
@@ -159,7 +189,71 @@ export default function TenantPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => {
+    const status = searchParams.get('status')
+    const token = searchParams.get('token')
+    const errParam = searchParams.get('error')
+    const sellerId = searchParams.get('sellerId')
+    const nickname = searchParams.get('nickname')
+
+    if (token) {
+      localStorage.setItem('token', token)
+      localStorage.setItem('meli_jwt', token)
+    }
+
+    if (status === 'connected') {
+      setOauthBanner({
+        type: 'success',
+        message: `¡Cuenta de Mercado Libre conectada exitosamente! ${nickname ? `Tienda: "${nickname}"` : ''} ${sellerId ? `(Seller ID: ${sellerId})` : ''}`,
+        sellerId: sellerId || undefined,
+        nickname: nickname || undefined,
+      })
+    } else if (status === 'error') {
+      setOauthBanner({
+        type: 'error',
+        message: errParam ? decodeURIComponent(errParam) : 'Ocurrió un error al conectar con Mercado Libre.',
+      })
+    }
+    fetchSettings()
+  }, [searchParams])
+
+  const handleConnectMeli = async () => {
+    setConnectingMeli(true)
+    setConnectError(null)
+    try {
+      const res = await api.get<{ url: string }>('/auth/meli-auth-url')
+      if (res.url) {
+        window.location.href = res.url
+      } else {
+        throw new Error('No se pudo obtener la URL de autorización.')
+      }
+    } catch (err: any) {
+      setConnectError(err.message || 'Error al iniciar conexión con Mercado Libre.')
+      setConnectingMeli(false)
+    }
+  }
+
+  const handleTestSync = async () => {
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const res = await api.get<any>('/tenant/settings')
+      setTenantMeta({
+        sellerId: res.sellerId,
+        nickname: res.nickname,
+        email: res.email,
+        tokenHealth: res.tokenHealth,
+        expiresInMinutes: res.expiresInMinutes,
+      })
+      setSyncResult({ ok: true, message: 'Conexión y tokens sincronizados correctamente con Mercado Libre.' })
+    } catch (err: any) {
+      setSyncResult({ ok: false, message: err.message || 'Error al validar la conexión.' })
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const save = async () => {
     if (!settings) return
@@ -1137,13 +1231,174 @@ export default function TenantPage() {
 
         {/* ── CONNECTION TAB ─────────────────────────────────────────────── */}
         {activeTab === 'connection' && (
-          <div className="tenant-form glass">
-            <div className="connection-status">
-              <span className="connection-dot connection-dot--ok" />
-              <div>
-                <p className="connection-label">Conexión MELI activa</p>
-                <p className="connection-hint">Tu token está sincronizado. Se renueva automáticamente.</p>
+          <div className="meli-connection-container">
+            {oauthBanner && (
+              <div className={`oauth-feedback-banner glass ${oauthBanner.type === 'success' ? 'oauth-feedback-banner--success' : 'oauth-feedback-banner--error'}`}>
+                <div className="oauth-feedback-icon">
+                  {oauthBanner.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+                </div>
+                <div className="oauth-feedback-body">
+                  <strong>{oauthBanner.type === 'success' ? 'Conexión Exitosa' : 'Error de Conexión'}</strong>
+                  <p>{oauthBanner.message}</p>
+                </div>
+                <button className="oauth-feedback-close" onClick={() => setOauthBanner(null)}>
+                  <X size={16} />
+                </button>
               </div>
+            )}
+
+            {connectError && (
+              <div className="oauth-feedback-banner glass oauth-feedback-banner--error">
+                <div className="oauth-feedback-icon"><AlertCircle size={20} /></div>
+                <div className="oauth-feedback-body">
+                  <strong>Error al Iniciar Conexión</strong>
+                  <p>{connectError}</p>
+                </div>
+                <button className="oauth-feedback-close" onClick={() => setConnectError(null)}><X size={16} /></button>
+              </div>
+            )}
+
+            {syncResult && (
+              <div className={`oauth-feedback-banner glass ${syncResult.ok ? 'oauth-feedback-banner--success' : 'oauth-feedback-banner--error'}`}>
+                <div className="oauth-feedback-icon">
+                  {syncResult.ok ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+                </div>
+                <div className="oauth-feedback-body">
+                  <strong>{syncResult.ok ? 'Sincronización Correcta' : 'Fallo de Sincronización'}</strong>
+                  <p>{syncResult.message}</p>
+                </div>
+                <button className="oauth-feedback-close" onClick={() => setSyncResult(null)}><X size={16} /></button>
+              </div>
+            )}
+
+            <div className="tenant-form glass meli-connection-card">
+              <div className="card-section-header">
+                <div className="header-icon-box meli-yellow-box">
+                  <ShoppingBag size={20} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <h3 className="section-title">Conexión con Mercado Libre</h3>
+                    {tenantMeta?.sellerId ? (
+                      <span className="meli-status-badge meli-status-badge--connected">
+                        <span className="connection-dot connection-dot--ok" />
+                        Conectado & Sincronizado
+                      </span>
+                    ) : (
+                      <span className="meli-status-badge meli-status-badge--disconnected">
+                        <span className="connection-dot" style={{ background: '#f59e0b' }} />
+                        Desconectado
+                      </span>
+                    )}
+                  </div>
+                  <p className="section-sub">
+                    Vinculación oficial mediante OAuth 2.0 para recibir preguntas, mensajes post-venta y reclamos en tiempo real.
+                  </p>
+                </div>
+              </div>
+
+              {tenantMeta?.sellerId ? (
+                <div className="meli-connected-details">
+                  <div className="meli-info-grid">
+                    <div className="meli-info-item glass">
+                      <span className="meli-info-label">Vendedor / Tienda</span>
+                      <span className="meli-info-val highlight">{tenantMeta.nickname || `Seller_${tenantMeta.sellerId}`}</span>
+                    </div>
+
+                    <div className="meli-info-item glass">
+                      <span className="meli-info-label">Seller ID (Mercado Libre)</span>
+                      <span className="meli-info-val">{tenantMeta.sellerId}</span>
+                    </div>
+
+                    <div className="meli-info-item glass">
+                      <span className="meli-info-label">Email Registrado en MELI</span>
+                      <span className="meli-info-val">{tenantMeta.email || 'No registrado'}</span>
+                    </div>
+
+                    <div className="meli-info-item glass">
+                      <span className="meli-info-label">Salud del Token OAuth</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span className={`token-health-badge token-health-badge--${tenantMeta?.tokenHealth || 'healthy'}`}>
+                          {tenantMeta?.tokenHealth === 'expired'
+                            ? 'Expirado'
+                            : tenantMeta?.tokenHealth === 'expiring_soon'
+                            ? 'Por Expirar'
+                            : 'Saludable'}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                          (Autorenovable)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="meli-action-row">
+                    <button
+                      type="button"
+                      className="btn-meli-sync"
+                      onClick={handleTestSync}
+                      disabled={syncing}
+                    >
+                      <RefreshCw size={15} className={syncing ? 'spin' : ''} />
+                      {syncing ? 'Verificando...' : 'Verificar Sincronización'}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn-meli-reconnect"
+                      onClick={handleConnectMeli}
+                      disabled={connectingMeli}
+                    >
+                      <ShoppingBag size={15} />
+                      {connectingMeli ? 'Redirigiendo a Mercado Libre...' : 'Reconectar / Cambiar Cuenta MELI'}
+                      <ExternalLink size={13} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="meli-disconnected-details">
+                  <div className="meli-connect-promo glass">
+                    <div className="meli-promo-badge">
+                      <Zap size={16} />
+                      <span>Paso Obligatorio</span>
+                    </div>
+                    <h4>Conectá tu Tienda de Mercado Libre</h4>
+                    <p>
+                      Para que el Asistente IA pueda responder preguntas pre-venta, gestionar reclamos y procesar mensajes post-venta en tu cuenta, necesitás autorizar la aplicación de Mercado Libre.
+                    </p>
+
+                    <div className="meli-benefits-list">
+                      <div className="meli-benefit-item">
+                        <CheckCircle2 size={16} className="meli-check-icon" />
+                        <span>Recepción de preguntas de compradores en tiempo real vía Webhooks</span>
+                      </div>
+                      <div className="meli-benefit-item">
+                        <CheckCircle2 size={16} className="meli-check-icon" />
+                        <span>Publicación inteligente de respuestas automáticas con IA</span>
+                      </div>
+                      <div className="meli-benefit-item">
+                        <CheckCircle2 size={16} className="meli-check-icon" />
+                        <span>Monitoreo continuo de reclamos y SLA de atención</span>
+                      </div>
+                      <div className="meli-benefit-item">
+                        <CheckCircle2 size={16} className="meli-check-icon" />
+                        <span>Conexión 100% segura con credenciales cifradas OAuth 2.0</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn-meli-connect-primary"
+                      onClick={handleConnectMeli}
+                      disabled={connectingMeli}
+                    >
+                      <ShoppingBag size={18} />
+                      {connectingMeli ? 'Abriendo Mercado Libre...' : 'Conectar con Mercado Libre'}
+                      <ExternalLink size={15} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { RequestPasswordResetUseCase } from "../application/use-cases/auth/RequestPasswordResetUseCase.js";
-import { IUserRepository } from "../application/interfaces/IUserRepository.js";
-import { IEmailClient } from "../application/interfaces/IEmailClient.js";
-import { User } from "../domain/entities/User.js";
+import { RequestPasswordResetUseCase } from "../../src/application/use-cases/auth/RequestPasswordResetUseCase.js";
+import { IUserRepository } from "../../src/application/interfaces/IUserRepository.js";
+import { IEmailClient } from "../../src/application/interfaces/IEmailClient.js";
+import { User } from "../../src/domain/entities/User.js";
 
 const makeUser = () =>
   new User({
@@ -26,8 +26,11 @@ describe("RequestPasswordResetUseCase", () => {
       save: vi.fn(),
       findById: vi.fn(),
       findBySellerId: vi.fn(),
+      findAllBySellerId: vi.fn().mockResolvedValue([]),
       findByActivationToken: vi.fn(),
       findPendingTenants: vi.fn(),
+      findActiveUnconnectedTenants: vi.fn().mockResolvedValue([]),
+      delete: vi.fn().mockResolvedValue(undefined),
       getAll: vi.fn(),
       count: vi.fn(),
     };

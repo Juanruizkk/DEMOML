@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { MetaWhatsAppClient } from "../infrastructure/whatsapp/MetaWhatsAppClient.js";
+import { MetaWhatsAppClient } from "../../src/infrastructure/whatsapp/MetaWhatsAppClient.js";
 
 describe("MetaWhatsAppClient", () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>;

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { HandleWhatsAppReplyUseCase } from "../application/use-cases/HandleWhatsAppReplyUseCase.js";
-import { ApproveAnswerUseCase } from "../application/use-cases/ApproveAnswerUseCase.js";
-import { RejectAnswerUseCase } from "../application/use-cases/RejectAnswerUseCase.js";
-import { IEventRepository } from "../application/interfaces/IEventRepository.js";
-import { IWhatsAppClient } from "../application/interfaces/IWhatsAppClient.js";
+import { HandleWhatsAppReplyUseCase } from "../../src/application/use-cases/channels/HandleWhatsAppReplyUseCase.js";
+import { ApproveAnswerUseCase } from "../../src/application/use-cases/questions/ApproveAnswerUseCase.js";
+import { RejectAnswerUseCase } from "../../src/application/use-cases/questions/RejectAnswerUseCase.js";
+import { IEventRepository } from "../../src/application/interfaces/IEventRepository.js";
+import { IWhatsAppClient } from "../../src/application/interfaces/IWhatsAppClient.js";
 
 function makeUseCase() {
   const approveUseCase = {
