@@ -21,10 +21,12 @@ import {
   Store,
   DollarSign,
   Award,
-  Lock
+  Lock,
+  BookOpen
 } from 'lucide-react'
 import MeliProductSimulator from '../components/MeliProductSimulator'
 import PonchoFeatureCarousel from '../components/PonchoFeatureCarousel'
+import { BLOG_ARTICLES } from '../data/blogArticles'
 import './LandingPage.css'
 
 export default function LandingPage() {
@@ -105,6 +107,7 @@ export default function LandingPage() {
               <li><a href="#comparison">Comparativa</a></li>
               <li><a href="#roi">Calculadora ROI</a></li>
               <li><a href="#pricing">Planes</a></li>
+              <li><Link to="/blog">Centro de Recursos</Link></li>
               <li><a href="#faq">Preguntas</a></li>
             </ul>
 
@@ -568,6 +571,69 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Official Documentation & Blog Showcase ── */}
+      <section className="landing-blog-section">
+        <div className="landing-container">
+          <div className="section-header-badge">
+            <span className="hero-pill-dot" />
+            <BookOpen size={14} style={{ marginRight: 4 }} />
+            <span>Documentación Oficial & Normativas Mercado Libre</span>
+          </div>
+          <h2 className="section-title">
+            Centro de Recursos <span style={{ color: 'var(--lp-accent)' }}>para Sellers</span>
+          </h2>
+          <p className="section-subtitle">
+            Artículos basados 100% en la documentación oficial de Mercado Libre para potenciar tus ventas y proteger tu reputación.
+          </p>
+
+          <div className="landing-blog-grid">
+            {BLOG_ARTICLES.slice(0, 3).map(article => (
+              <div key={article.id} className="landing-blog-card">
+                <div className="landing-blog-card-top">
+                  <div className="landing-blog-badge-row">
+                    <span
+                      className="blog-badge-category"
+                      style={{
+                        backgroundColor: `${article.categoryColor}1f`,
+                        color: article.categoryColor,
+                      }}
+                    >
+                      {article.category}
+                    </span>
+                    <span className="blog-read-time">
+                      <Clock size={12} />
+                      {article.readTime}
+                    </span>
+                  </div>
+                  <h3 className="landing-blog-title">
+                    <Link to={`/blog/${article.slug}`}>{article.title}</Link>
+                  </h3>
+                  <p className="landing-blog-desc">{article.summary}</p>
+                </div>
+                <div className="landing-blog-card-footer">
+                  <div className="blog-card-source">
+                    <ShieldCheck size={13} style={{ color: '#10b981' }} />
+                    <span>Fuente Oficial</span>
+                  </div>
+                  <Link to={`/blog/${article.slug}`} className="landing-blog-btn">
+                    <span>Leer artículo</span>
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: '36px' }}>
+            <Link to="/blog" className="landing-btn-hero-secondary" style={{ display: 'inline-flex', padding: '12px 28px' }}>
+              <BookOpen size={16} />
+              <span>Ver todos los artículos y guías oficiales</span>
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── Final High-Impact CTA ── */}
       <section className="landing-container">
         <div className="final-cta-card">
@@ -705,6 +771,7 @@ export default function LandingPage() {
               <li><a href="#features">Superpoderes</a></li>
               <li><a href="#comparison">Comparativa</a></li>
               <li><a href="#pricing">Planes</a></li>
+              <li><Link to="/blog">Centro de Recursos</Link></li>
               <li><a href="#faq">Preguntas</a></li>
               <li><Link to="/login">Acceso Clientes</Link></li>
             </ul>

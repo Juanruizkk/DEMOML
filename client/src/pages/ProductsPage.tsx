@@ -73,6 +73,14 @@ interface KnowledgeDetail {
   isActive: boolean
 }
 
+interface QualityCheck {
+  key: string
+  label: string
+  status: 'ok' | 'warning' | 'error'
+  detail: string
+  suggestion?: string
+}
+
 // Natural Spanish question generator from an attribute
 function formatAttributeQuestionAndAnswer(name: string, value: string): { q: string; a: string } {
   const rawName = name.trim()
@@ -274,6 +282,12 @@ export default function ProductsPage() {
   const [simulating, setSimulating] = useState(false)
   const [simResult, setSimResult] = useState<any>(null)
 
+  // Tab & quality state
+  const [activeTab, setActiveTab] = useState<'knowledge' | 'quality'>('knowledge')
+  const [qualityChecks, setQualityChecks] = useState<QualityCheck[]>([])
+  const [qualityLoading, setQualityLoading] = useState(false)
+  const [qualityError, setQualityError] = useState('')
+
   useEffect(() => {
     loadProducts()
   }, [])
@@ -298,11 +312,19 @@ export default function ProductsPage() {
     setSimQuestion('')
     setAttrSearch('')
     setShowDescription(false)
+    setActiveTab('knowledge')
+    setQualityChecks([])
+    setQualityError('')
+    setQualityLoading(true)
 
-    try {
-      const res = await api.get<{ ok: boolean; knowledge: KnowledgeDetail; item?: ItemDetails }>(
+    const [knowledgeRes] = await Promise.allSettled([
+      api.get<{ ok: boolean; knowledge: KnowledgeDetail; item?: ItemDetails }>(
         `/tenant/products/${product.id}/knowledge`
-      )
+      ),
+    ])
+
+    if (knowledgeRes.status === 'fulfilled') {
+      const res = knowledgeRes.value
       setKnowledge({
         customInstructions: res.knowledge?.customInstructions || '',
         faqs: res.knowledge?.faqs || [],
@@ -323,13 +345,20 @@ export default function ProductsPage() {
           descriptionText: '',
         })
       }
-    } catch {
-      setKnowledge({
-        customInstructions: '',
-        faqs: [],
-        isActive: true,
-      })
+    } else {
+      setKnowledge({ customInstructions: '', faqs: [], isActive: true })
       setItemDetails(null)
+    }
+
+    try {
+      const qRes = await api.get<{ ok: boolean; checks: QualityCheck[] }>(
+        `/tenant/products/${product.id}/quality`
+      )
+      setQualityChecks(qRes.checks || [])
+    } catch {
+      setQualityError('No se pudo analizar la calidad de esta publicación.')
+    } finally {
+      setQualityLoading(false)
     }
   }
 
