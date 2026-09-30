@@ -497,4 +497,83 @@ export const BLOG_ARTICLES: BlogArticle[] = [
       },
     ],
   },
+  {
+    id: '7',
+    slug: 'como-actuar-ante-una-devolucion-mercadolibre',
+    title: 'Cómo actuar ante una devolución en Mercado Libre',
+    subtitle: 'Una devolución puede funcionar como una señal para identificar oportunidades de mejora en tu proceso de venta y hacer crecer tu negocio.',
+    category: 'Reputación',
+    categoryColor: '#10b981',
+    readTime: '3 min de lectura',
+    date: '30 Septiembre 2026',
+    updatedAt: 'Septiembre 2026',
+    author: {
+      name: 'Centro de Formación Sellers',
+      role: 'Especialista en Post-Venta y Devoluciones MELI',
+      avatar: '🔄',
+    },
+    officialSource: {
+      name: 'Centro de Vendedores Oficial — Guía de Devoluciones y Post-Venta',
+      url: 'https://vendedores.mercadolibre.com.ar/aprender/nota/como-actuar-ante-una-devolucion?moduleKeyId=MO335&guideKeyId=GE53',
+      note: 'Normativa oficial sobre devoluciones, devoluciones express y resolución post-venta.',
+    },
+    summary: 'Cuando un usuario compra y no recibe lo esperado, tiene la opción de devolverlo. Conocé el plazo de 30 días, el impacto en la reputación y las claves para prevenir devoluciones.',
+    featured: false,
+    tags: ['Devoluciones', 'Reputación', 'Post-Venta', 'Reclamos', 'Mensajería'],
+    relatedSlugs: ['sistema-reputacion-mercado-libre', 'como-garantizar-calidad-publicaciones-mercadolibre'],
+    sections: [
+      {
+        type: 'paragraph',
+        text: 'Una devolución puede funcionar como una señal para identificar alguna oportunidad de mejora en tu proceso de venta para hacer crecer tu negocio. Cuando un usuario compra un producto y no recibe lo que esperaba, tiene la opción de devolverlo y obtener el reintegro de su dinero. Esto puede ser debido a que el producto llega incompleto, roto, en un talle equivocado o que simplemente se arrepintió de haber realizado la compra.',
+      },
+      {
+        type: 'heading',
+        level: 2,
+        text: '¿Por qué Mercado Libre ofrece devoluciones?',
+      },
+      {
+        type: 'paragraph',
+        text: 'Mercado Libre ofrece las devoluciones para darle una mejor experiencia a los clientes. Al tener la posibilidad de devolver, quienes compran tienen mayor confianza y seguridad al momento de comprar un producto.',
+      },
+      {
+        type: 'list',
+        items: [
+          'Plazo de 30 días: Todas las personas que compran por Mercado Libre tienen un plazo de 30 días desde que reciben su compra para iniciar una devolución (a menos que figure en el listado de categorías excluidas).',
+          'Arrepentimiento vs Reclamo: Tené en cuenta que para lograr y mantener una buena reputación como vendedor, debés tener menos del 1.5% - 2% de reclamos en tus ventas. Recordá que las devoluciones también cuentan como un reclamo, a menos que te devuelvan un producto porque se arrepintieron de la compra.',
+          'Devoluciones express: Permiten una gestión ágil donde el comprador despacha el paquete y el reintegro se procesa de forma transparente.',
+        ],
+      },
+      {
+        type: 'callout',
+        calloutType: 'info',
+        text: '💡 Oportunidad de mejora: Analizar los motivos recurrentes de devolución (ej. talle chico, falta de adaptador, confusión de modelo) te permite ajustar la descripción y evitar futuras devoluciones idénticas.',
+      },
+      {
+        type: 'heading',
+        level: 2,
+        text: '¿Cómo puedo evitar una devolución?',
+      },
+      {
+        type: 'paragraph',
+        text: 'Antes de enviar el producto, tené en cuenta las siguientes recomendaciones oficiales para brindar una buena experiencia a tus clientes:',
+      },
+      {
+        type: 'list',
+        items: [
+          '1. Elaborá una buena publicación con ficha técnica completa: Ofrecer toda la información que el comprador necesita ayuda a evitar confusiones posteriores.',
+          '2. Aprovechá las preguntas de los usuarios: Brindá información precisa y atención rápida para que el cliente compre exactamente lo que necesita.',
+          '3. Verificá tu producto: Comprobá que tenga todas sus partes, accesorios y funcione en perfecto estado antes del empaque.',
+          '4. Cotejá las características solicitadas: Asegurate de que el color, talle y variante coincidan exactamente con la orden de compra.',
+          '5. Garantizá un buen embalaje: Protegé adecuadamente el artículo con plástico burbuja y caja resistente para que soporte el traslado logístico.',
+          '6. Atención post-venta por Mensajería: Si el comprador se contacta después de recibir el paquete, responder con rapidez y cordialidad para resolver dudas de uso evita la apertura de un reclamo.',
+        ],
+      },
+      {
+        type: 'callout',
+        calloutType: 'success',
+        text: '🤖 Prevención inteligente con MELI AI: Nuestro módulo de mensajería post-venta asiste al comprador al instante con manuales y respuestas técnicas, solucionando incidentes en minutos antes de que escalen a devolución o mediación.',
+      },
+    ],
+  },
 ];
+
