@@ -52,6 +52,10 @@ export class GetTenantDetailUseCase {
         autoAnsweredQuestions: stats.autoAnswered,
         createdAt: tenant.createdAt.toISOString(),
         updatedAt: tenant.updatedAt.toISOString(),
+        planId: (tenant.settings as any).planId ?? "starter",
+        billingStatus: (tenant.settings as any).billingStatus ?? "active",
+        llmResponsesThisMonth: (tenant.settings as any).llmResponsesThisMonth ?? 0,
+        monthlyLLMLimit: (tenant.settings as any).monthlyLLMLimit ?? 300,
       },
       settings: maskSecrets(tenant.settings),
       recentQuestions: recentQuestions.map((q) => ({
