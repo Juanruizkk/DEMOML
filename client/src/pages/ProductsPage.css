@@ -1006,7 +1006,9 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  min-height: 320px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .quality-tab-header {
@@ -1106,4 +1108,72 @@
 
 .quality-check-row--error .quality-check-suggestion {
   color: rgba(239, 68, 68, 0.85);
+}
+
+/* ─── Light Mode: Tabs + Quality ──────────────────────────── */
+[data-theme="light"] .modal-tabs {
+  border-bottom-color: #e2e8f0;
+}
+
+[data-theme="light"] .modal-tab {
+  color: #64748b;
+}
+
+[data-theme="light"] .modal-tab:hover {
+  color: #1e293b;
+}
+
+[data-theme="light"] .modal-tab--active {
+  color: #1e293b;
+  border-bottom-color: #6366f1;
+}
+
+[data-theme="light"] .quality-tab-title {
+  color: #1e293b;
+}
+
+[data-theme="light"] .quality-counter {
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+[data-theme="light"] .quality-loading {
+  color: #64748b;
+}
+
+[data-theme="light"] .quality-check-row {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .quality-check-row--ok {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+[data-theme="light"] .quality-check-row--warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+[data-theme="light"] .quality-check-row--error {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+[data-theme="light"] .quality-check-label {
+  color: #1e293b;
+}
+
+[data-theme="light"] .quality-check-detail {
+  color: #475569;
+}
+
+[data-theme="light"] .quality-check-suggestion {
+  color: #b45309;
+}
+
+[data-theme="light"] .quality-check-row--error .quality-check-suggestion {
+  color: #dc2626;
 }
